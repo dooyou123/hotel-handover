@@ -1,48 +1,43 @@
 # 프런트 인수인계 보드
 
-호텔 프런트 3교대용 **칸반형 인수인계 페이지**입니다.  
-엑셀 대신 **긴급 / 진행중 / 완료** 3칸에서 한눈에 확인하고, 드래그로 상태를 바꿀 수 있습니다.
+호텔 프런트 3교대용 **칸반형 인수인계 보드** — Next.js + Supabase + Vercel.
 
-## 실행 방법
+**Production:** https://hotel-handover.vercel.app
+
+## 빠른 시작 (로컬)
 
 ```bash
-cd ~/Projects/hotel-handover
+cd web
 npm install
-npm start
+cp .env.local.example .env.local   # Supabase URL·anon key 입력
+npm run dev
 ```
 
-브라우저에서 **http://localhost:3847** 로 접속하세요.
+http://localhost:3000 → 로그인 후 `/handover`
 
-같은 Wi-Fi의 다른 PC·태블릿에서 쓰려면:
+## 배포
 
-```text
-http://<프런트 PC IP>:3847
+```bash
+cd web
+npm run check:env
+npm run vercel:setup:prod          # env 등록 + Production 배포
 ```
 
-## 사용법
+상세: [`docs/rebuild/VERCEL-SETUP.md`](docs/rebuild/VERCEL-SETUP.md)
 
-1. **+ 새 인수인계** — 내용, 다음 조치, 객실, 카테고리 입력
-2. **드래그** — 카드를 긴급 ↔ 진행중 ↔ 완료 칸으로 이동
-3. **카드 클릭** — 수정·삭제
-4. **완료 칸 비우기** — 교대 종료 시 처리 완료 건 정리
-5. **검색 / 카테고리 필터** — 객실번호·VIP·민원 등 빠르게 찾기
+## 문서
 
-## 칸 구성
+| 문서 | 용도 |
+|------|------|
+| [`web/README.md`](web/README.md) | 개발·스크립트·Supabase 설정 |
+| [`docs/rebuild/MANUAL.md`](docs/rebuild/MANUAL.md) | 현장 사용 매뉴얼 |
+| [`docs/rebuild/UAT-CHECKLIST.md`](docs/rebuild/UAT-CHECKLIST.md) | 기능 검증 체크리스트 |
+| [`docs/rebuild/VERCEL-SETUP.md`](docs/rebuild/VERCEL-SETUP.md) | Vercel·env·Auth URL |
 
-| 칸 | 의미 |
-|----|------|
-| 🔴 긴급 | 다음 교대가 반드시 확인·처리 |
-| 🟡 진행중 | 처리 중이거나 오늘 중 마무리 |
-| ✅ 완료 | 처리 완료 (교대 끝나면 비우기) |
+## 구조
 
-## 데이터 저장
-
-`data/handover.db` SQLite 파일에 저장됩니다.  
-PC를 꺼도 데이터가 유지됩니다.
-
-## 팀 규칙 (권장)
-
-- 한 카드 = 한 건
-- **다음 조치**는 꼭 적기
-- 완료 시 삭제하지 말고 **완료 칸**으로 이동
-- 교대 시작 시 **🔴 긴급 칸**부터 확인
+```
+web/           Next.js 앱 (Vercel Root Directory = web)
+supabase/      SQL 마이그레이션
+docs/rebuild/  운영·배포 문서
+```
