@@ -35,6 +35,7 @@ import { NoticePanel } from './notice-panel';
 import { RoomView } from './room-view';
 import { ShiftHandoverModal } from './shift-handover-modal';
 import { SummaryBar } from './summary-bar';
+import { UnackedUrgentAlert } from './unacked-urgent-alert';
 
 export function HandoverPage() {
   const {
@@ -88,7 +89,7 @@ export function HandoverPage() {
     [cards, searchQuery, quickFilter, category, session],
   );
 
-  const summaryData = useMemo(() => buildShiftSummaryData(visibleCards, notices), [visibleCards, notices]);
+  const summaryData = useMemo(() => buildShiftSummaryData(cards, notices), [cards, notices]);
   const activeCard = editingCard ? cards.find((card) => card.id === editingCard.id) ?? editingCard : null;
   const doneCount = cards.filter((card) => card.column_id === 'done').length;
 
@@ -423,7 +424,21 @@ export function HandoverPage() {
         />
       </section>
 
-      <SummaryBar data={summaryData} totalCount={visibleCards.length} />
+      <SummaryBar
+        data={summaryData}
+        totalCount={cards.length}
+        activeFilter={quickFilter}
+        onFilterSelect={setQuickFilter}
+      />
+
+      <UnackedUrgentAlert
+        count={summaryData.unackedUrgent.length}
+        isFilterActive={quickFilter === 'unacked'}
+        onShowUnacked={() => {
+          setQuickFilter('unacked');
+          setViewMode('board');
+        }}
+      />
 
       <BoardToolbar
         section="filters"
@@ -492,6 +507,12 @@ export function HandoverPage() {
         authorLabel={authorLabel}
         onClose={() => setShiftModalOpen(false)}
         onComplete={showToast}
+        onHandoverComplete={(mode) => {
+          if (mode !== 'start' || summaryData.unackedUrgent.length === 0) return;
+          setQuickFilter('unacked');
+          setViewMode('board');
+          showToast('미확인 긴급 건부터 확인해 주세요.');
+        }}
         onOpenExport={() => {
           setShiftModalOpen(false);
           setExportModalOpen(true);

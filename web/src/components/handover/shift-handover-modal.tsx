@@ -23,6 +23,7 @@ type ShiftHandoverModalProps = {
   authorLabel: string;
   onClose: () => void;
   onComplete: (message: string) => void;
+  onHandoverComplete?: (mode: ShiftHandoverType) => void;
   onOpenExport?: () => void;
 };
 
@@ -108,6 +109,7 @@ export function ShiftHandoverModal({
   authorLabel,
   onClose,
   onComplete,
+  onHandoverComplete,
   onOpenExport,
 }: ShiftHandoverModalProps) {
   const [checklist, setChecklist] = useState({ total: 0, incomplete: 0 });
@@ -147,6 +149,7 @@ export function ShiftHandoverModal({
           ? `${session.shift} · ${session.name} 교대 인수가 기록되었습니다.`
           : `${session.shift} · ${session.name} 교대 종료가 기록되었습니다.`,
       );
+      onHandoverComplete?.(mode);
       onClose();
     } catch {
       onComplete('교대 기록에 실패했습니다.');
