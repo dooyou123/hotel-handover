@@ -5,9 +5,11 @@ export function getSupabasePublicEnv() {
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
 
   if (!url || !anonKey) {
-    throw new Error(
-      'Supabase 환경 변수가 없습니다. web/.env.local에 NEXT_PUBLIC_SUPABASE_URL과 NEXT_PUBLIC_SUPABASE_ANON_KEY를 넣고 dev 서버를 재시작하세요.',
-    );
+    const hint =
+      process.env.VERCEL === '1'
+        ? 'Vercel Dashboard → Project → Settings → Environment Variables에 NEXT_PUBLIC_SUPABASE_URL·NEXT_PUBLIC_SUPABASE_ANON_KEY를 등록한 뒤 재배포하세요. (로컬: cd web && npm run vercel:setup)'
+        : 'web/.env.local에 NEXT_PUBLIC_SUPABASE_URL과 NEXT_PUBLIC_SUPABASE_ANON_KEY를 넣고 dev 서버를 재시작하세요.';
+    throw new Error(`Supabase 환경 변수가 없습니다. ${hint}`);
   }
 
   const hasPlaceholder = PLACEHOLDER_MARKERS.some(

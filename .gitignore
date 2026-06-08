@@ -4,3 +4,4 @@ web/.env.local
 web/.next/
 web/.vercel/
 .vercel/
+.vercel
