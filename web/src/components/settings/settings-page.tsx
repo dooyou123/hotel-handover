@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CATEGORY_OPTIONS, HANDOVER_COLUMNS, PRIORITY_LABELS } from '@/lib/handover/constants';
+import { CARD_COLUMN_OPTIONS, CATEGORY_OPTIONS, PRIORITY_LABELS } from '@/lib/handover/constants';
 import { CHECKLIST_SCOPE_LABELS, type ChecklistScope } from '@/lib/constants';
 import { FeedbackAdminPanel } from '@/components/feedback/feedback-admin-panel';
 import { countOpenFeedback, fetchFeedbackList } from '@/lib/feedback/api';
@@ -23,15 +23,17 @@ import {
   type CardTemplate,
   type CardTemplateInput,
 } from '@/lib/settings/use-settings';
+import { DataAdminPanel } from '@/components/settings/data-admin-panel';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 
-type SettingsTab = 'feedback' | 'staff' | 'checklist' | 'templates';
+type SettingsTab = 'feedback' | 'staff' | 'checklist' | 'templates' | 'data';
 
 const SETTINGS_TABS: { id: SettingsTab; label: string; hint: string }[] = [
   { id: 'feedback', label: '개선 · 버그', hint: '직원 신고 확인' },
   { id: 'staff', label: '직원', hint: '담당자 목록' },
   { id: 'checklist', label: '체크리스트', hint: '공통 · A/B/C' },
   { id: 'templates', label: '템플릿', hint: '인수인계 빠른 입력' },
+  { id: 'data', label: '데이터', hint: '초기화 · 샘플' },
 ];
 
 const STAFF_SETTINGS_TABS = new Set<SettingsTab>(['staff', 'templates']);
@@ -141,7 +143,7 @@ function TemplateModal({ open, template, onClose, onSaved }: TemplateModalProps)
                 value={form.column_id}
                 onChange={(e) => setForm({ ...form, column_id: e.target.value as ColumnId })}
               >
-                {HANDOVER_COLUMNS.map((c) => (
+                {CARD_COLUMN_OPTIONS.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.title}
                   </option>
@@ -266,6 +268,7 @@ export function SettingsPageClient() {
     staff: activeStaff.length,
     checklist: checklistItems.length,
     templates: templates.length,
+    data: null,
   };
 
   return (
@@ -549,6 +552,8 @@ export function SettingsPageClient() {
               )}
             </article>
           ) : null}
+
+          {activeTab === 'data' && isManager ? <DataAdminPanel onToast={showToast} /> : null}
         </div>
       </section>
 

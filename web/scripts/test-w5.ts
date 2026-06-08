@@ -26,7 +26,8 @@ test('buildSummaryText includes header and empty state', () => {
 test('hasSummaryContent detects urgent cards', () => {
   const card = {
     id: '1',
-    column_id: 'urgent',
+    column_id: 'progress',
+    priority: 'urgent',
     card_acknowledgments: [],
   } as Card;
   const data = buildShiftSummaryData([card], []);

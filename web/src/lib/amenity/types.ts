@@ -31,9 +31,9 @@ export interface AmenityTransaction {
 
 export interface InventoryItem extends Amenity {
   quantity: number;
-  availableBoxes: number;
-  fullBoxes: number;
-  smallBoxesPerLargeBox: number;
+  monthlyUsage: number;
+  orderBoxes: number;
+  remainingBoxes: number;
 }
 
 export function getEffectiveStockForEdit(
@@ -49,15 +49,6 @@ export function getEffectiveStockForEdit(
     qty += editing.type === '출고' ? editing.total_items : -editing.total_items;
   }
   return qty;
-}
-
-export function calcInventoryMetrics(amenity: Amenity, quantity: number) {
-  return {
-    availableBoxes: Math.floor(quantity / amenity.unit_size),
-    fullBoxes: Math.floor(quantity / amenity.box_size),
-    smallBoxesPerLargeBox:
-      amenity.unit_size > 0 ? Math.floor(amenity.box_size / amenity.unit_size) : 0,
-  };
 }
 
 export function formatAmenityDateTime(value: string) {

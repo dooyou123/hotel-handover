@@ -15,6 +15,7 @@ interface TransactionHistoryProps {
   author: string;
   canEdit: boolean;
   onSuccess: () => void;
+  collapsible?: boolean;
 }
 
 export function AmenityTransactionHistory({
@@ -23,6 +24,7 @@ export function AmenityTransactionHistory({
   author,
   canEdit,
   onSuccess,
+  collapsible = false,
 }: TransactionHistoryProps) {
   const [editing, setEditing] = useState<AmenityTransaction | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -33,97 +35,98 @@ export function AmenityTransactionHistory({
     window.setTimeout(() => setToast(null), 2200);
   }
 
+  const table = transactions.length === 0 ? (
+    <p className="amenity-history__empty">아직 거래 내역이 없습니다</p>
+  ) : (
+    <div className="amenity-history__table-wrap">
+      <table className="amenity-history__table">
+        <thead>
+          <tr>
+            <th>시간</th>
+            <th>구분</th>
+            <th>품목</th>
+            <th>수량</th>
+            <th>작성자</th>
+            {canEdit ? <th aria-label="작업" /> : null}
+          </tr>
+        </thead>
+        <tbody>
+          {transactions.slice(0, 20).map((tx) => (
+            <tr key={tx.id}>
+              <td>{formatAmenityDateTime(tx.created_at)}</td>
+              <td>
+                <span
+                  className={`amenity-stock-badge ${tx.type === '입고' ? 'amenity-stock-badge--ok' : 'amenity-stock-badge--critical'}`}
+                >
+                  {tx.type}
+                </span>
+              </td>
+              <td>{tx.amenities?.name ?? '—'}</td>
+              <td>{tx.total_items.toLocaleString()}개</td>
+              <td>{tx.author}</td>
+              {canEdit ? (
+                <td>
+                  <div className="amenity-history__actions">
+                    <button
+                      type="button"
+                      className="btn btn--ghost btn--xs"
+                      onClick={() => setEditing(tx)}
+                    >
+                      수정
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn--ghost btn--xs btn--danger-text"
+                      onClick={async () => {
+                        const label = tx.amenities?.name ?? '거래';
+                        const ok = await confirm({
+                          title: '거래 내역 삭제',
+                          message: `${label} · ${tx.type} · ${tx.total_items.toLocaleString()}개`,
+                          detail: '삭제하면 재고가 되돌려집니다.',
+                          tone: 'danger',
+                          confirmLabel: '삭제',
+                        });
+                        if (!ok) return;
+                        try {
+                          await deleteAmenityTransaction({ transactionId: tx.id });
+                          showToast('거래 내역이 삭제되었습니다.');
+                          onSuccess();
+                        } catch (err) {
+                          await showAlert({
+                            title: '삭제 실패',
+                            message: err instanceof Error ? err.message : '삭제에 실패했습니다.',
+                            tone: 'danger',
+                          });
+                        }
+                      }}
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </td>
+              ) : null}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+
   return (
     <>
-      <section className="schedule-panel">
-        <div className="schedule-panel__header">
-          <div>
+      {collapsible ? (
+        <details className="amenity-history">
+          <summary>최근 거래 내역 ({transactions.length}건)</summary>
+          {table}
+        </details>
+      ) : (
+        <section className="schedule-panel amenity-panel">
+          <div className="schedule-panel__header">
             <h3>최근 거래 내역</h3>
-            <p>최근 {transactions.length}건{canEdit ? ' · 행을 눌러 수정' : ''}</p>
           </div>
-        </div>
-
-        {transactions.length === 0 ? (
-          <p className="empty-state">아직 거래 내역이 없습니다</p>
-        ) : (
-          <div className="schedule-table-wrap">
-            <table className="schedule-table">
-              <thead>
-                <tr>
-                  <th>시간</th>
-                  <th>구분</th>
-                  <th>어메니티</th>
-                  <th>소박스</th>
-                  <th>총개수</th>
-                  <th>작성자</th>
-                  <th>메모</th>
-                  {canEdit ? <th aria-label="작업" /> : null}
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((tx) => (
-                  <tr key={tx.id}>
-                    <td>{formatAmenityDateTime(tx.created_at)}</td>
-                    <td>
-                      <span
-                        className={`amenity-card__badge ${tx.type === '입고' ? 'amenity-card__badge--ok' : 'amenity-card__badge--critical'}`}
-                      >
-                        {tx.type}
-                      </span>
-                    </td>
-                    <td>{tx.amenities?.name ?? '-'}</td>
-                    <td>{tx.box_count}</td>
-                    <td>{tx.total_items.toLocaleString()}</td>
-                    <td>{tx.author}</td>
-                    <td className={tx.memo ? undefined : 'schedule-table__empty'}>{tx.memo || '—'}</td>
-                    {canEdit ? (
-                      <td>
-                        <div className="schedule-table__actions">
-                          <button
-                            type="button"
-                            className="btn btn--ghost btn--small"
-                            onClick={() => setEditing(tx)}
-                          >
-                            수정
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn--ghost btn--small btn--danger-text"
-                            onClick={async () => {
-                              const label = tx.amenities?.name ?? '거래';
-                              const ok = await confirm({
-                                title: '거래 내역 삭제',
-                                message: `${label} · ${tx.type} · 소박스 ${tx.box_count} (${tx.total_items.toLocaleString()}개)`,
-                                detail: '삭제하면 재고가 되돌려집니다.',
-                                tone: 'danger',
-                                confirmLabel: '삭제',
-                              });
-                              if (!ok) return;
-                              try {
-                                await deleteAmenityTransaction({ transactionId: tx.id });
-                                showToast('거래 내역이 삭제되었습니다.');
-                                onSuccess();
-                              } catch (err) {
-                                await showAlert({
-                                  title: '삭제 실패',
-                                  message: err instanceof Error ? err.message : '삭제에 실패했습니다.',
-                                  tone: 'danger',
-                                });
-                              }
-                            }}
-                          >
-                            삭제
-                          </button>
-                        </div>
-                      </td>
-                    ) : null}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+          {table}
+        </section>
+      )}
 
       <AmenityTransactionEditModal
         open={editing != null}
@@ -137,7 +140,7 @@ export function AmenityTransactionHistory({
             transactionId: editing.id,
             type: input.type,
             amenityId: input.amenityId,
-            boxCount: input.boxCount,
+            quantity: input.quantity,
             author,
             memo: input.memo,
           });

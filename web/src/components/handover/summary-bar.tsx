@@ -13,6 +13,15 @@ type SummaryBarProps = {
 export function SummaryBar({ data, totalCount, activeFilter, onFilterSelect }: SummaryBarProps) {
   const doneCount = totalCount - data.urgentActive.length - data.progressActive.length;
 
+  function chipTone(label: string): string {
+    if (label.includes('미확인')) return '';
+    if (label.includes('긴급')) return 'summary__chip--urgent';
+    if (label.includes('진행중')) return 'summary__chip--progress';
+    if (label.includes('완료')) return 'summary__chip--done';
+    if (label === '전체') return 'summary__chip--all';
+    return '';
+  }
+
   const stats: {
     label: string;
     count: number;
@@ -39,11 +48,13 @@ export function SummaryBar({ data, totalCount, activeFilter, onFilterSelect }: S
         const isInteractive = Boolean(onFilterSelect && stat.filter);
         const isActive = stat.filter && activeFilter === stat.filter;
 
+        const tone = chipTone(stat.label);
+
         if (!isInteractive) {
           return (
             <span
               key={stat.label}
-              className={`summary__chip${stat.warn ? ' summary__chip--warn' : ''}`}
+              className={`summary__chip${tone ? ` ${tone}` : ''}${stat.warn ? ' summary__chip--warn' : ''}`}
             >
               {stat.label} <strong>{stat.count}</strong>건
             </span>
@@ -54,7 +65,7 @@ export function SummaryBar({ data, totalCount, activeFilter, onFilterSelect }: S
           <button
             key={stat.label}
             type="button"
-            className={`summary__chip summary__chip--button${stat.warn ? ' summary__chip--warn' : ''}${isActive ? ' is-active' : ''}`}
+            className={`summary__chip summary__chip--button${tone ? ` ${tone}` : ''}${stat.warn ? ' summary__chip--warn' : ''}${isActive ? ' is-active' : ''}`}
             onClick={() => onFilterSelect?.(stat.filter!)}
           >
             {stat.label} <strong>{stat.count}</strong>건

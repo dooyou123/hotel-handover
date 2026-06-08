@@ -8,6 +8,7 @@ import {
   formatTime,
   groupCardsByRoom,
   isCardOverdue,
+  isUrgentPriorityCard,
   sortRoomKeys,
 } from '@/lib/handover/card-utils';
 import type { Card } from '@/lib/handover/types';
@@ -46,7 +47,7 @@ export function RoomView({ cards, onOpenCard }: RoomViewProps) {
         <div className="room-view__rooms">
           {roomKeys.map((key) => {
             const list = groups.get(key) ?? [];
-            const urgentCount = list.filter((card) => card.column_id === 'urgent').length;
+            const urgentCount = list.filter(isUrgentPriorityCard).length;
             return (
               <button
                 key={key}
@@ -83,7 +84,7 @@ export function RoomView({ cards, onOpenCard }: RoomViewProps) {
                   key={card.id}
                   className={[
                     'room-timeline-item',
-                    card.column_id === 'urgent' ? 'room-timeline-item--urgent' : '',
+                    isUrgentPriorityCard(card) ? 'room-timeline-item--urgent' : '',
                     overdue ? 'room-timeline-item--overdue' : '',
                   ]
                     .filter(Boolean)
@@ -92,7 +93,9 @@ export function RoomView({ cards, onOpenCard }: RoomViewProps) {
                   <div className="room-timeline-item__top">
                     <span>{PRIORITY_LABELS[card.priority]}</span>
                     <span>{card.category}</span>
-                    <span className="room-timeline-item__status">{COLUMN_LABELS[card.column_id]}</span>
+                    <span className="room-timeline-item__status">
+                      {card.column_id === 'done' ? COLUMN_LABELS.done : COLUMN_LABELS.progress}
+                    </span>
                   </div>
                   <p className="room-timeline-item__title">{card.title}</p>
                   {card.next_action ? (

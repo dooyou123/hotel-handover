@@ -84,17 +84,17 @@ export function StatsPageClient() {
           <h2>주간 · 월간 통계</h2>
           <p>교대별 인수인계, 긴급 처리 시간, 어메니티 소모 추이를 확인합니다.</p>
         </div>
-        <div className="stats-period-toggle" role="group" aria-label="기간 선택">
+        <div className="segmented-control segmented-control--compact" role="group" aria-label="기간 선택">
           <button
             type="button"
-            className={`stats-period-toggle__btn${period === 'week' ? ' is-active' : ''}`}
+            className={`segmented-control__btn${period === 'week' ? ' is-active' : ''}`}
             onClick={() => setPeriod('week')}
           >
             주간 (7일)
           </button>
           <button
             type="button"
-            className={`stats-period-toggle__btn${period === 'month' ? ' is-active' : ''}`}
+            className={`segmented-control__btn${period === 'month' ? ' is-active' : ''}`}
             onClick={() => setPeriod('month')}
           >
             월간 (30일)
@@ -205,6 +205,42 @@ export function StatsPageClient() {
               </div>
               <div className="schedule-panel__body">
                 <MiniDayChart items={data.amenityByDay} valueKey="totalItems" />
+              </div>
+            </article>
+
+            <article className="schedule-panel">
+              <div className="schedule-panel__header">
+                <div>
+                  <h3>교대별 긴급 확인</h3>
+                  <p>기간 내 긴급 카드 확인 건수</p>
+                </div>
+              </div>
+              <div className="schedule-panel__body">
+                <StatBarChart items={data.urgentAcksByShift} labelKey="shift" valueKey="count" />
+              </div>
+            </article>
+
+            <article className="schedule-panel">
+              <div className="schedule-panel__header">
+                <div>
+                  <h3>교대별 어메니티 출고</h3>
+                  <p>출고 기록 작성자 교대 기준</p>
+                </div>
+              </div>
+              <div className="schedule-panel__body">
+                <StatBarChart items={data.amenityOutboundByShift} labelKey="shift" valueKey="count" unit="회" />
+              </div>
+            </article>
+
+            <article className="schedule-panel">
+              <div className="schedule-panel__header">
+                <div>
+                  <h3>HK EB 추가·제거 추이</h3>
+                  <p>하우스키핑 보고서 EB 조치 건수 (일별)</p>
+                </div>
+              </div>
+              <div className="schedule-panel__body">
+                <MiniDayChart items={data.hkEbByDay} valueKey="count" />
               </div>
             </article>
           </div>

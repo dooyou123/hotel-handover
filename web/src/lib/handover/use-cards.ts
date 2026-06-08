@@ -12,10 +12,21 @@ const CARD_SELECT = '*, card_acknowledgments(*), card_comments(*), card_attachme
 function normalizeCard(row: Card): Card {
   return {
     ...row,
+    archived_at: row.archived_at ?? null,
+    linked_todo_id: row.linked_todo_id ?? null,
     card_acknowledgments: row.card_acknowledgments ?? [],
     card_comments: [...(row.card_comments ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at)),
     card_attachments: row.card_attachments ?? [],
   };
+}
+
+async function enrichCardList(cards: Card[]): Promise<Card[]> {
+  return Promise.all(
+    cards.map(async (card) => ({
+      ...card,
+      card_attachments: await enrichAttachments(card.card_attachments),
+    })),
+  );
 }
 
 async function fetchCards(): Promise<Card[]> {
@@ -24,18 +35,34 @@ async function fetchCards(): Promise<Card[]> {
     .from('cards')
     .select(CARD_SELECT)
     .eq('hotel_id', DEFAULT_HOTEL_ID)
+    .is('archived_at', null)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
 
   if (error) throw error;
 
   const cards = (data ?? []).map((row) => normalizeCard(row as Card));
-  return Promise.all(
-    cards.map(async (card) => ({
-      ...card,
-      card_attachments: await enrichAttachments(card.card_attachments),
-    })),
-  );
+  return enrichCardList(cards);
+}
+
+async function fetchArchivedCards(): Promise<Card[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('cards')
+    .select(CARD_SELECT)
+    .eq('hotel_id', DEFAULT_HOTEL_ID)
+    .not('archived_at', 'is', null)
+    .order('archived_at', { ascending: false });
+
+  if (error) throw error;
+
+  const cards = (data ?? []).map((row) => normalizeCard(row as Card));
+  return enrichCardList(cards);
+}
+
+function invalidateCardQueries(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: ['cards', DEFAULT_HOTEL_ID] });
+  queryClient.invalidateQueries({ queryKey: ['archived-cards', DEFAULT_HOTEL_ID] });
 }
 
 export function useCards() {
@@ -54,16 +81,16 @@ export function useCards() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'cards', filter: `hotel_id=eq.${DEFAULT_HOTEL_ID}` },
-        () => queryClient.invalidateQueries({ queryKey }),
+        () => invalidateCardQueries(queryClient),
       )
       .on('postgres_changes', { event: '*', schema: 'public', table: 'card_acknowledgments' }, () => {
-        queryClient.invalidateQueries({ queryKey });
+        invalidateCardQueries(queryClient);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'card_comments' }, () => {
-        queryClient.invalidateQueries({ queryKey });
+        invalidateCardQueries(queryClient);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'card_attachments' }, () => {
-        queryClient.invalidateQueries({ queryKey });
+        invalidateCardQueries(queryClient);
       })
       .subscribe();
 
@@ -90,11 +117,17 @@ export function useCards() {
       if (error) throw error;
       return normalizeCard(data as Card);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onSuccess: () => invalidateCardQueries(queryClient),
   });
 
   const updateCard = useMutation({
-    mutationFn: async ({ id, input }: { id: string; input: Partial<CardInput> }) => {
+    mutationFn: async ({
+      id,
+      input,
+    }: {
+      id: string;
+      input: Partial<CardInput> & { linked_todo_id?: string | null };
+    }) => {
       const supabase = createClient();
       const { data, error } = await supabase
         .from('cards')
@@ -106,7 +139,7 @@ export function useCards() {
       if (error) throw error;
       return normalizeCard(data as Card);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onSuccess: () => invalidateCardQueries(queryClient),
   });
 
   const deleteCard = useMutation({
@@ -115,7 +148,7 @@ export function useCards() {
       const { error } = await supabase.from('cards').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onSuccess: () => invalidateCardQueries(queryClient),
   });
 
   const moveCard = useMutation({
@@ -144,7 +177,7 @@ export function useCards() {
       const failed = results.find((result) => result.error);
       if (failed?.error) throw failed.error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onSuccess: () => invalidateCardQueries(queryClient),
   });
 
   const acknowledgeCard = useMutation({
@@ -157,7 +190,7 @@ export function useCards() {
       });
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onSuccess: () => invalidateCardQueries(queryClient),
   });
 
   const addComment = useMutation({
@@ -182,31 +215,41 @@ export function useCards() {
       if (error) throw error;
       await supabase.from('cards').update({ updated_at: new Date().toISOString() }).eq('id', cardId);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onSuccess: () => invalidateCardQueries(queryClient),
   });
 
   const uploadAttachment = useMutation({
     mutationFn: async ({ cardId, file, existingCount }: { cardId: string; file: File; existingCount: number }) =>
       uploadCardAttachment(cardId, file, existingCount),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onSuccess: () => invalidateCardQueries(queryClient),
   });
 
   const deleteAttachment = useMutation({
     mutationFn: async (attachment: Card['card_attachments'][number]) => removeAttachment(attachment),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onSuccess: () => invalidateCardQueries(queryClient),
   });
 
-  const clearDone = useMutation({
+  const archiveDone = useMutation({
     mutationFn: async () => {
       const supabase = createClient();
       const { error } = await supabase
         .from('cards')
-        .delete()
+        .update({ archived_at: new Date().toISOString() })
         .eq('hotel_id', DEFAULT_HOTEL_ID)
-        .eq('column_id', 'done');
+        .eq('column_id', 'done')
+        .is('archived_at', null);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onSuccess: () => invalidateCardQueries(queryClient),
+  });
+
+  const restoreFromArchive = useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient();
+      const { error } = await supabase.from('cards').update({ archived_at: null }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateCardQueries(queryClient),
   });
 
   return {
@@ -221,8 +264,19 @@ export function useCards() {
     addComment,
     uploadAttachment,
     deleteAttachment,
-    clearDone,
+    archiveDone,
+    restoreFromArchive,
   };
+}
+
+export function useArchivedCards() {
+  const queryClient = useQueryClient();
+  const queryKey = ['archived-cards', DEFAULT_HOTEL_ID] as const;
+
+  return useQuery({
+    queryKey,
+    queryFn: fetchArchivedCards,
+  });
 }
 
 export function useIsManager() {

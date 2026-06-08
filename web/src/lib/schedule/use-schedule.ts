@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DEFAULT_HOTEL_ID, SHIFTS } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
 import { todayDateString } from '@/lib/handover/shift-summary';
@@ -101,7 +101,57 @@ export async function uploadScheduleCsv(
   return { inserted: rows.length, errors: parsed.errors, schedule };
 }
 
+export type ScheduleEntryInput = {
+  work_date: string;
+  shift: string;
+  staff_name: string;
+};
+
 export function invalidateScheduleQueries(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ['schedule-month'] });
   queryClient.invalidateQueries({ queryKey: ['schedule-today'] });
+}
+
+export function useScheduleMutations() {
+  const queryClient = useQueryClient();
+
+  const createEntry = useMutation({
+    mutationFn: async (input: ScheduleEntryInput) => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('schedule_entries')
+        .insert({ ...input, hotel_id: DEFAULT_HOTEL_ID })
+        .select('*')
+        .single();
+      if (error) throw error;
+      return data as ScheduleEntry;
+    },
+    onSuccess: () => invalidateScheduleQueries(queryClient),
+  });
+
+  const updateEntry = useMutation({
+    mutationFn: async ({ id, input }: { id: string; input: ScheduleEntryInput }) => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('schedule_entries')
+        .update(input)
+        .eq('id', id)
+        .select('*')
+        .single();
+      if (error) throw error;
+      return data as ScheduleEntry;
+    },
+    onSuccess: () => invalidateScheduleQueries(queryClient),
+  });
+
+  const deleteEntry = useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient();
+      const { error } = await supabase.from('schedule_entries').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateScheduleQueries(queryClient),
+  });
+
+  return { createEntry, updateEntry, deleteEntry };
 }

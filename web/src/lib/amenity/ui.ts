@@ -20,24 +20,10 @@ export function getAmenityIcon(name: string) {
   return AMENITY_ICONS[name] ?? '📦';
 }
 
-export function getSmallBoxesPerLargeBox(boxSize: number, unitSize: number) {
-  if (unitSize <= 0) return 0;
-  return boxSize / unitSize;
-}
-
-/** GAS 스프레드시트와 동일: 1소박스=unitSize개, 대박스=boxSize개 */
-export function formatAmenityPackHint(boxSize: number, unitSize: number) {
-  const smallPerLarge = getSmallBoxesPerLargeBox(boxSize, unitSize);
-  const largeLabel =
-    smallPerLarge === 1
-      ? `대박스 ${boxSize.toLocaleString()}개`
-      : `대박스 ${boxSize.toLocaleString()}개(소박스 ${smallPerLarge}개)`;
-  return `1소박스=${unitSize.toLocaleString()}개 · ${largeLabel}`;
-}
-
-export function getStockStatus(quantity: number, boxSize: number) {
+/** box_size = 품목별 기준 재고 (부족/긴급 판단용, UI에는 노출하지 않음) */
+export function getStockStatus(quantity: number, reorderLevel: number) {
   if (quantity === 0) return 'empty' as const;
-  const ratio = quantity / boxSize;
+  const ratio = reorderLevel > 0 ? quantity / reorderLevel : 1;
   if (ratio <= 0.2) return 'critical' as const;
   if (ratio <= 0.5) return 'low' as const;
   return 'ok' as const;
@@ -51,22 +37,22 @@ export const STOCK_LABELS = {
 } as const;
 
 export const STOCK_BADGE_CLASS: Record<keyof typeof STOCK_LABELS, string> = {
-  empty: 'amenity-card__badge--empty',
-  critical: 'amenity-card__badge--critical',
-  low: 'amenity-card__badge--low',
-  ok: 'amenity-card__badge--ok',
+  empty: 'amenity-stock-badge--empty',
+  critical: 'amenity-stock-badge--critical',
+  low: 'amenity-stock-badge--low',
+  ok: 'amenity-stock-badge--ok',
 };
 
-export const STOCK_CARD_CLASS: Record<keyof typeof STOCK_LABELS, string> = {
-  empty: 'amenity-card--empty',
-  critical: 'amenity-card--critical',
-  low: 'amenity-card--low',
+export const STOCK_ROW_CLASS: Record<keyof typeof STOCK_LABELS, string> = {
+  empty: 'amenity-table-row--empty',
+  critical: 'amenity-table-row--critical',
+  low: 'amenity-table-row--low',
   ok: '',
 };
 
-export const STOCK_METER_CLASS: Record<keyof typeof STOCK_LABELS, string> = {
-  empty: 'amenity-card__meter-fill--empty',
-  critical: 'amenity-card__meter-fill--critical',
-  low: 'amenity-card__meter-fill--low',
-  ok: 'amenity-card__meter-fill--ok',
+export const STOCK_CARD_CLASS: Record<keyof typeof STOCK_LABELS, string> = {
+  empty: 'amenity-grid-card--empty',
+  critical: 'amenity-grid-card--critical',
+  low: 'amenity-grid-card--low',
+  ok: '',
 };

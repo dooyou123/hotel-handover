@@ -225,13 +225,13 @@ export function ContactsPageClient() {
             placeholder="이름·번호·메모 검색…"
             aria-label="연락처 검색"
           />
-          <div className="contacts-filters" aria-label="구분 필터">
+          <div className="segmented-control segmented-control--wrap" aria-label="구분 필터">
             {CONTACT_DEPARTMENTS.map((dept) => (
               <button
                 key={dept}
                 type="button"
                 onClick={() => setFilter(dept)}
-                className={`contacts-filter${filter === dept ? ' is-active' : ''}`}
+                className={`segmented-control__btn${filter === dept ? ' is-active' : ''}`}
               >
                 {dept}
               </button>

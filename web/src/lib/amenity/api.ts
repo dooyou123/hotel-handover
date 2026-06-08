@@ -1,8 +1,8 @@
 import { createClient } from '@/lib/supabase/client';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { parseAmenityError } from '@/lib/amenity/errors';
+import { calcSuggestedOrderBoxes, countRemainingBoxes } from '@/lib/amenity/reorder';
 import {
-  calcInventoryMetrics,
   type Amenity,
   type AmenityInventoryRow,
   type AmenityTransaction,
@@ -10,10 +10,18 @@ import {
   type InventoryItem,
 } from '@/lib/amenity/types';
 
+function monthlyUsageStartIso(): string {
+  const date = new Date();
+  date.setDate(date.getDate() - 30);
+  date.setHours(0, 0, 0, 0);
+  return date.toISOString();
+}
+
 export async function fetchAmenityInventoryData(hotelId = DEFAULT_HOTEL_ID) {
   const supabase = createClient();
+  const usageStartIso = monthlyUsageStartIso();
 
-  const [amenitiesRes, inventoryRes, transactionsRes] = await Promise.all([
+  const [amenitiesRes, inventoryRes, transactionsRes, usageRes] = await Promise.all([
     supabase
       .from('amenities')
       .select('*')
@@ -26,21 +34,40 @@ export async function fetchAmenityInventoryData(hotelId = DEFAULT_HOTEL_ID) {
       .eq('hotel_id', hotelId)
       .order('created_at', { ascending: false })
       .limit(100),
+    supabase
+      .from('amenity_transactions')
+      .select('amenity_id, total_items')
+      .eq('hotel_id', hotelId)
+      .eq('type', '출고')
+      .gte('created_at', usageStartIso),
   ]);
 
   if (amenitiesRes.error) throw amenitiesRes.error;
   if (inventoryRes.error) throw inventoryRes.error;
   if (transactionsRes.error) throw transactionsRes.error;
+  if (usageRes.error) throw usageRes.error;
 
   const amenities = (amenitiesRes.data ?? []) as Amenity[];
   const inventory = (inventoryRes.data ?? []) as AmenityInventoryRow[];
   const transactions = (transactionsRes.data ?? []) as AmenityTransaction[];
 
   const inventoryMap = new Map(inventory.map((row) => [row.amenity_id, row.quantity]));
+  const monthlyUsageMap = new Map<number, number>();
+  for (const row of usageRes.data ?? []) {
+    const id = row.amenity_id as number;
+    monthlyUsageMap.set(id, (monthlyUsageMap.get(id) ?? 0) + (row.total_items as number));
+  }
 
   const items: InventoryItem[] = amenities.map((amenity) => {
     const quantity = inventoryMap.get(amenity.id) ?? 0;
-    return { ...amenity, quantity, ...calcInventoryMetrics(amenity, quantity) };
+    const monthlyUsage = monthlyUsageMap.get(amenity.id) ?? 0;
+    return {
+      ...amenity,
+      quantity,
+      monthlyUsage,
+      remainingBoxes: countRemainingBoxes(quantity, amenity.unit_size),
+      orderBoxes: calcSuggestedOrderBoxes(quantity, monthlyUsage, amenity.box_size),
+    };
   });
 
   return { items, transactions };
@@ -49,7 +76,7 @@ export async function fetchAmenityInventoryData(hotelId = DEFAULT_HOTEL_ID) {
 export async function addAmenityTransaction(params: {
   type: AmenityTransactionType;
   amenityId: number;
-  boxCount: number;
+  quantity: number;
   author: string;
   memo?: string;
   hotelId?: string;
@@ -61,7 +88,7 @@ export async function addAmenityTransaction(params: {
     p_hotel_id: hotelId,
     p_type: params.type,
     p_amenity_id: params.amenityId,
-    p_box_count: params.boxCount,
+    p_quantity: params.quantity,
     p_author: params.author,
     p_memo: params.memo ?? '',
   });
@@ -74,7 +101,7 @@ export async function updateAmenityTransaction(params: {
   transactionId: string;
   type: AmenityTransactionType;
   amenityId: number;
-  boxCount: number;
+  quantity: number;
   author: string;
   memo?: string;
   hotelId?: string;
@@ -87,7 +114,7 @@ export async function updateAmenityTransaction(params: {
     p_transaction_id: params.transactionId,
     p_type: params.type,
     p_amenity_id: params.amenityId,
-    p_box_count: params.boxCount,
+    p_quantity: params.quantity,
     p_author: params.author,
     p_memo: params.memo ?? '',
   });

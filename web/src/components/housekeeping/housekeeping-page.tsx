@@ -1,8 +1,15 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
+import {
+  fetchBedRoomBaseline,
+  filterBedRoomsToSave,
+  getEffectiveBedType,
+  isBedRoomChangedToday,
+  type BedRoomBaseline,
+} from '@/lib/housekeeping/baseline';
 import { fetchHousekeepingReport, saveHousekeepingReport } from '@/lib/housekeeping/api';
 import { openHousekeepingPrintWindow } from '@/lib/housekeeping/print';
 import {
@@ -27,6 +34,9 @@ import {
 } from '@/lib/housekeeping/types';
 import { todayDateString } from '@/lib/handover/shift-summary';
 import { readWorkSession, useWorkSession } from '@/lib/handover/use-work-session';
+import { HkBedTypeBadge } from '@/components/housekeeping/hk-bed-type-badge';
+import { HkChangedRoomCard } from '@/components/housekeeping/hk-changed-room-card';
+import { HkReportDashboard } from '@/components/housekeeping/hk-report-dashboard';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 
 function formatDateLabel(workDate: string): string {
@@ -62,6 +72,30 @@ function findBedRoomIndex(rooms: HousekeepingBedDraft[], floor: number, suffix: 
   return rooms.findIndex((room) => room.room_number === roomNumber);
 }
 
+function inferExtraBedOnTypeChange(prevType: HkBedType, nextType: HkBedType): HkExtraBedAction | undefined {
+  if (prevType === 'twin' && nextType === 'triple') return 'add';
+  if (prevType === 'triple' && nextType === 'twin') return 'remove';
+  return undefined;
+}
+
+function applyBedRoomPatch(
+  room: HousekeepingBedDraft,
+  patch: Partial<HousekeepingBedDraft>,
+): HousekeepingBedDraft {
+  const merged = { ...patch };
+  if (patch.room_type !== undefined && patch.room_type !== room.room_type) {
+    const autoAction = inferExtraBedOnTypeChange(room.room_type, patch.room_type);
+    if (autoAction !== undefined && patch.extra_bed_action === undefined) {
+      merged.extra_bed_action = autoAction;
+    }
+  }
+  return { ...room, ...merged };
+}
+
+function sortBedRoomsByNumber(a: HousekeepingBedDraft, b: HousekeepingBedDraft): number {
+  return a.room_number.localeCompare(b.room_number, undefined, { numeric: true });
+}
+
 export function HousekeepingPageClient() {
   const queryClient = useQueryClient();
   const { authorLabel, requireSession } = useWorkSession();
@@ -70,10 +104,19 @@ export function HousekeepingPageClient() {
   const [form, setForm] = useState<FormState>(() => buildEmptyForm(todayDateString()));
   const [toast, setToast] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
+  const [showAllRooms, setShowAllRooms] = useState(true);
+  const [hkView, setHkView] = useState(true);
+  const [draftRoomNumbers, setDraftRoomNumbers] = useState<Set<string>>(() => new Set());
+  const [roomPicker, setRoomPicker] = useState('');
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ['housekeeping-report', DEFAULT_HOTEL_ID, workDate],
     queryFn: () => fetchHousekeepingReport(workDate),
+  });
+
+  const { data: baseline = {} as BedRoomBaseline } = useQuery({
+    queryKey: ['housekeeping-baseline', DEFAULT_HOTEL_ID, workDate],
+    queryFn: () => fetchBedRoomBaseline(workDate),
   });
 
   useEffect(() => {
@@ -109,6 +152,34 @@ export function HousekeepingPageClient() {
     [form.bedRooms],
   );
 
+  const changedBedRooms = useMemo(
+    () =>
+      form.bedRooms
+        .filter(
+          (room) => isBedRoomChangedToday(room, baseline) || draftRoomNumbers.has(room.room_number),
+        )
+        .sort(sortBedRoomsByNumber),
+    [form.bedRooms, draftRoomNumbers, baseline],
+  );
+
+  const addableBedRooms = useMemo(() => {
+    const visible = new Set(changedBedRooms.map((room) => room.room_number));
+    return form.bedRooms.filter((room) => !visible.has(room.room_number)).sort(sortBedRoomsByNumber);
+  }, [form.bedRooms, changedBedRooms]);
+
+  const bedChangeSummary = useMemo(() => {
+    const changedCount = form.bedRooms.filter((room) => isBedRoomChangedToday(room, baseline)).length;
+    const tripleCount = form.bedRooms.filter(
+      (room) => getEffectiveBedType(room, baseline) === 'triple',
+    ).length;
+    const twinCount = form.bedRooms.filter(
+      (room) => getEffectiveBedType(room, baseline) === 'twin',
+    ).length;
+    const ebAddCount = form.bedRooms.filter((room) => room.extra_bed_action === 'add').length;
+    const ebRemoveCount = form.bedRooms.filter((room) => room.extra_bed_action === 'remove').length;
+    return { changedCount, tripleCount, twinCount, ebAddCount, ebRemoveCount };
+  }, [form.bedRooms, baseline]);
+
   function showToast(msg: string) {
     setToast(msg);
     window.setTimeout(() => setToast(null), 2500);
@@ -119,15 +190,43 @@ export function HousekeepingPageClient() {
     setForm((prev) => ({ ...prev, ...patch }));
   }
 
+  function patchBedRoomAtIndex(
+    rooms: HousekeepingBedDraft[],
+    index: number,
+    patch: Partial<HousekeepingBedDraft>,
+  ): HousekeepingBedDraft[] {
+    if (index < 0 || index >= rooms.length) return rooms;
+    return rooms.map((room, i) => (i === index ? applyBedRoomPatch(room, patch) : room));
+  }
+
   function updateBedRoom(floor: number, suffix: HkBedSuffix, patch: Partial<HousekeepingBedDraft>) {
     setDirty(true);
     setForm((prev) => {
       const index = findBedRoomIndex(prev.bedRooms, floor, suffix);
-      if (index < 0) return prev;
-      return {
-        ...prev,
-        bedRooms: prev.bedRooms.map((room, i) => (i === index ? { ...room, ...patch } : room)),
-      };
+      return { ...prev, bedRooms: patchBedRoomAtIndex(prev.bedRooms, index, patch) };
+    });
+  }
+
+  function updateBedRoomByNumber(roomNumber: string, patch: Partial<HousekeepingBedDraft>) {
+    setDirty(true);
+    setForm((prev) => {
+      const index = prev.bedRooms.findIndex((room) => room.room_number === roomNumber);
+      return { ...prev, bedRooms: patchBedRoomAtIndex(prev.bedRooms, index, patch) };
+    });
+  }
+
+  function addRoomToEdit(roomNumber: string) {
+    if (!roomNumber) return;
+    setDraftRoomNumbers((prev) => new Set(prev).add(roomNumber));
+    setRoomPicker('');
+  }
+
+  function clearBedRoom(roomNumber: string) {
+    updateBedRoomByNumber(roomNumber, { room_type: '', extra_bed_action: '' });
+    setDraftRoomNumbers((prev) => {
+      const next = new Set(prev);
+      next.delete(roomNumber);
+      return next;
     });
   }
 
@@ -168,6 +267,8 @@ export function HousekeepingPageClient() {
     setDirty(false);
     setWorkDate(nextDate);
     setForm(buildEmptyForm(nextDate));
+    setDraftRoomNumbers(new Set());
+    setRoomPicker('');
   }
 
   async function handleSave() {
@@ -179,7 +280,10 @@ export function HousekeepingPageClient() {
       author: authorLabel,
       staff_name: session.name || '',
       shift: session.shift || '',
-      bedRooms: form.bedRooms.map((room, index) => ({ ...room, sort_order: index })),
+      bedRooms: filterBedRoomsToSave(
+        form.bedRooms.map((room, index) => ({ ...room, sort_order: index })),
+        baseline,
+      ),
       specialRooms: form.specialRooms.map((room, index) => ({ ...room, sort_order: index })),
     });
   }
@@ -210,8 +314,9 @@ export function HousekeepingPageClient() {
       form.specialRooms,
       workDate,
       authorLabel,
+      baseline,
     );
-    if (!ok) showToast('인쇄 창을 열지 못했습니다. 팝업 차단을 확인해 주세요.');
+    if (!ok) showToast('보기 창을 열지 못했습니다. 팝업 차단을 확인해 주세요.');
   }
 
   async function copyFromPreviousDay() {
@@ -248,35 +353,101 @@ export function HousekeepingPageClient() {
     }
   }
 
+  const findBedRoomIndexForFloor = useCallback(
+    (floor: number, suffix: HkBedSuffix) => findBedRoomIndex(form.bedRooms, floor, suffix),
+    [form.bedRooms],
+  );
+
   return (
     <>
-      <section className="housekeeping-page">
-        <div className="housekeeping-page__header">
-          <div>
-            <h2>하우스키핑 리포트</h2>
-            <p>
-              4~13층 02·10·16호 트윈/트리플·엑스트라베드와 VIP·장박·일찍 체크인 객실을 하우스키핑에
-              전달합니다.
-            </p>
-          </div>
-          <div className="housekeeping-page__actions">
-            <button type="button" className="btn btn--ghost" onClick={copyFromPreviousDay}>
-              전날 불러오기
-            </button>
-            <button type="button" className="btn btn--ghost" onClick={handlePrint}>
-              인쇄
-            </button>
+      <section className={`housekeeping-page${hkView ? ' housekeeping-page--hk' : ''}`}>
+        {hkView ? (
+          <div className="housekeeping-page__toolbar">
             <button
               type="button"
-              className="btn btn--primary"
-              onClick={handleSave}
-              disabled={saveMutation.isPending}
+              className="btn btn--outline"
+              onClick={() => setHkView(false)}
             >
-              {saveMutation.isPending ? '저장 중…' : '저장'}
+              편집 모드
+            </button>
+            <div className="housekeeping-date-nav">
+              <button
+                type="button"
+                className="btn btn--ghost btn--small"
+                onClick={() => handleDateChange(shiftDate(workDate, -1))}
+              >
+                ◀
+              </button>
+              <input
+                type="date"
+                value={workDate}
+                onChange={(e) => handleDateChange(e.target.value)}
+                aria-label="리포트 날짜"
+              />
+              <button
+                type="button"
+                className="btn btn--ghost btn--small"
+                onClick={() => handleDateChange(shiftDate(workDate, 1))}
+              >
+                ▶
+              </button>
+              <button
+                type="button"
+                className="btn btn--ghost btn--small"
+                onClick={() => handleDateChange(todayDateString())}
+              >
+                오늘
+              </button>
+            </div>
+            <button type="button" className="btn btn--ghost" onClick={handlePrint}>
+              보기 / 인쇄
             </button>
           </div>
-        </div>
+        ) : (
+          <div className="housekeeping-page__header">
+            <div>
+              <h2>하우스키핑 리포트</h2>
+              <p>4~13층 02·10·16호 트윈/트리플·엑스트라베드와 VIP·장박·일찍 체크인 객실을 입력합니다.</p>
+            </div>
+            <div className="housekeeping-page__actions">
+              <button type="button" className="btn btn--primary" onClick={() => setHkView(true)}>
+                HK 보기
+              </button>
+              <button type="button" className="btn btn--ghost" onClick={copyFromPreviousDay}>
+                전날 불러오기
+              </button>
+              <button type="button" className="btn btn--ghost" onClick={handlePrint}>
+                보기 / 인쇄
+              </button>
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={handleSave}
+                disabled={saveMutation.isPending}
+              >
+                {saveMutation.isPending ? '저장 중…' : '저장'}
+              </button>
+            </div>
+          </div>
+        )}
 
+        {hkView ? (
+          isLoading || isFetching ? (
+            <p className="empty-state">불러오는 중…</p>
+          ) : (
+            <HkReportDashboard
+              workDateLabel={formatDateLabel(workDate)}
+              bedRooms={form.bedRooms}
+              specialRooms={form.specialRooms}
+              baseline={baseline}
+              previousDayNotes={form.previous_day_notes}
+              nextDayNotes={form.next_day_notes}
+              summary={bedChangeSummary}
+              findBedRoomIndex={findBedRoomIndexForFloor}
+            />
+          )
+        ) : (
+          <>
         <article className="schedule-panel housekeeping-panel">
           <div className="schedule-panel__header schedule-panel__header--split">
             <div>
@@ -339,18 +510,94 @@ export function HousekeepingPageClient() {
         </article>
 
         <article className="schedule-panel housekeeping-panel">
-          <div className="schedule-panel__header">
+          <div className="schedule-panel__header schedule-panel__header--split">
             <div>
               <h3>트윈 · 트리플 · 엑스트라베드</h3>
               <p>
-                4~13층 02·10·16호 (416·516·1302 제외). 트윈↔트리플 변경 시 엑스트라베드 넣음/뺌을
-                선택하세요.
+                변경 객실만 입력하세요. 트윈↔트리플 선택 시 엑스트라베드 넣음/뺌이 자동으로 채워집니다.
               </p>
             </div>
+            <label className="field field--checkbox housekeeping-bed-toggle">
+              <input
+                type="checkbox"
+                checked={!showAllRooms}
+                onChange={(e) => setShowAllRooms(!e.target.checked)}
+              />
+              <span>변경 객실만</span>
+            </label>
           </div>
+
+          {!isLoading && !isFetching ? (
+            <div className="housekeeping-bed-toolbar">
+              <label className="field housekeeping-bed-add">
+                <span>객실 추가</span>
+                <select
+                  value={roomPicker}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value) addRoomToEdit(value);
+                    else setRoomPicker('');
+                  }}
+                  disabled={!addableBedRooms.length}
+                >
+                  <option value="">+ 객실 추가</option>
+                  {addableBedRooms.map((room) => (
+                    <option key={room.room_number} value={room.room_number}>
+                      {room.room_number}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="housekeeping-summary-chips" aria-label="객실 요약">
+                <span className="housekeeping-summary-chip housekeeping-summary-chip--twin">
+                  트윈 <strong>{bedChangeSummary.twinCount}</strong>
+                </span>
+                <span className="housekeeping-summary-chip housekeeping-summary-chip--triple">
+                  트리플 <strong>{bedChangeSummary.tripleCount}</strong>
+                </span>
+                <span className="housekeeping-summary-chip">
+                  오늘 변경 <strong>{bedChangeSummary.changedCount}</strong>건
+                </span>
+                {bedChangeSummary.ebAddCount > 0 ? (
+                  <span className="housekeeping-summary-chip housekeeping-summary-chip--add">
+                    EB 넣음 <strong>{bedChangeSummary.ebAddCount}</strong>
+                  </span>
+                ) : null}
+                {bedChangeSummary.ebRemoveCount > 0 ? (
+                  <span className="housekeeping-summary-chip housekeeping-summary-chip--remove">
+                    EB 뺌 <strong>{bedChangeSummary.ebRemoveCount}</strong>
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
 
           {isLoading || isFetching ? (
             <p className="empty-state">불러오는 중…</p>
+          ) : !showAllRooms ? (
+            changedBedRooms.length ? (
+              <div className="housekeeping-changed-grid">
+                {changedBedRooms.map((room) => (
+                  <HkChangedRoomCard
+                    key={room.room_number}
+                    room={room}
+                    effectiveType={getEffectiveBedType(room, baseline)}
+                    onTypeChange={(value) =>
+                      updateBedRoomByNumber(room.room_number, { room_type: value })
+                    }
+                    onEbChange={(value) =>
+                      updateBedRoomByNumber(room.room_number, { extra_bed_action: value })
+                    }
+                    onClear={() => clearBedRoom(room.room_number)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="empty-state">
+                변경된 객실이 없습니다. 위에서 객실을 추가하거나 「변경 객실만」을 끄면 전체 그리드가
+                보입니다.
+              </p>
+            )
           ) : (
             <div className="housekeeping-bed-grid-wrap">
               <table className="housekeeping-bed-grid">
@@ -380,9 +627,22 @@ export function HousekeepingPageClient() {
                         const room = index >= 0 ? form.bedRooms[index] : null;
                         if (!room) return <td key={suffix}>—</td>;
 
+                        const effectiveType = getEffectiveBedType(room, baseline);
+                        const changedToday = isBedRoomChangedToday(room, baseline);
+
                         return (
-                          <td key={suffix} className="housekeeping-bed-cell">
+                          <td
+                            key={suffix}
+                            className={`housekeeping-bed-cell${
+                              effectiveType === 'twin'
+                                ? ' housekeeping-bed-cell--twin'
+                                : effectiveType === 'triple'
+                                  ? ' housekeeping-bed-cell--triple'
+                                  : ''
+                            }${changedToday ? ' housekeeping-bed-cell--changed' : ''}`}
+                          >
                             <span className="housekeeping-bed-cell__room">{room.room_number}</span>
+                            <HkBedTypeBadge type={effectiveType} size="md" />
                             <select
                               className="housekeeping-table__select"
                               value={room.room_type}
@@ -391,11 +651,11 @@ export function HousekeepingPageClient() {
                                   room_type: e.target.value as HkBedType,
                                 })
                               }
-                              aria-label={`${room.room_number} 베드 타입`}
+                              aria-label={`${room.room_number} 오늘 베드 타입 변경`}
                             >
                               {HK_BED_TYPES.map((item) => (
                                 <option key={item.value || 'none'} value={item.value}>
-                                  {item.label}
+                                  {item.value ? `오늘 → ${item.label}` : '오늘 변경 없음'}
                                 </option>
                               ))}
                             </select>
@@ -520,6 +780,8 @@ export function HousekeepingPageClient() {
         </article>
 
         {dirty ? <p className="housekeeping-dirty-hint">저장되지 않은 변경이 있습니다.</p> : null}
+          </>
+        )}
       </section>
 
       {toast ? <div className="toast">{toast}</div> : null}

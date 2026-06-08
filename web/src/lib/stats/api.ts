@@ -167,6 +167,56 @@ function aggregateAmenityByItem(
   return [...map.values()].sort((a, b) => b.totalItems - a.totalItems);
 }
 
+function shiftFromAuthor(author: string): string {
+  const trimmed = author.trim();
+  if (!trimmed) return '미지정';
+  for (const shift of SHIFTS) {
+    if (trimmed.startsWith(`${shift} `) || trimmed.startsWith(`${shift}·`) || trimmed.includes(`${shift} ·`)) {
+      return shift;
+    }
+  }
+  const first = trimmed.split('·')[0]?.trim();
+  if (first && (SHIFTS as readonly string[]).includes(first)) return first;
+  return '미지정';
+}
+
+function aggregateHkEbByDay(
+  reports: {
+    work_date: string;
+    housekeeping_report_rooms:
+      | { row_kind: string; extra_bed_action: string }[]
+      | { row_kind: string; extra_bed_action: string }
+      | null;
+  }[],
+  startDate: string,
+  endDate: string,
+): DayCount[] {
+  const dates = enumerateDates(startDate, endDate);
+  const map = new Map(dates.map((date) => [date, 0]));
+
+  for (const report of reports) {
+    const rooms = Array.isArray(report.housekeeping_report_rooms)
+      ? report.housekeeping_report_rooms
+      : report.housekeeping_report_rooms
+        ? [report.housekeeping_report_rooms]
+        : [];
+    const count = rooms.filter(
+      (room) =>
+        room.row_kind === 'bed' &&
+        (room.extra_bed_action === 'add' || room.extra_bed_action === 'remove'),
+    ).length;
+    if (map.has(report.work_date)) {
+      map.set(report.work_date, (map.get(report.work_date) ?? 0) + count);
+    }
+  }
+
+  return dates.map((date) => ({
+    date,
+    label: formatDayLabel(date),
+    count: map.get(date) ?? 0,
+  }));
+}
+
 function aggregateAmenityByDay(
   rows: { created_at: string; total_items: number }[],
   startDate: string,
@@ -201,7 +251,7 @@ export async function fetchStatsData(period: StatsPeriod): Promise<StatsData> {
   const supabase = createClient();
   const { startDate, endDate, startIso, endIso, rangeLabel } = getDateRange(period);
 
-  const [createsRes, urgentRes, movesRes, amenityRes] = await Promise.all([
+  const [createsRes, urgentRes, movesRes, amenityRes, urgentAcksRes, hkRes] = await Promise.all([
     supabase
       .from('activity_logs')
       .select('shift, created_at')
@@ -227,22 +277,39 @@ export async function fetchStatsData(period: StatsPeriod): Promise<StatsData> {
       .lte('created_at', endIso),
     supabase
       .from('amenity_transactions')
-      .select('created_at, total_items, amenity_id, amenities(name)')
+      .select('created_at, total_items, amenity_id, author, amenities(name)')
       .eq('hotel_id', DEFAULT_HOTEL_ID)
       .eq('type', '출고')
       .gte('created_at', startIso)
       .lte('created_at', endIso),
+    supabase
+      .from('card_acknowledgments')
+      .select('shift, acknowledged_at, cards!inner(priority, hotel_id)')
+      .eq('cards.hotel_id', DEFAULT_HOTEL_ID)
+      .eq('cards.priority', 'urgent')
+      .gte('acknowledged_at', startIso)
+      .lte('acknowledged_at', endIso),
+    supabase
+      .from('housekeeping_reports')
+      .select('work_date, housekeeping_report_rooms(row_kind, extra_bed_action)')
+      .eq('hotel_id', DEFAULT_HOTEL_ID)
+      .gte('work_date', startDate)
+      .lte('work_date', endDate),
   ]);
 
   if (createsRes.error) throw createsRes.error;
   if (urgentRes.error) throw urgentRes.error;
   if (movesRes.error) throw movesRes.error;
   if (amenityRes.error) throw amenityRes.error;
+  if (urgentAcksRes.error) throw urgentAcksRes.error;
+  if (hkRes.error) throw hkRes.error;
 
   const creates = createsRes.data ?? [];
   const urgentCards = urgentRes.data ?? [];
   const doneMoves = movesRes.data ?? [];
   const amenityRows = amenityRes.data ?? [];
+  const urgentAcks = urgentAcksRes.data ?? [];
+  const hkReports = hkRes.data ?? [];
 
   const { urgentAvgMinutes, urgentResolvedCount } = calcUrgentHandlingMinutes(urgentCards, doneMoves);
 
@@ -257,6 +324,9 @@ export async function fetchStatsData(period: StatsPeriod): Promise<StatsData> {
     amenityTransactionCount: amenityRows.length,
   };
 
+  const amenityShiftRows = amenityRows.map((row) => ({ shift: shiftFromAuthor(row.author ?? '') }));
+  const urgentAckShiftRows = urgentAcks.map((row) => ({ shift: row.shift?.trim() || '미지정' }));
+
   return {
     period,
     rangeLabel,
@@ -265,6 +335,9 @@ export async function fetchStatsData(period: StatsPeriod): Promise<StatsData> {
     summary,
     handoversByShift: aggregateHandoversByShift(creates),
     handoversByDay: aggregateByDay(creates, startDate, endDate),
+    urgentAcksByShift: aggregateHandoversByShift(urgentAckShiftRows),
+    amenityOutboundByShift: aggregateHandoversByShift(amenityShiftRows),
+    hkEbByDay: aggregateHkEbByDay(hkReports, startDate, endDate),
     amenityByItem: aggregateAmenityByItem(amenityRows),
     amenityByDay: aggregateAmenityByDay(amenityRows, startDate, endDate),
   };

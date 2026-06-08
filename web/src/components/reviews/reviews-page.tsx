@@ -1,6 +1,11 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { DEFAULT_HOTEL_ID } from '@/lib/constants';
+import { useWorkSession } from '@/lib/handover/use-work-session';
+import { createFollowUpCardFromReview } from '@/lib/reviews/follow-up-card';
 import { formatReviewDate, formatStayRange } from '@/lib/reviews/format';
 import {
   REVIEW_FILTER_OPTIONS,
@@ -11,7 +16,6 @@ import {
   type ReviewFilter,
   type ReviewSentiment,
 } from '@/lib/reviews/types';
-import { SESSION_STORAGE_KEY } from '@/lib/constants';
 import { useReviews } from '@/lib/reviews/use-reviews';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 
@@ -227,23 +231,15 @@ function matchesFilter(review: GuestReview, filter: ReviewFilter): boolean {
 }
 
 export function ReviewsPageClient() {
+  const queryClient = useQueryClient();
+  const { session, requireSession, authorLabel } = useWorkSession();
   const { reviews, isLoading, error, createReview, updateReview, deleteReview } = useReviews();
   const [filter, setFilter] = useState<ReviewFilter>('전체');
   const [query, setQuery] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<GuestReview | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [authorLabel, setAuthorLabel] = useState('');
-
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY) || '{}');
-      const label = [saved.shift, saved.name].filter(Boolean).join(' · ');
-      setAuthorLabel(label || '직원');
-    } catch {
-      setAuthorLabel('직원');
-    }
-  }, []);
+  const [followUpBusyId, setFollowUpBusyId] = useState<string | null>(null);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -274,6 +270,26 @@ export function ReviewsPageClient() {
   function showToast(message: string) {
     setToast(message);
     window.setTimeout(() => setToast(null), 2500);
+  }
+
+  async function handleFollowUp(review: GuestReview) {
+    if (!requireSession('인수인계 카드 만들기')) return;
+    setFollowUpBusyId(review.id);
+    try {
+      await createFollowUpCardFromReview({
+        review,
+        author: authorLabel,
+        shift: session.shift,
+        name: session.name,
+      });
+      await queryClient.invalidateQueries({ queryKey: ['guest-reviews', DEFAULT_HOTEL_ID] });
+      await queryClient.invalidateQueries({ queryKey: ['cards'] });
+      showToast('인수인계 카드가 생성되었습니다.');
+    } catch (caught) {
+      showToast(caught instanceof Error ? caught.message : '카드 생성에 실패했습니다.');
+    } finally {
+      setFollowUpBusyId(null);
+    }
   }
 
   return (
@@ -313,13 +329,13 @@ export function ReviewsPageClient() {
             placeholder="이름·예약번호·리뷰 내용 검색…"
             aria-label="리뷰 검색"
           />
-          <div className="reviews-filters" aria-label="리뷰 구분 필터">
+          <div className="segmented-control segmented-control--wrap" aria-label="리뷰 구분 필터">
             {REVIEW_FILTER_OPTIONS.map((option) => (
               <button
                 key={option}
                 type="button"
                 onClick={() => setFilter(option)}
-                className={`reviews-filter${filter === option ? ' is-active' : ''}${option === '좋은 리뷰' ? ' reviews-filter--positive' : ''}${option === '나쁜 리뷰' ? ' reviews-filter--negative' : ''}`}
+                className={`segmented-control__btn${filter === option ? ' is-active' : ''}${option === '좋은 리뷰' ? ' segmented-control__btn--positive' : ''}${option === '나쁜 리뷰' ? ' segmented-control__btn--negative' : ''}`}
               >
                 {option}
               </button>
@@ -382,9 +398,30 @@ export function ReviewsPageClient() {
                   </div>
                 </div>
 
-                <p className="review-card__footer">
-                  {review.author || '등록자 미입력'} · {formatReviewDate(review.updated_at || review.created_at)}
-                </p>
+                <div className="review-card__footer">
+                  <p>
+                    {review.author || '등록자 미입력'} · {formatReviewDate(review.updated_at || review.created_at)}
+                  </p>
+                  {review.sentiment === 'negative' ? (
+                    review.follow_up_card_id ? (
+                      <Link href="/handover" className="btn btn--ghost btn--xs">
+                        인수인계 카드 보기
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn--outline btn--xs"
+                        disabled={followUpBusyId === review.id}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void handleFollowUp(review);
+                        }}
+                      >
+                        {followUpBusyId === review.id ? '…' : '인수인계 카드 만들기'}
+                      </button>
+                    )
+                  ) : null}
+                </div>
               </article>
             ))}
           </div>

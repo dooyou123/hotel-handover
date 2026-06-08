@@ -19,7 +19,7 @@ export function UnackedUrgentAlert({ count, isFilterActive, onShowUnacked }: Una
         <span className="unacked-urgent-alert__pulse" aria-hidden />
         <div className="unacked-urgent-alert__text">
           <strong>미확인 긴급 {count}건</strong>
-          <span>교대 인수 후 긴급 칸 카드에서 ✓ 긴급 확인을 눌러 주세요.</span>
+          <span className="unacked-urgent-alert__hint">긴급 칸에서 ✓ 확인 필요</span>
         </div>
       </div>
       {!isFilterActive ? (

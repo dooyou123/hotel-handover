@@ -1,44 +1,55 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { cardSummaryLabel, logActivity } from '@/lib/handover/activity';
-import { filterCards } from '@/lib/handover/card-utils';
-import { buildShiftSummaryData } from '@/lib/handover/shift-summary';
+import { filterCards, isArchivedCard } from '@/lib/handover/card-utils';
+import { openShiftBriefWindow } from '@/lib/handover/open-shift-brief';
+import { buildShiftSummaryData, todayDateString } from '@/lib/handover/shift-summary';
 import { useActivityLogs } from '@/lib/handover/use-activity-logs';
-import { filterNoticesByType, useNotices } from '@/lib/handover/use-notices';
-import { useCards, useIsManager } from '@/lib/handover/use-cards';
+import { useNotices } from '@/lib/handover/use-notices';
+import { useArchivedCards, useCards, useIsManager } from '@/lib/handover/use-cards';
 import { useWorkSession } from '@/lib/handover/use-work-session';
 import type {
   Card,
   CardAttachment,
   CardInput,
   HandoverViewMode,
-  Notice,
-  NoticeInput,
-  NoticeType,
+  Priority,
   QuickFilter,
   ShiftHandoverType,
 } from '@/lib/handover/types';
-import { PinnedContactsBar } from '@/components/contacts/pinned-contacts-bar';
-import { useRegisterShiftHandlers } from '@/components/layout/session-bar-actions';
+import { useMonthEvents } from '@/lib/events/use-events';
+import type { HotelEvent, HotelEventInput } from '@/lib/events/types';
+import { useTodaySchedule } from '@/lib/schedule/use-schedule';
+import { buildTodayAlerts } from '@/lib/today/alerts';
+import type { Todo, TodoInput, TodoPriority } from '@/lib/todos/types';
+import { useTodos } from '@/lib/todos/use-todos';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
-import { TodayStaffBar } from '@/components/schedule/today-staff-bar';
+import { EventModal } from '@/components/schedule/event-modal';
+import { TodoModal } from '@/components/todos/todo-modal';
 import { ExportSummaryModal } from './export-summary-modal';
 import { ActivityLogModal } from './activity-log-modal';
-import { BoardToolbar } from './board-toolbar';
+import { ArchivedCardsModal } from './archived-cards-modal';
 import { CardModal } from './card-modal';
-import { KanbanBoard } from './kanban-board';
-import { NoticeModal } from './notice-modal';
-import { NoticePanel } from './notice-panel';
-import { RoomView } from './room-view';
 import { ShiftHandoverModal } from './shift-handover-modal';
-import { HandoverSecondaryPanel } from './handover-secondary-panel';
-import { PinnedNoticesStrip } from './pinned-notices-strip';
-import { SummaryBar } from './summary-bar';
-import { UnackedUrgentAlert } from './unacked-urgent-alert';
+import { HandoverWorkspaceProject } from './project/handover-workspace-project';
+
+function cardPriorityToTodo(priority: Priority): TodoPriority {
+  if (priority === 'urgent') return 'urgent';
+  if (priority === 'today') return 'normal';
+  return 'low';
+}
+
+function todoPriorityToCard(priority: TodoPriority): Priority {
+  if (priority === 'urgent') return 'urgent';
+  if (priority === 'normal') return 'today';
+  return 'info';
+}
 
 export function HandoverPage() {
+  const searchParams = useSearchParams();
   const {
     cards,
     isLoading,
@@ -46,31 +57,47 @@ export function HandoverPage() {
     createCard,
     updateCard,
     deleteCard,
-    moveCard,
     acknowledgeCard,
     addComment,
     uploadAttachment,
     deleteAttachment,
-    clearDone,
+    archiveDone,
+    restoreFromArchive,
   } = useCards();
-  const { notices, createNotice, updateNotice, deleteNotice, togglePin } = useNotices();
+  const {
+    data: archivedCards = [],
+    isLoading: archivedLoading,
+    refetch: refetchArchived,
+  } = useArchivedCards();
+  const { notices } = useNotices();
   const { data: activityLogs = [], isLoading: activityLoading, refetch: refetchActivity } = useActivityLogs(80);
   const { data: isManager = false } = useIsManager();
   const { session, requireSession, authorLabel } = useWorkSession();
   const { confirm } = useConfirmDialog();
+  const { todos, createTodo: createTodoMutation, updateTodo: updateTodoMutation, toggleTodo: toggleTodoMutation } =
+    useTodos();
+  const currentMonth = todayDateString().slice(0, 7);
+  const {
+    events,
+    createEvent: createEventMutation,
+    updateEvent: updateEventMutation,
+  } = useMonthEvents(currentMonth);
+  const { data: todaySchedule } = useTodaySchedule();
 
-  const [viewMode, setViewMode] = useState<HandoverViewMode>('board');
+  const [viewMode, setViewMode] = useState<HandoverViewMode>('today');
   const [searchQuery, setSearchQuery] = useState('');
   const [quickFilter, setQuickFilter] = useState<QuickFilter>('all');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<Card | null>(null);
-  const [noticeModalOpen, setNoticeModalOpen] = useState(false);
-  const [editingNotice, setEditingNotice] = useState<Notice | null>(null);
-  const [noticeDefaultType, setNoticeDefaultType] = useState<NoticeType>('announcement');
+  const [todoModalOpen, setTodoModalOpen] = useState(false);
+  const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
+  const [eventModalOpen, setEventModalOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<HotelEvent | null>(null);
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [shiftModalMode, setShiftModalMode] = useState<ShiftHandoverType>('start');
   const [activityModalOpen, setActivityModalOpen] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [archiveModalOpen, setArchiveModalOpen] = useState(false);
   const [staffNames, setStaffNames] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -84,15 +111,55 @@ export function HandoverPage() {
       .then(({ data }) => setStaffNames((data ?? []).map((row) => row.name)));
   }, []);
 
-  const visibleCards = useMemo(
+  useEffect(() => {
+    const cardId = searchParams.get('card');
+    if (!cardId || isLoading) return;
+    const card = cards.find((item) => item.id === cardId) ?? archivedCards.find((item) => item.id === cardId);
+    if (card) {
+      setEditingCard(card);
+      setModalOpen(true);
+    }
+  }, [searchParams, cards, archivedCards, isLoading]);
+
+  const boardCards = useMemo(
     () => filterCards(cards, { query: searchQuery, quickFilter, category: '', session }),
     [cards, searchQuery, quickFilter, session],
   );
 
+  const archivedSearchMatches = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    return filterCards(archivedCards, { query: searchQuery, quickFilter: 'all', category: '', session });
+  }, [archivedCards, searchQuery, session]);
+
+  const visibleCards = useMemo(() => {
+    if (!archivedSearchMatches.length) return boardCards;
+    const ids = new Set(boardCards.map((card) => card.id));
+    const extra = archivedSearchMatches.filter((card) => !ids.has(card.id));
+    return [...boardCards, ...extra];
+  }, [boardCards, archivedSearchMatches]);
+
   const summaryData = useMemo(() => buildShiftSummaryData(cards, notices), [cards, notices]);
-  const unpinnedNotices = useMemo(() => notices.filter((notice) => !notice.is_pinned), [notices]);
-  const activeCard = editingCard ? cards.find((card) => card.id === editingCard.id) ?? editingCard : null;
+  const alerts = useMemo(
+    () =>
+      buildTodayAlerts({
+        unackedUrgent: summaryData.unackedUrgent,
+        todos,
+        events,
+      }),
+    [summaryData.unackedUrgent, todos, events],
+  );
+
+  const activeCard = editingCard
+    ? cards.find((card) => card.id === editingCard.id) ??
+      archivedCards.find((card) => card.id === editingCard.id) ??
+      editingCard
+    : null;
+  const linkedTodo = activeCard?.linked_todo_id
+    ? todos.find((todo) => todo.id === activeCard.linked_todo_id) ?? null
+    : null;
+
   const doneCount = cards.filter((card) => card.column_id === 'done').length;
+  const archivedCount = archivedCards.length;
 
   const audit = () => ({ shift: session.shift, staffName: session.name });
 
@@ -112,25 +179,6 @@ export function HandoverPage() {
     setModalOpen(true);
   }
 
-  function openNoticeCreate(type: NoticeType) {
-    if (!requireSession('공지 추가')) return;
-    setEditingNotice(null);
-    setNoticeDefaultType(type);
-    setNoticeModalOpen(true);
-  }
-
-  function openNoticeEdit(notice: Notice) {
-    setEditingNotice(notice);
-    setNoticeDefaultType(notice.type);
-    setNoticeModalOpen(true);
-  }
-
-  function openShiftModal(mode: ShiftHandoverType) {
-    if (!requireSession(mode === 'start' ? '교대 시작' : '교대 종료')) return;
-    setShiftModalMode(mode);
-    setShiftModalOpen(true);
-  }
-
   const handleShiftStart = useCallback(() => {
     if (!requireSession('교대 시작')) return;
     setShiftModalMode('start');
@@ -143,7 +191,33 @@ export function HandoverPage() {
     setShiftModalOpen(true);
   }, [requireSession]);
 
-  useRegisterShiftHandlers({ onShiftStart: handleShiftStart, onShiftEnd: handleShiftEnd });
+  const handleOpenShiftBrief = useCallback(() => {
+    if (!requireSession('교대 인계 화면')) return;
+    openShiftBriefWindow();
+  }, [requireSession]);
+
+  async function syncLinkedTodoOnCardDone(card: Card) {
+    if (!card.linked_todo_id) return;
+    const linked = todos.find((todo) => todo.id === card.linked_todo_id);
+    if (linked && linked.status === 'open') {
+      await updateTodoMutation.mutateAsync({
+        id: linked.id,
+        input: { status: 'done', completed_at: new Date().toISOString() },
+      });
+    }
+  }
+
+  async function syncLinkedCardOnTodoDone(todo: Todo) {
+    if (!todo.linked_card_id) return;
+    const linked = cards.find((card) => card.id === todo.linked_card_id);
+    if (linked && linked.column_id !== 'done' && !isArchivedCard(linked)) {
+      const resolution = linked.next_action?.trim() || linked.details?.trim() || '할일 완료 연동';
+      await updateCard.mutateAsync({
+        id: linked.id,
+        input: { column_id: 'done', resolution },
+      });
+    }
+  }
 
   async function handleSave(
     input: CardInput,
@@ -162,6 +236,10 @@ export function HandoverPage() {
           audit: audit(),
           summary: `수정: ${cardSummaryLabel(before.room, before.title)}`,
         });
+      }
+      if (input.column_id === 'done') {
+        const card = cards.find((item) => item.id === id);
+        if (card) await syncLinkedTodoOnCardDone(card);
       }
       showToast('수정되었습니다.');
     } else {
@@ -194,8 +272,14 @@ export function HandoverPage() {
   }
 
   async function handleDelete(id: string) {
-    const before = cards.find((card) => card.id === id);
+    const before = cards.find((card) => card.id === id) ?? archivedCards.find((card) => card.id === id);
     await deleteCard.mutateAsync(id);
+    if (before?.linked_todo_id) {
+      await updateTodoMutation.mutateAsync({
+        id: before.linked_todo_id,
+        input: { linked_card_id: null },
+      });
+    }
     if (before) {
       await logActivity({
         entityType: 'card',
@@ -207,26 +291,6 @@ export function HandoverPage() {
     }
     showToast('삭제되었습니다.');
     refetchActivity();
-  }
-
-  async function handleMove(cardId: string, columnId: Card['column_id'], orderedIds: string[]) {
-    const before = cards.find((card) => card.id === cardId);
-    try {
-      await moveCard.mutateAsync({ cardId, columnId, orderedIds });
-      if (before && before.column_id !== columnId) {
-        await logActivity({
-          entityType: 'card',
-          entityId: cardId,
-          action: 'move',
-          audit: audit(),
-          summary: `이동: ${cardSummaryLabel(before.room, before.title)}`,
-          details: { from: before.column_id, to: columnId },
-        });
-        refetchActivity();
-      }
-    } catch {
-      showToast('카드 이동에 실패했습니다.');
-    }
   }
 
   async function handleAcknowledge(cardId: string) {
@@ -243,77 +307,172 @@ export function HandoverPage() {
     }
   }
 
-  async function handleClearDone() {
+  async function handleMarkDone(cardId: string) {
+    const card = cards.find((item) => item.id === cardId);
+    if (!card || card.column_id === 'done' || isArchivedCard(card)) return;
+
+    const resolution = card.next_action?.trim() || card.details?.trim() || '처리 완료';
+    try {
+      await updateCard.mutateAsync({
+        id: cardId,
+        input: { column_id: 'done', resolution },
+      });
+      await syncLinkedTodoOnCardDone(card);
+      await logActivity({
+        entityType: 'card',
+        entityId: cardId,
+        action: 'move',
+        audit: audit(),
+        summary: `완료: ${cardSummaryLabel(card.room, card.title)}`,
+        details: { from: card.column_id, to: 'done', quick: true },
+      });
+      showToast('완료 처리했습니다.');
+      refetchActivity();
+    } catch {
+      showToast('완료 처리에 실패했습니다.');
+    }
+  }
+
+  async function handleCreateTodoFromCard(card: Card) {
+    if (!requireSession('할일 등록')) return;
+    if (card.linked_todo_id) {
+      const existing = todos.find((todo) => todo.id === card.linked_todo_id);
+      if (existing) {
+        setEditingTodo(existing);
+        setTodoModalOpen(true);
+        return;
+      }
+    }
+    const dueDate = card.due_at ? card.due_at.slice(0, 10) : null;
+    const description = [card.details, card.next_action].filter(Boolean).join('\n');
+    try {
+      const todo = await createTodoMutation.mutateAsync({
+        title: card.title,
+        description,
+        due_date: dueDate,
+        priority: cardPriorityToTodo(card.priority),
+        assignee_shift: card.assignee_shift || session.shift,
+        assignee_name: card.assignee_name || session.name,
+        author: authorLabel,
+      });
+      await updateCard.mutateAsync({ id: card.id, input: { linked_todo_id: todo.id } });
+      await updateTodoMutation.mutateAsync({ id: todo.id, input: { linked_card_id: card.id } });
+      showToast('할일로 등록했습니다.');
+    } catch {
+      showToast('할일 등록에 실패했습니다.');
+    }
+  }
+
+  async function handleCreateCardFromTodo(todo: Todo) {
+    if (!requireSession('인수인계 등록')) return;
+    if (todo.linked_card_id) {
+      const existing = cards.find((card) => card.id === todo.linked_card_id);
+      if (existing) {
+        openEditModal(existing);
+        return;
+      }
+    }
+    try {
+      const created = await createCard.mutateAsync({
+        column_id: 'progress',
+        priority: todoPriorityToCard(todo.priority),
+        category: '기타',
+        room: '',
+        title: todo.title,
+        details: todo.description,
+        resolution: '',
+        next_action: '',
+        author: authorLabel,
+        assignee_shift: todo.assignee_shift || session.shift,
+        assignee_name: todo.assignee_name || session.name,
+        due_at: todo.due_date ? `${todo.due_date}T12:00:00` : null,
+      });
+      await updateCard.mutateAsync({ id: created.id, input: { linked_todo_id: todo.id } });
+      await updateTodoMutation.mutateAsync({ id: todo.id, input: { linked_card_id: created.id } });
+      showToast('인수인계로 등록했습니다.');
+      openEditModal(created);
+    } catch {
+      showToast('인수인계 등록에 실패했습니다.');
+    }
+  }
+
+  async function handleTodoSave(input: TodoInput, id?: string) {
+    if (!requireSession('할일 저장')) return;
+    if (id) {
+      await updateTodoMutation.mutateAsync({ id, input });
+      showToast('할일을 수정했습니다.');
+    } else {
+      await createTodoMutation.mutateAsync(input);
+      showToast('할일을 추가했습니다.');
+    }
+  }
+
+  async function handleToggleTodo(todo: Todo) {
+    await toggleTodoMutation.mutateAsync(todo);
+    if (todo.status === 'open') {
+      await syncLinkedCardOnTodoDone(todo);
+      showToast('할일을 완료했습니다.');
+    } else {
+      showToast('할일을 다시 열었습니다.');
+    }
+  }
+
+  async function handleEventSave(input: HotelEventInput, id?: string) {
+    if (!requireSession('일정 저장')) return;
+    if (id) {
+      await updateEventMutation.mutateAsync({ id, input });
+      showToast('일정을 수정했습니다.');
+    } else {
+      await createEventMutation.mutateAsync(input);
+      showToast('일정을 추가했습니다.');
+    }
+  }
+
+  async function handleArchiveDone() {
     if (!isManager) return;
     const ok = await confirm({
       title: '완료 칸 비우기',
-      message: `완료 칸 ${doneCount}건을 모두 삭제합니다.`,
-      detail: '삭제된 인수인계는 복구할 수 없습니다.',
-      tone: 'danger',
-      confirmLabel: '모두 삭제',
+      message: `완료 칸 ${doneCount}건을 보관함으로 옮깁니다.`,
+      detail: '보드에서는 숨겨지지만 삭제되지 않습니다. 보관함·검색에서 다시 찾을 수 있습니다.',
+      tone: 'default',
+      confirmLabel: '보관하기',
     });
     if (!ok) return;
     try {
-      await clearDone.mutateAsync();
+      await archiveDone.mutateAsync();
       await logActivity({
         entityType: 'card',
-        action: 'clear_done',
+        action: 'archive_done',
         audit: audit(),
-        summary: `완료칸 비우기 (${doneCount}건)`,
+        summary: `완료 보관 (${doneCount}건)`,
       });
-      showToast('완료 칸을 비웠습니다.');
+      showToast('완료 칸을 비웠습니다. 보관함에서 확인할 수 있습니다.');
       refetchActivity();
+      refetchArchived();
     } catch {
-      showToast('완료 칸 비우기에 실패했습니다.');
+      showToast('완료 보관에 실패했습니다.');
     }
   }
 
-  async function handleNoticeSave(input: NoticeInput, id?: string) {
-    if (!requireSession('저장')) return;
-    if (id) {
-      await updateNotice.mutateAsync({ id, input });
+  async function handleRestoreFromArchive(cardId: string) {
+    if (!isManager) return;
+    const card = archivedCards.find((item) => item.id === cardId);
+    if (!card) return;
+    try {
+      await restoreFromArchive.mutateAsync(cardId);
       await logActivity({
-        entityType: 'notice',
-        entityId: id,
-        action: 'update',
+        entityType: 'card',
+        entityId: cardId,
+        action: 'restore_archive',
         audit: audit(),
-        summary: `공지 수정: ${input.content.slice(0, 40)}`,
+        summary: `보관 복원: ${cardSummaryLabel(card.room, card.title)}`,
       });
-      showToast('공지가 수정되었습니다.');
-    } else {
-      const created = await createNotice.mutateAsync(input);
-      await logActivity({
-        entityType: 'notice',
-        entityId: created.id,
-        action: 'create',
-        audit: audit(),
-        summary: `공지 추가: ${input.content.slice(0, 40)}`,
-      });
-      showToast('공지가 추가되었습니다.');
+      showToast('완료 칸으로 복원했습니다.');
+      refetchActivity();
+      refetchArchived();
+    } catch {
+      showToast('복원에 실패했습니다.');
     }
-    refetchActivity();
-  }
-
-  async function handleNoticeDelete(id: string) {
-    const before = notices.find((notice) => notice.id === id);
-    await deleteNotice.mutateAsync(id);
-    if (before) {
-      await logActivity({
-        entityType: 'notice',
-        entityId: id,
-        action: 'delete',
-        audit: audit(),
-        summary: `공지 삭제: ${before.content.slice(0, 40)}`,
-      });
-    }
-    showToast('삭제되었습니다.');
-    refetchActivity();
-  }
-
-  async function handleTogglePin(notice: Notice) {
-    if (!requireSession('고정 변경')) return;
-    await togglePin.mutateAsync({ id: notice.id, isPinned: notice.is_pinned });
-    showToast('고정 상태가 변경되었습니다.');
   }
 
   async function handleAddComment(cardId: string, content: string) {
@@ -361,9 +520,7 @@ export function HandoverPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="empty-state">인수인계 보드를 불러오는 중…</div>
-    );
+    return <div className="empty-state">인수인계 보드를 불러오는 중…</div>;
   }
 
   if (error) {
@@ -374,84 +531,70 @@ export function HandoverPage() {
     );
   }
 
+  const showUnacked = () => {
+    setQuickFilter('unacked');
+    setViewMode('board');
+  };
+
+  const handleAlertClick = (id: string) => {
+    if (id === 'unacked') {
+      showUnacked();
+      return;
+    }
+    setViewMode('today');
+  };
+
   return (
     <>
-      <div className="handover-workspace">
-        <div className="handover-workspace__sticky">
-          <SummaryBar
-            data={summaryData}
-            totalCount={cards.length}
-            activeFilter={quickFilter}
-            onFilterSelect={setQuickFilter}
-          />
-          <PinnedNoticesStrip notices={notices} onOpen={openNoticeEdit} />
-          <UnackedUrgentAlert
-            count={summaryData.unackedUrgent.length}
-            isFilterActive={quickFilter === 'unacked'}
-            onShowUnacked={() => {
-              setQuickFilter('unacked');
-              setViewMode('board');
-            }}
-          />
-          <BoardToolbar
-            viewMode={viewMode}
-            searchQuery={searchQuery}
-            quickFilter={quickFilter}
-            doneCount={doneCount}
-            isManager={isManager}
-            onViewModeChange={setViewMode}
-            onSearchChange={setSearchQuery}
-            onQuickFilterChange={setQuickFilter}
-            onAdd={openCreateModal}
-            onClearDone={handleClearDone}
-            onExport={() => setExportModalOpen(true)}
-            onActivity={() => setActivityModalOpen(true)}
-          />
-        </div>
-
-        <div className="handover-workspace__board">
-          {viewMode === 'board' ? (
-            <KanbanBoard
-              cards={visibleCards}
-              searchQuery={searchQuery}
-              onMove={handleMove}
-              onOpenCard={openEditModal}
-              onAcknowledge={handleAcknowledge}
-            />
-          ) : (
-            <RoomView cards={visibleCards} onOpenCard={openEditModal} />
-          )}
-        </div>
+      <div className="handover-page handover-page--project">
+        <HandoverWorkspaceProject
+          summaryData={summaryData}
+          cards={cards}
+          visibleCards={visibleCards}
+          notices={notices}
+          todos={todos}
+          events={events}
+          schedule={todaySchedule}
+          alerts={alerts}
+          viewMode={viewMode}
+          searchQuery={searchQuery}
+          quickFilter={quickFilter}
+          doneCount={doneCount}
+          archivedCount={archivedCount}
+          archivedSearchCount={archivedSearchMatches.length}
+          isManager={isManager}
+          onViewModeChange={setViewMode}
+          onSearchChange={setSearchQuery}
+          onQuickFilterChange={setQuickFilter}
+          onAdd={openCreateModal}
+          onArchiveDone={handleArchiveDone}
+          onOpenArchive={() => setArchiveModalOpen(true)}
+          onExport={() => setExportModalOpen(true)}
+          onActivity={() => setActivityModalOpen(true)}
+          onOpenShiftBrief={handleOpenShiftBrief}
+          onShiftStart={handleShiftStart}
+          onShiftEnd={handleShiftEnd}
+          onOpenCard={openEditModal}
+          onAcknowledge={handleAcknowledge}
+          onMarkDone={handleMarkDone}
+          onShowUnacked={showUnacked}
+          onAlertClick={handleAlertClick}
+          onOpenTodo={(todo) => {
+            setEditingTodo(todo);
+            setTodoModalOpen(true);
+          }}
+          onToggleTodo={handleToggleTodo}
+          onOpenEvent={(event) => {
+            setEditingEvent(event);
+            setEventModalOpen(true);
+          }}
+        />
       </div>
-
-      <HandoverSecondaryPanel noticeCount={unpinnedNotices.length}>
-        <TodayStaffBar />
-        <PinnedContactsBar />
-        <section className="notices">
-          <NoticePanel
-            type="announcement"
-            title="📢 업무 공지"
-            hint="전체 공지 · 안내 사항"
-            notices={filterNoticesByType(unpinnedNotices, 'announcement')}
-            onAdd={() => openNoticeCreate('announcement')}
-            onOpen={openNoticeEdit}
-            onTogglePin={handleTogglePin}
-          />
-          <NoticePanel
-            type="change"
-            title="🔄 업무 변경"
-            hint="운영·절차 변경 사항"
-            notices={filterNoticesByType(unpinnedNotices, 'change')}
-            onAdd={() => openNoticeCreate('change')}
-            onOpen={openNoticeEdit}
-            onTogglePin={handleTogglePin}
-          />
-        </section>
-      </HandoverSecondaryPanel>
 
       <CardModal
         open={modalOpen}
         card={activeCard}
+        linkedTodo={linkedTodo}
         authorLabel={authorLabel}
         defaultShift={session.shift}
         defaultName={session.name}
@@ -463,18 +606,29 @@ export function HandoverPage() {
         onAddComment={handleAddComment}
         onUploadAttachment={handleUploadAttachment}
         onDeleteAttachment={handleDeleteAttachment}
+        onCreateTodo={activeCard ? () => handleCreateTodoFromCard(activeCard) : undefined}
         requireSession={requireSession}
       />
 
-      <NoticeModal
-        open={noticeModalOpen}
-        notice={editingNotice}
-        defaultType={noticeDefaultType}
+      <TodoModal
+        open={todoModalOpen}
+        todo={editingTodo}
+        linkedCard={editingTodo?.linked_card_id ? cards.find((c) => c.id === editingTodo.linked_card_id) ?? null : null}
         authorLabel={authorLabel}
-        isManager={isManager}
-        onClose={() => setNoticeModalOpen(false)}
-        onSave={handleNoticeSave}
-        onDelete={handleNoticeDelete}
+        defaultShift={session.shift}
+        defaultName={session.name}
+        staffNames={staffNames}
+        onClose={() => setTodoModalOpen(false)}
+        onSave={handleTodoSave}
+        onCreateCard={editingTodo ? () => handleCreateCardFromTodo(editingTodo) : undefined}
+      />
+
+      <EventModal
+        open={eventModalOpen}
+        event={editingEvent}
+        authorLabel={authorLabel}
+        onClose={() => setEventModalOpen(false)}
+        onSave={handleEventSave}
       />
 
       <ShiftHandoverModal
@@ -515,7 +669,20 @@ export function HandoverPage() {
         onToast={showToast}
       />
 
-      {toast ? <div className="toast">{toast}</div> : null}
+      <ArchivedCardsModal
+        open={archiveModalOpen}
+        cards={archivedCards}
+        isLoading={archivedLoading}
+        isManager={isManager}
+        onClose={() => setArchiveModalOpen(false)}
+        onOpenCard={(card) => {
+          setArchiveModalOpen(false);
+          openEditModal(card);
+        }}
+        onRestore={handleRestoreFromArchive}
+      />
+
+      {toast ? <div className="toast toast--project">{toast}</div> : null}
     </>
   );
 }

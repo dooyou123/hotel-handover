@@ -15,13 +15,13 @@ insert into public.checklist_items (hotel_id, label, sort_order) values
   ('00000000-0000-4000-8000-000000000001', '시재(캐시) 확인', 4);
 
 insert into public.card_templates (hotel_id, label, priority, column_id, category, title, next_action, sort_order) values
-  ('00000000-0000-4000-8000-000000000001', 'VIP 체크인', 'urgent', 'urgent', 'VIP', 'VIP 체크인 — ', '조용한 객실 배정 확인, 어메니티 추가', 0),
-  ('00000000-0000-4000-8000-000000000001', '냉난방 이슈', 'urgent', 'urgent', '룸이슈', '냉난방 불량 — ', '엔지니어링 호출 후 결과 기록', 1),
+  ('00000000-0000-4000-8000-000000000001', 'VIP 체크인', 'urgent', 'progress', 'VIP', 'VIP 체크인 — ', '조용한 객실 배정 확인, 어메니티 추가', 0),
+  ('00000000-0000-4000-8000-000000000001', '냉난방 이슈', 'urgent', 'progress', '룸이슈', '냉난방 불량 — ', '엔지니어링 호출 후 결과 기록', 1),
   ('00000000-0000-4000-8000-000000000001', '미수금', 'today', 'progress', '결제', '미수금 — ', '체크아웃 전 결제 확인', 2),
   ('00000000-0000-4000-8000-000000000001', '룸클린 대기', 'today', 'progress', '룸이슈', '룸클린 대기 — ', 'HK에 클린 요청 후 완료 확인', 3);
 
 insert into public.cards (hotel_id, column_id, priority, category, room, title, next_action, author, assignee_shift, assignee_name, sort_order) values
-  ('00000000-0000-4000-8000-000000000001', 'urgent', 'urgent', 'VIP', '1502', 'VIP 체크인 — 조용한 객실 요청', '어메니티 추가 확인', '주간 · 김프런', '주간', '김프런', 0),
+  ('00000000-0000-4000-8000-000000000001', 'progress', 'urgent', 'VIP', '1502', 'VIP 체크인 — 조용한 객실 요청', '어메니티 추가 확인', '주간 · 김프런', '주간', '김프런', 0),
   ('00000000-0000-4000-8000-000000000001', 'progress', 'today', '룸이슈', '803', '냉난방 불량 — 엔지니어링 호출', '수리 결과 기록', '오후 · 이데스크', '오후', '이데스크', 0),
   ('00000000-0000-4000-8000-000000000001', 'progress', 'today', '결제', '412', '미수금 — 체크아웃 전 결제', '프론트 결제 확인', '주간 · 김프런', '주간', '김프런', 1)
 on conflict do nothing;

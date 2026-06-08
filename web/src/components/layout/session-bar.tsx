@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { SESSION_STORAGE_KEY, SHIFTS, WORK_GROUPS } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
-import { useSessionBarActions } from '@/components/layout/session-bar-actions';
+import { UserMenu } from '@/components/layout/user-menu';
 
 type SessionState = {
   shift: string;
@@ -16,7 +16,6 @@ type SessionBarProps = {
 };
 
 export function SessionBar({ email }: SessionBarProps) {
-  const { shiftHandlers } = useSessionBarActions();
   const [session, setSession] = useState<SessionState>({ shift: '', group: '', name: '' });
   const [staff, setStaff] = useState<{ id: string; name: string }[]>([]);
 
@@ -61,79 +60,55 @@ export function SessionBar({ email }: SessionBarProps) {
   }
 
   const ready = Boolean(session.shift && session.group && session.name);
+  const sessionLabel = ready
+    ? `${session.shift} · ${session.group}조 · ${session.name}`
+    : '근무 설정 필요';
 
   return (
-    <section className="session-bar">
-      <div className="session-bar__info">
-        <span className="session-bar__label">지금 근무</span>
-        <p className="session-bar__hint">
-          교대·조·이름을 선택하면 추가·확인·체크리스트·어메니티 기록에 자동으로 남습니다.
-        </p>
+    <div className="session-bar session-bar--compact">
+      <div className="session-bar__cluster" title={sessionLabel} aria-label={sessionLabel}>
+        <select
+          className="session-bar__select"
+          value={session.shift}
+          aria-label="현재 교대"
+          onChange={(e) => persist({ ...session, shift: e.target.value })}
+        >
+          <option value="">교대</option>
+          {SHIFTS.map((shift) => (
+            <option key={shift} value={shift}>
+              {shift}
+            </option>
+          ))}
+        </select>
+        <select
+          className="session-bar__select session-bar__select--narrow"
+          value={session.group}
+          aria-label="근무 조"
+          onChange={(e) => persist({ ...session, group: e.target.value })}
+        >
+          <option value="">조</option>
+          {WORK_GROUPS.map((group) => (
+            <option key={group} value={group}>
+              {group}조
+            </option>
+          ))}
+        </select>
+        <select
+          className="session-bar__select session-bar__select--name"
+          value={session.name}
+          aria-label="담당자 이름"
+          onChange={(e) => persist({ ...session, name: e.target.value })}
+        >
+          <option value="">이름</option>
+          {staff.map((member) => (
+            <option key={member.id} value={member.name}>
+              {member.name}
+            </option>
+          ))}
+        </select>
       </div>
-      <div className="session-bar__controls">
-        <label className="session-field">
-          <span>교대</span>
-          <select
-            value={session.shift}
-            aria-label="현재 교대"
-            onChange={(e) => persist({ ...session, shift: e.target.value })}
-          >
-            <option value="">선택</option>
-            {SHIFTS.map((shift) => (
-              <option key={shift} value={shift}>
-                {shift}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="session-field session-field--group">
-          <span>조</span>
-          <select
-            value={session.group}
-            aria-label="근무 조"
-            onChange={(e) => persist({ ...session, group: e.target.value })}
-          >
-            <option value="">선택</option>
-            {WORK_GROUPS.map((group) => (
-              <option key={group} value={group}>
-                {group}조
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="session-field session-field--name">
-          <span>담당자</span>
-          <select
-            value={session.name}
-            aria-label="담당자 이름"
-            onChange={(e) => persist({ ...session, name: e.target.value })}
-          >
-            <option value="">선택</option>
-            {staff.map((member) => (
-              <option key={member.id} value={member.name}>
-                {member.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        {shiftHandlers.onShiftStart ? (
-          <button type="button" className="btn btn--shift" onClick={shiftHandlers.onShiftStart}>
-            ▶ 교대 시작
-          </button>
-        ) : null}
-        {shiftHandlers.onShiftEnd ? (
-          <button type="button" className="btn btn--shift btn--shift-end" onClick={shiftHandlers.onShiftEnd}>
-            ■ 교대 종료
-          </button>
-        ) : null}
-        <div className={`session-bar__status${ready ? ' is-ready' : ''}`}>
-          {ready ? `근무 중: ${session.shift} · ${session.group}조 · ${session.name}` : '교대·조·이름을 선택해 주세요'}
-        </div>
-        <button type="button" className="btn btn--ghost btn--small" onClick={signOut}>
-          로그아웃
-        </button>
-      </div>
-      {email ? <p className="session-bar__hint" style={{ width: '100%', marginTop: '0.5rem' }}>{email}</p> : null}
-    </section>
+
+      {email ? <UserMenu email={email} onSignOut={signOut} /> : null}
+    </div>
   );
 }

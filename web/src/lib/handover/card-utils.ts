@@ -1,5 +1,11 @@
 import { HIGHLIGHT_KEYWORDS } from '@/lib/handover/constants';
-import type { Card, QuickFilter, WorkSession } from '@/lib/handover/types';
+import type { Card, ColumnId, QuickFilter, WorkSession } from '@/lib/handover/types';
+
+export type ProjectListSection = {
+  id: 'unacked' | 'progress' | 'done' | 'archived';
+  title: string;
+  cards: Card[];
+};
 
 export function splitTextBySearchQuery(
   text: string,
@@ -73,6 +79,35 @@ export function matchesRoomCleanFilter(card: Card): boolean {
   return /클린|청소|clean|dirty|룸클린|하우스키핑|hk/.test(text);
 }
 
+export function isActiveCard(card: Card): boolean {
+  return card.column_id !== 'done';
+}
+
+export function isArchivedCard(card: Card): boolean {
+  return card.archived_at != null;
+}
+
+export function formatArchiveTime(value: string | null): string {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('ko-KR', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+export function isUrgentPriorityCard(card: Card): boolean {
+  return card.priority === 'urgent' && isActiveCard(card);
+}
+
+export function isUnackedUrgentCard(card: Card): boolean {
+  return isUrgentPriorityCard(card) && card.card_acknowledgments.length === 0;
+}
+
 export function filterCards(
   cards: Card[],
   options: {
@@ -101,7 +136,7 @@ export function filterCards(
     if (q && !haystack.includes(q)) return false;
 
     if (options.quickFilter === 'unacked') {
-      return card.column_id === 'urgent' && card.card_acknowledgments.length === 0;
+      return isUnackedUrgentCard(card);
     }
     if (options.quickFilter === 'mine') {
       return cardMatchesMine(card, options.session);
@@ -200,10 +235,58 @@ export function parseDueAt(dateValue: string, timeValue: string): string | null 
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
+function compareCardOrder(a: Card, b: Card): number {
+  return a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at);
+}
+
+/** 진행중 칸: legacy urgent 칸 포함, 긴급 우선순위를 최상단 */
 export function sortCardsInColumn(cards: Card[], columnId: Card['column_id']): Card[] {
-  return cards
-    .filter((card) => card.column_id === columnId)
-    .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at));
+  if (columnId === 'progress') {
+    return cards
+      .filter((card) => card.column_id === 'progress' || card.column_id === 'urgent')
+      .sort((a, b) => {
+        const pa = a.priority === 'urgent' ? 0 : 1;
+        const pb = b.priority === 'urgent' ? 0 : 1;
+        if (pa !== pb) return pa - pb;
+        return compareCardOrder(a, b);
+      });
+  }
+  return cards.filter((card) => card.column_id === columnId).sort(compareCardOrder);
+}
+
+/** 드래그·이동 시 진행중 칸으로 정규화 */
+export function normalizeColumnId(columnId: ColumnId): ColumnId {
+  return columnId === 'urgent' ? 'progress' : columnId;
+}
+
+export function buildProjectListSections(cards: Card[]): ProjectListSection[] {
+  const unacked = cards.filter(isUnackedUrgentCard);
+  const unackedIds = new Set(unacked.map((card) => card.id));
+  const progressCards = sortCardsInColumn(
+    cards.filter(
+      (card) =>
+        !isArchivedCard(card) &&
+        !unackedIds.has(card.id) &&
+        (card.column_id === 'progress' || card.column_id === 'urgent'),
+    ),
+    'progress',
+  );
+  const doneCards = sortCardsInColumn(
+    cards.filter((card) => !isArchivedCard(card) && card.column_id === 'done'),
+    'done',
+  );
+  const archivedCards = cards.filter(isArchivedCard);
+
+  const sections: ProjectListSection[] = [];
+  if (unacked.length) {
+    sections.push({ id: 'unacked', title: '미확인 긴급', cards: unacked });
+  }
+  sections.push({ id: 'progress', title: '진행중', cards: progressCards });
+  sections.push({ id: 'done', title: '완료', cards: doneCards });
+  if (archivedCards.length) {
+    sections.push({ id: 'archived', title: '완료 보관', cards: archivedCards });
+  }
+  return sections;
 }
 
 export function groupCardsByRoom(cards: Card[]): Map<string, Card[]> {

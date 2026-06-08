@@ -41,6 +41,9 @@ export type StatsData = {
   summary: StatsSummary;
   handoversByShift: ShiftCount[];
   handoversByDay: DayCount[];
+  urgentAcksByShift: ShiftCount[];
+  amenityOutboundByShift: ShiftCount[];
+  hkEbByDay: DayCount[];
   amenityByItem: AmenityItemUsage[];
   amenityByDay: AmenityDayUsage[];
 };

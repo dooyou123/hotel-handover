@@ -1,4 +1,5 @@
 import { COLUMN_LABELS } from '@/lib/handover/constants';
+import { isActiveCard, isUnackedUrgentCard, isUrgentPriorityCard } from '@/lib/handover/card-utils';
 import type { ActivityLog, Card, Notice } from '@/lib/handover/types';
 
 export function isToday(value: string): boolean {
@@ -35,11 +36,9 @@ export type ShiftSummaryData = {
 
 export function buildShiftSummaryData(cards: Card[], notices: Notice[]): ShiftSummaryData {
   const todayCards = cards.filter((card) => isToday(card.created_at) || isToday(card.updated_at));
-  const unackedUrgent = cards.filter(
-    (card) => card.column_id === 'urgent' && card.card_acknowledgments.length === 0,
-  );
-  const urgentActive = cards.filter((card) => card.column_id === 'urgent');
-  const progressActive = cards.filter((card) => card.column_id === 'progress');
+  const unackedUrgent = cards.filter(isUnackedUrgentCard);
+  const urgentActive = cards.filter(isUrgentPriorityCard);
+  const progressActive = cards.filter((card) => isActiveCard(card) && card.priority !== 'urgent');
   const doneToday = todayCards.filter((card) => card.column_id === 'done');
   const todayActive = todayCards.filter((card) => card.column_id !== 'done');
   const announcements = notices.filter((notice) => notice.type === 'announcement');

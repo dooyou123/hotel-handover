@@ -1,7 +1,7 @@
 export type ColumnId = 'urgent' | 'progress' | 'done';
 export type Priority = 'urgent' | 'today' | 'info';
 export type QuickFilter = 'all' | 'unacked' | 'mine' | 'roomclean' | string;
-export type HandoverViewMode = 'board' | 'room';
+export type HandoverViewMode = 'today' | 'board' | 'room';
 
 export type CardAcknowledgment = {
   id: string;
@@ -46,6 +46,8 @@ export type Card = {
   assignee_name: string;
   due_at: string | null;
   sort_order: number;
+  archived_at: string | null;
+  linked_todo_id: string | null;
   created_at: string;
   updated_at: string;
   card_acknowledgments: CardAcknowledgment[];

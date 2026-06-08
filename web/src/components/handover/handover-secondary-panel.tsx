@@ -4,10 +4,9 @@ import { useState, type ReactNode } from 'react';
 
 type HandoverSecondaryPanelProps = {
   children: ReactNode;
-  noticeCount: number;
 };
 
-export function HandoverSecondaryPanel({ children, noticeCount }: HandoverSecondaryPanelProps) {
+export function HandoverSecondaryPanel({ children }: HandoverSecondaryPanelProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -18,10 +17,7 @@ export function HandoverSecondaryPanel({ children, noticeCount }: HandoverSecond
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
       >
-        <span className="handover-secondary__label">오늘 근무 · 연락처 · 공지</span>
-        {noticeCount > 0 ? (
-          <span className="handover-secondary__badge">공지 {noticeCount}건</span>
-        ) : null}
+        <span className="handover-secondary__label">오늘 근무 · 연락처</span>
         <span className="handover-secondary__chevron" aria-hidden>
           {open ? '▲' : '▼'}
         </span>

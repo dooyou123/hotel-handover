@@ -96,7 +96,7 @@ export function LoginForm({ redirectTo = '/handover' }: LoginFormProps) {
 
       {error ? <p className="login-form__error">{error}</p> : null}
 
-      <button type="submit" disabled={loading} className="btn btn--add login-form__submit">
+      <button type="submit" disabled={loading} className="btn btn--primary login-form__submit">
         {loading ? '로그인 중…' : '로그인'}
       </button>
 

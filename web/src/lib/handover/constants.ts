@@ -1,5 +1,6 @@
 import type { ColumnId, Priority } from '@/lib/handover/types';
 
+/** 칸반에 표시하는 칸 (긴급은 우선순위로 진행중 상단에 표시) */
 export const HANDOVER_COLUMNS: {
   id: ColumnId;
   title: string;
@@ -7,24 +8,21 @@ export const HANDOVER_COLUMNS: {
   columnClass: string;
 }[] = [
   {
-    id: 'urgent',
-    title: '🔴 긴급',
-    hint: '다음 교대가 반드시 확인·처리',
-    columnClass: 'column--urgent',
-  },
-  {
     id: 'progress',
     title: '🟡 진행중',
-    hint: '처리 중이거나 오늘 중 마무리',
+    hint: '긴급 우선순위가 맨 위 · 처리 중 업무',
     columnClass: 'column--progress',
   },
   {
     id: 'done',
     title: '✅ 완료',
-    hint: '처리 완료 — 교대 끝나면 비우기',
+    hint: '처리 완료 — 교대 끝나면 보관',
     columnClass: 'column--done',
   },
 ];
+
+/** 카드 편집 시 선택 가능한 칸 */
+export const CARD_COLUMN_OPTIONS = HANDOVER_COLUMNS;
 
 export const PRIORITY_LABELS: Record<Priority, string> = {
   urgent: '🔴 긴급',

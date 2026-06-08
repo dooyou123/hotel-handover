@@ -1,18 +1,15 @@
 'use client';
 
+import Link from 'next/link';
 import { formatExpiryLabel } from '@/lib/handover/shift-summary';
+import { noticeTypeShort } from '@/lib/handover/notice-utils';
 import type { Notice } from '@/lib/handover/types';
 
 type PinnedNoticesStripProps = {
   notices: Notice[];
-  onOpen: (notice: Notice) => void;
 };
 
-function noticeTypeLabel(type: Notice['type']): string {
-  return type === 'announcement' ? '공지' : '변경';
-}
-
-export function PinnedNoticesStrip({ notices, onOpen }: PinnedNoticesStripProps) {
+export function PinnedNoticesStrip({ notices }: PinnedNoticesStripProps) {
   const pinned = notices.filter((notice) => notice.is_pinned);
   if (!pinned.length) return null;
 
@@ -21,14 +18,13 @@ export function PinnedNoticesStrip({ notices, onOpen }: PinnedNoticesStripProps)
       {pinned.map((notice) => {
         const expiry = formatExpiryLabel(notice.expires_at);
         return (
-          <button
+          <Link
             key={notice.id}
-            type="button"
+            href={`/notices?channel=${notice.type}&id=${notice.id}`}
             className={`pinned-notices-strip__item pinned-notices-strip__item--${notice.type}`}
-            onClick={() => onOpen(notice)}
           >
-            <span className="pinned-notices-strip__tag">📌 {noticeTypeLabel(notice.type)}</span>
-            <span className="pinned-notices-strip__text">{notice.content}</span>
+            <span className="pinned-notices-strip__tag">📌 {noticeTypeShort(notice.type)}</span>
+            <span className="pinned-notices-strip__text">{notice.content.split('\n')[0]}</span>
             {expiry ? (
               <span
                 className={`pinned-notices-strip__expiry${expiry.soon ? ' pinned-notices-strip__expiry--soon' : ''}`}
@@ -36,9 +32,12 @@ export function PinnedNoticesStrip({ notices, onOpen }: PinnedNoticesStripProps)
                 {expiry.text}
               </span>
             ) : null}
-          </button>
+          </Link>
         );
       })}
+      <Link href="/notices" className="pinned-notices-strip__more">
+        게시판 전체 →
+      </Link>
     </section>
   );
 }

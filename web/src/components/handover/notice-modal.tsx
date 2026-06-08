@@ -61,14 +61,7 @@ export function NoticeModal({
 
   if (!open) return null;
 
-  const title =
-    notice?.type === 'change' || defaultType === 'change'
-      ? notice
-        ? '업무 변경 수정'
-        : '업무 변경 추가'
-      : notice
-        ? '업무 공지 수정'
-        : '업무 공지 추가';
+  const title = notice ? '글 수정' : '글쓰기';
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -121,13 +114,24 @@ export function NoticeModal({
           </div>
 
           <div className="form-grid">
+            <label className="field">
+              <span>분류</span>
+              <select
+                value={form.type}
+                onChange={(event) => setForm({ ...form, type: event.target.value as Notice['type'] })}
+              >
+                <option value="announcement">업무 공지</option>
+                <option value="change">업무 변경</option>
+              </select>
+            </label>
+
             <label className="field field--full">
               <span>내용 *</span>
               <textarea
-                rows={4}
+                rows={6}
                 value={form.content}
                 onChange={(event) => setForm({ ...form, content: event.target.value })}
-                placeholder="공지 또는 변경 내용"
+                placeholder={'첫 줄이 목록 제목으로 보입니다.\n\n예) 엘리베이터 3호기 점검 안내\n3월 10일 14:00~16:00 동측 엘리베이터 점검 예정입니다.'}
               />
             </label>
 

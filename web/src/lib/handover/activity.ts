@@ -40,4 +40,6 @@ export const ACTION_LABELS: Record<string, string> = {
   delete: '삭제',
   move: '이동',
   clear_done: '완료칸 비우기',
+  archive_done: '완료 보관',
+  restore_archive: '보관 복원',
 };

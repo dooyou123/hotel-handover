@@ -34,9 +34,11 @@ export const FEEDBACK_STATUS_LABELS: Record<string, string> = {
 
 export const APP_NAV = [
   { href: '/handover', label: '인수인계' },
+  { href: '/notices', label: '게시판' },
   { href: '/contacts', label: '연락처' },
   { href: '/checklist', label: '체크리스트' },
-  { href: '/schedule', label: '스케줄' },
+  { href: '/schedule', label: '일정' },
+  { href: '/todos', label: '할일' },
   { href: '/housekeeping', label: '하우스키핑' },
   { href: '/amenity', label: '어메니티' },
   { href: '/reviews', label: '리뷰' },

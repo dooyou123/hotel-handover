@@ -7,7 +7,6 @@ import {
   type AmenityTransactionType,
   type InventoryItem,
 } from '@/lib/amenity/types';
-import { formatAmenityPackHint } from '@/lib/amenity/ui';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 
 interface TransactionEditModalProps {
@@ -19,7 +18,7 @@ interface TransactionEditModalProps {
   onSave: (input: {
     type: AmenityTransactionType;
     amenityId: number;
-    boxCount: number;
+    quantity: number;
     memo: string;
   }) => Promise<void>;
   onDelete: () => Promise<void>;
@@ -36,7 +35,7 @@ export function AmenityTransactionEditModal({
 }: TransactionEditModalProps) {
   const [type, setType] = useState<AmenityTransactionType>('출고');
   const [amenityId, setAmenityId] = useState<number | null>(null);
-  const [boxCount, setBoxCount] = useState(1);
+  const [quantityText, setQuantityText] = useState('1');
   const [memo, setMemo] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -47,28 +46,28 @@ export function AmenityTransactionEditModal({
     if (!open || !transaction) return;
     setType(transaction.type);
     setAmenityId(transaction.amenity_id);
-    setBoxCount(transaction.box_count);
+    setQuantityText(String(transaction.total_items));
     setMemo(transaction.memo);
     setError(null);
   }, [open, transaction]);
 
   if (!open || !transaction) return null;
 
-  const selected = items.find((item) => item.id === amenityId);
-  const totalItems = selected ? boxCount * selected.unit_size : 0;
+  const quantity = Number.parseInt(quantityText.trim(), 10);
+  const validQuantity = Number.isFinite(quantity) && quantity >= 1 ? quantity : 0;
   const effectiveStock =
     amenityId != null ? getEffectiveStockForEdit(items, transaction, amenityId) : 0;
-  const isStockInsufficient = type === '출고' && totalItems > effectiveStock;
+  const isStockInsufficient = type === '출고' && validQuantity > effectiveStock;
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!amenityId || boxCount < 1) {
-      setError('어메니티와 소박스 수를 확인해 주세요.');
+    if (!amenityId || validQuantity < 1) {
+      setError('품목과 수량을 확인해 주세요.');
       return;
     }
     if (isStockInsufficient) {
       setError(
-        `재고가 부족합니다. 수정 가능 ${effectiveStock.toLocaleString()}개, 요청 ${totalItems.toLocaleString()}개`,
+        `재고가 부족합니다. 수정 가능 ${effectiveStock.toLocaleString()}개, 요청 ${validQuantity.toLocaleString()}개`,
       );
       return;
     }
@@ -76,7 +75,7 @@ export function AmenityTransactionEditModal({
     setSaving(true);
     setError(null);
     try {
-      await onSave({ type, amenityId, boxCount, memo });
+      await onSave({ type, amenityId, quantity: validQuantity, memo });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : '저장에 실패했습니다.');
@@ -90,7 +89,7 @@ export function AmenityTransactionEditModal({
     const label = transaction.amenities?.name ?? '거래';
     const ok = await confirm({
       title: '거래 내역 삭제',
-      message: `${label} · ${transaction.type} · 소박스 ${transaction.box_count} (${transaction.total_items.toLocaleString()}개)`,
+      message: `${label} · ${transaction.type} · ${transaction.total_items.toLocaleString()}개`,
       detail: '삭제하면 재고가 되돌려집니다.',
       tone: 'danger',
       confirmLabel: '삭제',
@@ -141,7 +140,7 @@ export function AmenityTransactionEditModal({
           </div>
 
           <label className="field" style={{ marginTop: '1rem' }}>
-            <span>어메니티</span>
+            <span>품목</span>
             <select value={amenityId ?? ''} onChange={(e) => setAmenityId(Number(e.target.value))}>
               {items.map((item) => (
                 <option key={item.id} value={item.id}>
@@ -151,49 +150,31 @@ export function AmenityTransactionEditModal({
             </select>
           </label>
 
-          {selected ? (
-            <p className="amenity-card__unit-hint" style={{ marginTop: '0.35rem' }}>
-              {formatAmenityPackHint(selected.box_size, selected.unit_size)}
-            </p>
-          ) : null}
-
           <label className="field">
-            <span>소박스 수</span>
-            <div className="amenity-box-stepper">
-              <button type="button" onClick={() => setBoxCount((n) => Math.max(1, n - 1))} aria-label="소박스 수 줄이기">
-                −
-              </button>
-              <input
-                type="number"
-                min={1}
-                value={boxCount}
-                onChange={(e) => setBoxCount(Math.max(1, Number(e.target.value)))}
-              />
-              <button type="button" onClick={() => setBoxCount((n) => n + 1)} aria-label="소박스 수 늘리기">
-                +
-              </button>
-            </div>
+            <span>수량 (개)</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              className="amenity-qty-input"
+              value={quantityText}
+              onChange={(e) => setQuantityText(e.target.value.replace(/[^\d]/g, ''))}
+              onBlur={() => {
+                const parsed = Number.parseInt(quantityText.trim(), 10);
+                if (!Number.isFinite(parsed) || parsed < 1) setQuantityText('1');
+              }}
+              placeholder="숫자 입력"
+            />
           </label>
 
-          <div className="amenity-qty-preview" style={{ marginTop: '0.85rem' }}>
-            <div className="amenity-qty-preview__label">
-              <span>반영 수량 (총개수)</span>
-              {selected ? <span>1소박스 = {selected.unit_size.toLocaleString()}개</span> : null}
-            </div>
-            <p className="amenity-qty-preview__value">
-              {totalItems.toLocaleString()}
-              <span>개</span>
-            </p>
-          </div>
-
           {type === '출고' ? (
-            <p className="amenity-qty-preview__label" style={{ marginTop: '0.5rem' }}>
+            <p className="amenity-edit-hint">
               수정 가능 재고: {effectiveStock.toLocaleString()}개 · 작성자: {author || transaction.author}
             </p>
           ) : null}
 
           {isStockInsufficient ? (
-            <p className="amenity-alert" style={{ marginTop: '0.75rem' }}>
+            <p className="amenity-alert">
               출고 수량이 수정 가능 재고({effectiveStock.toLocaleString()}개)를 초과합니다.
             </p>
           ) : null}

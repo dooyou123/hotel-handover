@@ -2,6 +2,7 @@
 
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { isArchivedCard } from '@/lib/handover/card-utils';
 import type { Card, ColumnId } from '@/lib/handover/types';
 import { CardItem } from './card-item';
 
@@ -28,7 +29,7 @@ export function SortableCardItem({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: card.id });
+  } = useSortable({ id: card.id, disabled: isArchivedCard(card) });
 
   const style = {
     transform: CSS.Transform.toString(transform),

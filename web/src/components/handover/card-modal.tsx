@@ -1,10 +1,12 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { CATEGORY_OPTIONS, HANDOVER_COLUMNS, PRIORITY_LABELS } from '@/lib/handover/constants';
+import { CARD_COLUMN_OPTIONS, CATEGORY_OPTIONS, COLUMN_LABELS, PRIORITY_LABELS } from '@/lib/handover/constants';
 import { parseDueAt, toDateInputValue, toTimeInputValue } from '@/lib/handover/card-utils';
 import { SHIFTS } from '@/lib/constants';
 import type { Card, CardAttachment, CardInput, ColumnId, Priority } from '@/lib/handover/types';
+import type { Todo } from '@/lib/todos/types';
 import { formatTime } from '@/lib/handover/card-utils';
 import { useCardTemplates, type CardTemplate } from '@/lib/settings/use-settings';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -13,6 +15,7 @@ import { TemplateBar } from './template-bar';
 type CardModalProps = {
   open: boolean;
   card: Card | null;
+  linkedTodo?: Todo | null;
   authorLabel: string;
   defaultShift: string;
   defaultName: string;
@@ -24,11 +27,12 @@ type CardModalProps = {
   onAddComment?: (cardId: string, content: string) => Promise<void>;
   onUploadAttachment?: (cardId: string, file: File) => Promise<void>;
   onDeleteAttachment?: (attachment: CardAttachment) => Promise<void>;
+  onCreateTodo?: () => void | Promise<void>;
   requireSession?: (action: string) => boolean;
 };
 
 const emptyForm = (): CardInput => ({
-  column_id: 'urgent',
+  column_id: 'progress',
   priority: 'urgent',
   category: '기타',
   room: '',
@@ -45,6 +49,7 @@ const emptyForm = (): CardInput => ({
 export function CardModal({
   open,
   card,
+  linkedTodo,
   authorLabel,
   defaultShift,
   defaultName,
@@ -56,6 +61,7 @@ export function CardModal({
   onAddComment,
   onUploadAttachment,
   onDeleteAttachment,
+  onCreateTodo,
   requireSession,
 }: CardModalProps) {
   const [form, setForm] = useState<CardInput>(emptyForm);
@@ -275,238 +281,284 @@ export function CardModal({
 
   const panelTitle = card ? '인수인계 수정' : '새 인수인계';
 
-  const formFields = (
+  const statusFields = (
+    <div className="form-grid form-grid--compact">
+      <label className="field">
+        <span>우선순위</span>
+        <select
+          value={form.priority}
+          onChange={(event) => setForm({ ...form, priority: event.target.value as Priority })}
+        >
+          {Object.entries(PRIORITY_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="field">
+        <span>칸</span>
+        <select
+          value={form.column_id}
+          onChange={(event) => setForm({ ...form, column_id: event.target.value as ColumnId })}
+        >
+                {CARD_COLUMN_OPTIONS.map((column) => (
+            <option key={column.id} value={column.id}>
+              {column.title}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="field">
+        <span>카테고리</span>
+        <select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>
+          {CATEGORY_OPTIONS.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="field">
+        <span>객실</span>
+        <input
+          value={form.room}
+          onChange={(event) => setForm({ ...form, room: event.target.value })}
+          placeholder="예: 1205"
+        />
+      </label>
+    </div>
+  );
+
+  const contentFields = (
     <>
-          {!card ? <TemplateBar templates={templates} onApply={applyTemplate} /> : null}
+      <label className="field field--prominent">
+        <span>제목 *</span>
+        <input
+          required
+          className="field-input--title"
+          value={form.title}
+          onChange={(event) => setForm({ ...form, title: event.target.value })}
+        />
+      </label>
+      <label className="field">
+        <span>상세</span>
+        <textarea
+          rows={isDrawer ? 5 : 3}
+          className="field-textarea--body"
+          value={form.details}
+          onChange={(event) => setForm({ ...form, details: event.target.value })}
+          placeholder="상황·배경을 구체적으로 적어 주세요"
+        />
+      </label>
+      {form.column_id === 'done' ? (
+        <label className="field">
+          <span>처리 결과 *</span>
+          <textarea
+            rows={3}
+            value={form.resolution}
+            onChange={(event) => setForm({ ...form, resolution: event.target.value })}
+            placeholder="어떻게 처리했는지"
+          />
+        </label>
+      ) : null}
+      <label className="field">
+        <span>다음 조치</span>
+        <input
+          value={form.next_action}
+          onChange={(event) => setForm({ ...form, next_action: event.target.value })}
+          placeholder="다음 교대가 할 일"
+        />
+      </label>
+    </>
+  );
 
-          <div className="form-grid">
-            <label className="field">
-              <span>우선순위</span>
-              <select
-                value={form.priority}
-                onChange={(event) => setForm({ ...form, priority: event.target.value as Priority })}
-              >
-                {Object.entries(PRIORITY_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              <span>칸</span>
-              <select
-                value={form.column_id}
-                onChange={(event) => setForm({ ...form, column_id: event.target.value as ColumnId })}
-              >
-                {HANDOVER_COLUMNS.map((column) => (
-                  <option key={column.id} value={column.id}>
-                    {column.title}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field field--full">
-              <span>카테고리</span>
-              <select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>
-                {CATEGORY_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              <span>객실</span>
-              <input
-                value={form.room}
-                onChange={(event) => setForm({ ...form, room: event.target.value })}
-                placeholder="예: 1205"
-              />
-            </label>
-            <label className="field field--full">
-              <span>제목 *</span>
-              <input
-                required
-                value={form.title}
-                onChange={(event) => setForm({ ...form, title: event.target.value })}
-              />
-            </label>
-            <label className="field field--full">
-              <span>상세</span>
-              <textarea
-                rows={3}
-                value={form.details}
-                onChange={(event) => setForm({ ...form, details: event.target.value })}
-              />
-            </label>
-            {form.column_id === 'done' ? (
-              <label className="field field--full">
-                <span>처리 결과 *</span>
-                <textarea
-                  rows={2}
-                  value={form.resolution}
-                  onChange={(event) => setForm({ ...form, resolution: event.target.value })}
-                />
-              </label>
+  const assigneeFields = (
+    <div className="form-grid form-grid--compact">
+      <label className="field">
+        <span>담당 교대</span>
+        <select
+          value={form.assignee_shift}
+          onChange={(event) => setForm({ ...form, assignee_shift: event.target.value })}
+        >
+          <option value="">선택</option>
+          {SHIFTS.map((shift) => (
+            <option key={shift} value={shift}>
+              {shift}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="field">
+        <span>담당자</span>
+        <select
+          value={form.assignee_name}
+          onChange={(event) => setForm({ ...form, assignee_name: event.target.value })}
+        >
+          <option value="">선택</option>
+          {staffNames.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="field field--full">
+        <span>마감 (선택)</span>
+        <div className="form-grid form-grid--compact" style={{ marginTop: '0.35rem' }}>
+          <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+          <input type="time" value={dueTime} onChange={(event) => setDueTime(event.target.value)} />
+        </div>
+        <p className="card-extra__hint">날짜만 넣으면 23:59로 저장됩니다.</p>
+      </div>
+      <label className="field field--full">
+        <span>작성자</span>
+        <input value={form.author} onChange={(event) => setForm({ ...form, author: event.target.value })} />
+      </label>
+    </div>
+  );
+
+  const commentBlock = card ? (
+    <section className="drawer-section">
+      <h3 className="drawer-section__title">댓글</h3>
+      <p className="drawer-section__hint">본문 수정 없이 경과만 남깁니다</p>
+      {card.card_comments.length ? (
+        <div className="card-comment-list">
+          {[...card.card_comments]
+            .sort((a, b) => a.created_at.localeCompare(b.created_at))
+            .map((comment) => (
+              <div key={comment.id} className="card-comment">
+                <p className="card-comment__content">{comment.content}</p>
+                <p className="card-comment__meta">
+                  {comment.shift} · {comment.staff_name} · {formatTime(comment.created_at)}
+                </p>
+              </div>
+            ))}
+        </div>
+      ) : (
+        <p className="card-extra__empty">아직 댓글이 없습니다.</p>
+      )}
+      <div className="card-comment-form">
+        <input
+          value={commentInput}
+          onChange={(event) => setCommentInput(event.target.value)}
+          placeholder="예: 23:40 엔지니어링 도착"
+          onKeyDown={async (event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              await submitComment();
+            }
+          }}
+        />
+        <button type="button" disabled={commentLoading} onClick={submitComment} className="btn btn--ghost btn--small">
+          등록
+        </button>
+      </div>
+    </section>
+  ) : null;
+
+  const attachmentBlock = (
+    <section className="drawer-section">
+      <h3 className="drawer-section__title">사진 첨부</h3>
+      <p className="drawer-section__hint">최대 2장 · 2MB 이하</p>
+      <div className="card-attachments">
+        {card?.card_attachments.map((attachment) => (
+          <div key={attachment.id} className="card-attachment">
+            {attachment.url ? (
+              <a href={attachment.url} target="_blank" rel="noopener noreferrer">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={attachment.url} alt={attachment.filename} />
+              </a>
             ) : null}
-            <label className="field field--full">
-              <span>다음 조치</span>
-              <input
-                value={form.next_action}
-                onChange={(event) => setForm({ ...form, next_action: event.target.value })}
-              />
-            </label>
-            <label className="field">
-              <span>담당 교대</span>
-              <select
-                value={form.assignee_shift}
-                onChange={(event) => setForm({ ...form, assignee_shift: event.target.value })}
-              >
-                <option value="">선택</option>
-                {SHIFTS.map((shift) => (
-                  <option key={shift} value={shift}>
-                    {shift}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              <span>담당자</span>
-              <select
-                value={form.assignee_name}
-                onChange={(event) => setForm({ ...form, assignee_name: event.target.value })}
-              >
-                <option value="">선택</option>
-                {staffNames.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="field field--full">
-              <span>마감 (선택)</span>
-              <div className="form-grid" style={{ marginTop: '0.35rem' }}>
-                <input
-                  type="date"
-                  value={dueDate}
-                  onChange={(event) => setDueDate(event.target.value)}
-                />
-                <input
-                  type="time"
-                  value={dueTime}
-                  onChange={(event) => setDueTime(event.target.value)}
-                />
-              </div>
-              <p className="card-extra__hint">날짜만 넣으면 23:59로 저장됩니다.</p>
-            </div>
-          </div>
-
-          <div className="card-extra">
-            {card ? (
-              <div className="card-extra__block">
-                <div className="card-extra__header">
-                  <span>댓글</span>
-                  <span className="card-extra__hint">본문 수정 없이 경과만 남깁니다</span>
-                </div>
-                {card.card_comments.length ? (
-                  [...card.card_comments]
-                    .sort((a, b) => a.created_at.localeCompare(b.created_at))
-                    .map((comment) => (
-                      <div key={comment.id} className="card-comment">
-                        <p className="card-comment__content">{comment.content}</p>
-                        <p className="card-comment__meta">
-                          {comment.shift} · {comment.staff_name} · {formatTime(comment.created_at)}
-                        </p>
-                      </div>
-                    ))
-                ) : (
-                  <p className="card-extra__empty">아직 댓글이 없습니다.</p>
-                )}
-                <div className="card-comment-form">
-                  <input
-                    value={commentInput}
-                    onChange={(event) => setCommentInput(event.target.value)}
-                    placeholder="예: 23:40 엔지니어링 도착"
-                    onKeyDown={async (event) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault();
-                        await submitComment();
-                      }
-                    }}
-                  />
-                  <button type="button" disabled={commentLoading} onClick={submitComment} className="btn btn--ghost btn--small">
-                    등록
-                  </button>
-                </div>
-              </div>
+            {onDeleteAttachment ? (
+              <button type="button" onClick={() => onDeleteAttachment(attachment)} className="card-attachment__delete">
+                삭제
+              </button>
             ) : null}
-
-            <div className="card-extra__block">
-              <div className="card-extra__header">
-                <span>사진 첨부</span>
-                <span className="card-extra__hint">최대 2장 · 2MB 이하</span>
-              </div>
-              <div className="card-attachments">
-                {card?.card_attachments.map((attachment) => (
-                  <div key={attachment.id} className="card-attachment">
-                    {attachment.url ? (
-                      <a href={attachment.url} target="_blank" rel="noopener noreferrer">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={attachment.url} alt={attachment.filename} />
-                      </a>
-                    ) : null}
-                    {onDeleteAttachment ? (
-                      <button
-                        type="button"
-                        onClick={() => onDeleteAttachment(attachment)}
-                        className="card-attachment__delete"
-                      >
-                        삭제
-                      </button>
-                    ) : null}
-                  </div>
-                ))}
-                {pendingPreviewUrls.map((url, index) => (
-                  <div key={url} className="card-attachment">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt={pendingFiles[index]?.name ?? '첨부 예정'} />
-                    <button type="button" onClick={() => removePendingFile(index)} className="card-attachment__delete">
-                      제거
-                    </button>
-                  </div>
-                ))}
-              </div>
-              {canAddAttachment ? (
-                <label className="card-upload-btn">
-                  + 사진 추가
-                  <input
-                    type="file"
-                    accept="image/*"
-                    hidden
-                    disabled={attachmentLoading || saving}
-                    onChange={async (event) => {
-                      const file = event.target.files?.[0];
-                      event.target.value = '';
-                      if (!file) return;
-                      await handleAttachmentPick(file);
-                    }}
-                  />
-                </label>
-              ) : null}
-              {!card && pendingFiles.length > 0 ? (
-                <p className="card-extra__hint">저장하면 선택한 사진이 함께 등록됩니다.</p>
-              ) : null}
-            </div>
           </div>
+        ))}
+        {pendingPreviewUrls.map((url, index) => (
+          <div key={url} className="card-attachment">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={url} alt={pendingFiles[index]?.name ?? '첨부 예정'} />
+            <button type="button" onClick={() => removePendingFile(index)} className="card-attachment__delete">
+              제거
+            </button>
+          </div>
+        ))}
+      </div>
+      {canAddAttachment ? (
+        <label className="card-upload-btn">
+          + 사진 추가
+          <input
+            type="file"
+            accept="image/*"
+            hidden
+            disabled={attachmentLoading || saving}
+            onChange={async (event) => {
+              const file = event.target.files?.[0];
+              event.target.value = '';
+              if (!file) return;
+              await handleAttachmentPick(file);
+            }}
+          />
+        </label>
+      ) : null}
+      {!card && pendingFiles.length > 0 ? (
+        <p className="card-extra__hint">저장하면 선택한 사진이 함께 등록됩니다.</p>
+      ) : null}
+    </section>
+  );
 
-          <label className="field field--full">
-            <span>작성자</span>
-            <input value={form.author} onChange={(event) => setForm({ ...form, author: event.target.value })} />
-          </label>
+  const linkBlock = card ? (
+    <section className="drawer-section">
+      <h3 className="drawer-section__title">연동</h3>
+      {linkedTodo ? (
+        <p className="drawer-section__hint">
+          연결된 할일:{' '}
+          <Link href="/todos" className="drawer-link">
+            {linkedTodo.title}
+          </Link>
+        </p>
+      ) : onCreateTodo ? (
+        <button type="button" className="btn btn--ghost btn--small" onClick={() => void onCreateTodo()}>
+          할일로 등록
+        </button>
+      ) : null}
+    </section>
+  ) : null;
 
-          {error ? <p className="amenity-alert" style={{ marginTop: '0.75rem' }}>{error}</p> : null}
+  const drawerFormFields = (
+    <>
+      <section className="drawer-section">
+        <h3 className="drawer-section__title">상태</h3>
+        {statusFields}
+      </section>
+      <section className="drawer-section drawer-section--primary">
+        <h3 className="drawer-section__title">내용</h3>
+        {contentFields}
+      </section>
+      <section className="drawer-section">
+        <h3 className="drawer-section__title">담당 · 마감</h3>
+        {assigneeFields}
+      </section>
+      {commentBlock}
+      {attachmentBlock}
+      {linkBlock}
+      {error ? <p className="amenity-alert drawer-section__error">{error}</p> : null}
+    </>
+  );
+
+  const createFormFields = (
+    <>
+      <TemplateBar templates={templates} onApply={applyTemplate} />
+      {statusFields}
+      <div className="form-grid form-grid--stack">{contentFields}</div>
+      {assigneeFields}
+      <div className="card-extra">
+        <div className="card-extra__block">{attachmentBlock}</div>
+      </div>
+      {error ? <p className="amenity-alert" style={{ marginTop: '0.75rem' }}>{error}</p> : null}
     </>
   );
 
@@ -534,7 +586,7 @@ export function CardModal({
     return (
       <div className="drawer-overlay" onClick={onClose}>
         <aside
-          className="drawer-panel"
+          className="drawer-panel drawer-panel--card"
           onClick={(event) => event.stopPropagation()}
           role="dialog"
           aria-modal="true"
@@ -542,15 +594,22 @@ export function CardModal({
         >
           <form noValidate onSubmit={handleSubmit} className="drawer-panel__form">
             <div className="drawer-panel__header modal__header">
-              <div>
-                <h2 id="card-panel-title">{panelTitle}</h2>
-                {card?.room ? <p className="drawer-panel__subtitle">객실 {card.room}</p> : null}
+              <div className="drawer-panel__heading">
+                <div className="drawer-panel__chips">
+                  <span className="drawer-chip">{PRIORITY_LABELS[form.priority]}</span>
+                  <span className="drawer-chip">{COLUMN_LABELS[form.column_id]}</span>
+                  {form.room ? <span className="drawer-chip drawer-chip--room">객실 {form.room}</span> : null}
+                </div>
+                <h2 id="card-panel-title" className="drawer-panel__title">
+                  {form.title.trim() || '제목 없음'}
+                </h2>
+                <p className="drawer-panel__mode">{panelTitle}</p>
               </div>
               <button type="button" className="icon-btn" onClick={onClose} aria-label="닫기">
                 ✕
               </button>
             </div>
-            <div className="drawer-panel__body">{formFields}</div>
+            <div className="drawer-panel__body">{drawerFormFields}</div>
             {formFooter}
           </form>
         </aside>
@@ -568,7 +627,7 @@ export function CardModal({
               ✕
             </button>
           </div>
-          {formFields}
+          {createFormFields}
           {formFooter}
         </form>
       </div>

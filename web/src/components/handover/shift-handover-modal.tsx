@@ -10,6 +10,7 @@ import {
   getTodayLabel,
   isToday,
 } from '@/lib/handover/shift-summary';
+import { openShiftBriefWindow } from '@/lib/handover/open-shift-brief';
 import { fetchChecklistIncomplete, logShiftHandover } from '@/lib/handover/use-activity-logs';
 import type { ActivityLog, Card, Notice, ShiftHandoverType, WorkSession } from '@/lib/handover/types';
 
@@ -307,6 +308,11 @@ export function ShiftHandoverModal({
                 : '진행중·긴급 잔여 건은 다음 교대 인수 대상입니다.'}
             </p>
             <div className="modal__footer-right">
+              {mode === 'start' ? (
+                <button type="button" onClick={() => openShiftBriefWindow()} className="btn btn--outline">
+                  전용 화면으로 보기
+                </button>
+              ) : null}
               {onOpenExport ? (
                 <button type="button" onClick={onOpenExport} className="btn btn--ghost">
                   일일 요약 내보내기

@@ -20,6 +20,7 @@ export type GuestReview = {
   check_out_date: string | null;
   reservation_number: string;
   author: string;
+  follow_up_card_id: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;

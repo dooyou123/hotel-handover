@@ -11,7 +11,9 @@ import {
   formatElapsed,
   formatTime,
   getStaleLevel,
+  isArchivedCard,
   isCardOverdue,
+  isUrgentPriorityCard,
 } from '@/lib/handover/card-utils';
 import type { Card, ColumnId, Priority } from '@/lib/handover/types';
 import { CardMoveMenu } from './card-move-menu';
@@ -55,17 +57,19 @@ export function CardItem({
   onOpen,
   onAcknowledge,
 }: CardItemProps) {
-  const isUrgent = card.column_id === 'urgent';
+  const isUrgent = isUrgentPriorityCard(card);
   const acks = card.card_acknowledgments;
   const isUnacked = isUrgent && acks.length === 0;
   const stale = getStaleLevel(card);
   const hasKeyword = cardHasKeyword(card);
   const overdue = isCardOverdue(card);
+  const archived = isArchivedCard(card);
   const previewText = card.next_action?.trim() || card.details?.trim() || '';
 
   const cardClass = [
     'card',
     dragging ? 'is-dragging' : '',
+    archived ? 'card--archived' : '',
     isUnacked ? 'card--unacked' : '',
     hasKeyword ? 'card--keyword' : '',
     stale === 'mid' ? 'card--stale-mid' : '',
@@ -77,7 +81,7 @@ export function CardItem({
   return (
     <article className={cardClass}>
       <div className="card__shell">
-        {dragHandle ? (
+        {dragHandle && !archived ? (
           <button
             type="button"
             ref={dragHandle.setActivatorNodeRef}
@@ -100,6 +104,7 @@ export function CardItem({
         >
           <div className="card__header">
             <div className="card__tags">
+              {archived ? <span className="badge badge--archived">완료 보관</span> : null}
               <span className={priorityBadgeClass(card.priority)}>{PRIORITY_LABELS[card.priority]}</span>
               <span className="badge badge--category">{card.category}</span>
               {card.column_id !== 'done' ? (
@@ -124,18 +129,21 @@ export function CardItem({
             </p>
           ) : null}
 
-          <div className="card__badges">
-            {card.details.trim() && card.next_action?.trim() ? (
-              <span className="card__detail-badge">상세</span>
-            ) : null}
-            {card.card_comments.length > 0 ? (
-              <span className="card__detail-badge">댓글 {card.card_comments.length}</span>
-            ) : null}
-            {card.card_attachments.length > 0 ? (
-              <span className="card__detail-badge">📷 {card.card_attachments.length}</span>
-            ) : null}
-            {hasKeyword ? <span className="card__detail-badge card__detail-badge--alert">주의</span> : null}
-          </div>
+          {(card.details.trim() && card.next_action?.trim()) ||
+          card.card_comments.length > 0 ||
+          card.card_attachments.length > 0 ||
+          hasKeyword ? (
+            <div className="card__hints">
+              {card.details.trim() && card.next_action?.trim() ? <span className="card__hint">상세</span> : null}
+              {card.card_comments.length > 0 ? (
+                <span className="card__hint">댓글 {card.card_comments.length}</span>
+              ) : null}
+              {card.card_attachments.length > 0 ? (
+                <span className="card__hint">사진 {card.card_attachments.length}</span>
+              ) : null}
+              {hasKeyword ? <span className="card__hint card__hint--alert">주의</span> : null}
+            </div>
+          ) : null}
 
           {formatAssigneeLabel(card) ? (
             <p className="card__meta">
@@ -174,7 +182,7 @@ export function CardItem({
           </div>
         </div>
 
-        {onMoveToColumn ? <CardMoveMenu card={card} onMoveToColumn={onMoveToColumn} /> : null}
+        {onMoveToColumn && !archived ? <CardMoveMenu card={card} onMoveToColumn={onMoveToColumn} /> : null}
       </div>
 
       {isUrgent ? (
@@ -189,7 +197,7 @@ export function CardItem({
             </div>
           ) : null}
           <button type="button" onClick={onAcknowledge} className="card__ack-btn">
-            ✓ 긴급 확인
+            긴급 확인
           </button>
         </div>
       ) : null}
