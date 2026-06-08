@@ -19,12 +19,13 @@ import { KanbanColumn } from './kanban-column';
 
 type KanbanBoardProps = {
   cards: Card[];
+  searchQuery?: string;
   onMove: (cardId: string, columnId: ColumnId, orderedIds: string[]) => Promise<void>;
   onOpenCard: (card: Card) => void;
   onAcknowledge: (cardId: string) => void;
 };
 
-export function KanbanBoard({ cards, onMove, onOpenCard, onAcknowledge }: KanbanBoardProps) {
+export function KanbanBoard({ cards, searchQuery, onMove, onOpenCard, onAcknowledge }: KanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -88,6 +89,7 @@ export function KanbanBoard({ cards, onMove, onOpenCard, onAcknowledge }: Kanban
             key={column.id}
             column={column}
             cards={columns[column.id]}
+            searchQuery={searchQuery}
             onOpenCard={onOpenCard}
             onAcknowledge={onAcknowledge}
           />
@@ -95,7 +97,13 @@ export function KanbanBoard({ cards, onMove, onOpenCard, onAcknowledge }: Kanban
       </div>
       <DragOverlay dropAnimation={null}>
         {activeCard ? (
-          <CardItem card={activeCard} dragging onOpen={() => {}} onAcknowledge={() => {}} />
+          <CardItem
+            card={activeCard}
+            searchQuery={searchQuery}
+            dragging
+            onOpen={() => {}}
+            onAcknowledge={() => {}}
+          />
         ) : null}
       </DragOverlay>
     </DndContext>

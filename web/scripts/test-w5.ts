@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { splitTextBySearchQuery } from '@/lib/handover/card-utils';
 import { monthDateRange } from '@/lib/schedule/month-range';
 import { buildSummaryText, getExportFilename, hasSummaryContent } from '@/lib/handover/daily-summary';
 import { buildShiftSummaryData } from '@/lib/handover/shift-summary';
@@ -41,4 +42,13 @@ test('hasSummaryContent detects notices', () => {
 test('hasSummaryContent false when empty', () => {
   const data = buildShiftSummaryData([], []);
   assert.equal(hasSummaryContent(data, [] as ActivityLog[]), false);
+});
+
+test('splitTextBySearchQuery highlights matching segments', () => {
+  assert.deepEqual(splitTextBySearchQuery('1207 VIP 민원', 'vip'), [
+    { text: '1207 ', match: false },
+    { text: 'VIP', match: true },
+    { text: ' 민원', match: false },
+  ]);
+  assert.deepEqual(splitTextBySearchQuery('민원 처리', ''), [{ text: '민원 처리', match: false }]);
 });

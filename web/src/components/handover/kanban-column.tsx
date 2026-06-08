@@ -8,11 +8,12 @@ import { SortableCardItem } from './sortable-card-item';
 type KanbanColumnProps = {
   column: { id: ColumnId; title: string; hint: string; columnClass: string };
   cards: Card[];
+  searchQuery?: string;
   onOpenCard: (card: Card) => void;
   onAcknowledge: (cardId: string) => void;
 };
 
-export function KanbanColumn({ column, cards, onOpenCard, onAcknowledge }: KanbanColumnProps) {
+export function KanbanColumn({ column, cards, searchQuery, onOpenCard, onAcknowledge }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
   return (
@@ -28,6 +29,7 @@ export function KanbanColumn({ column, cards, onOpenCard, onAcknowledge }: Kanba
             <SortableCardItem
               key={card.id}
               card={card}
+              searchQuery={searchQuery}
               onOpen={() => onOpenCard(card)}
               onAcknowledge={() => onAcknowledge(card.id)}
             />

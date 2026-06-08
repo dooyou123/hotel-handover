@@ -11,9 +11,11 @@ import {
   isCardOverdue,
 } from '@/lib/handover/card-utils';
 import type { Card, Priority } from '@/lib/handover/types';
+import { SearchHighlight } from './search-highlight';
 
 type CardItemProps = {
   card: Card;
+  searchQuery?: string;
   dragging?: boolean;
   onOpen: () => void;
   onAcknowledge: () => void;
@@ -25,13 +27,20 @@ function priorityBadgeClass(priority: Priority): string {
   return 'badge badge--info';
 }
 
-export function CardItem({ card, dragging = false, onOpen, onAcknowledge }: CardItemProps) {
+export function CardItem({
+  card,
+  searchQuery = '',
+  dragging = false,
+  onOpen,
+  onAcknowledge,
+}: CardItemProps) {
   const isUrgent = card.column_id === 'urgent';
   const acks = card.card_acknowledgments;
   const isUnacked = isUrgent && acks.length === 0;
   const stale = getStaleLevel(card);
   const hasKeyword = cardHasKeyword(card);
   const overdue = isCardOverdue(card);
+  const previewText = card.next_action?.trim() || card.details?.trim() || '';
 
   const cardClass = [
     'card',
@@ -54,13 +63,30 @@ export function CardItem({ card, dragging = false, onOpen, onAcknowledge }: Card
             <span className="card__elapsed">{formatElapsed(card.updated_at || card.created_at)}</span>
           ) : null}
         </div>
-        {card.room ? <span className="card__room">{card.room}</span> : null}
+        {card.room ? (
+          <span className="card__room">
+            <SearchHighlight text={card.room} query={searchQuery} />
+          </span>
+        ) : null}
       </div>
 
-      <h4 className="card__title">{card.title}</h4>
+      <h4 className="card__title">
+        <SearchHighlight text={card.title} query={searchQuery} />
+      </h4>
+
+      {previewText && card.column_id !== 'done' ? (
+        <p className="card__preview">
+          {card.next_action?.trim() ? (
+            <span className="card__preview-label">다음</span>
+          ) : null}
+          <SearchHighlight text={previewText} query={searchQuery} />
+        </p>
+      ) : null}
 
       <div className="card__badges">
-        {card.details.trim() ? <span className="card__detail-badge">상세</span> : null}
+        {card.details.trim() && card.next_action?.trim() ? (
+          <span className="card__detail-badge">상세</span>
+        ) : null}
         {card.card_comments.length > 0 ? (
           <span className="card__detail-badge">댓글 {card.card_comments.length}</span>
         ) : null}
@@ -89,10 +115,12 @@ export function CardItem({ card, dragging = false, onOpen, onAcknowledge }: Card
         </div>
       ) : null}
 
-      {card.next_action ? (
-        <div className="card__action">
+      {card.column_id === 'done' && card.next_action ? (
+        <div className="card__action card__action--compact">
           <span className="card__action-label">다음</span>
-          <span>{card.next_action}</span>
+          <span className="card__action-text">
+            <SearchHighlight text={card.next_action} query={searchQuery} />
+          </span>
         </div>
       ) : null}
 

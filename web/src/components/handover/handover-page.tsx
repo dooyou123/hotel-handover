@@ -21,7 +21,6 @@ import type {
   ShiftHandoverType,
 } from '@/lib/handover/types';
 import { PinnedContactsBar } from '@/components/contacts/pinned-contacts-bar';
-import { useRegisterHeaderActions } from '@/components/layout/header-actions';
 import { useRegisterShiftHandlers } from '@/components/layout/session-bar-actions';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { TodayStaffBar } from '@/components/schedule/today-staff-bar';
@@ -34,6 +33,7 @@ import { NoticeModal } from './notice-modal';
 import { NoticePanel } from './notice-panel';
 import { RoomView } from './room-view';
 import { ShiftHandoverModal } from './shift-handover-modal';
+import { HandoverSecondaryPanel } from './handover-secondary-panel';
 import { SummaryBar } from './summary-bar';
 
 export function HandoverPage() {
@@ -60,7 +60,6 @@ export function HandoverPage() {
   const [viewMode, setViewMode] = useState<HandoverViewMode>('board');
   const [searchQuery, setSearchQuery] = useState('');
   const [quickFilter, setQuickFilter] = useState<QuickFilter>('all');
-  const [category, setCategory] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<Card | null>(null);
   const [noticeModalOpen, setNoticeModalOpen] = useState(false);
@@ -84,8 +83,8 @@ export function HandoverPage() {
   }, []);
 
   const visibleCards = useMemo(
-    () => filterCards(cards, { query: searchQuery, quickFilter, category, session }),
-    [cards, searchQuery, quickFilter, category, session],
+    () => filterCards(cards, { query: searchQuery, quickFilter, category: '', session }),
+    [cards, searchQuery, quickFilter, session],
   );
 
   const summaryData = useMemo(() => buildShiftSummaryData(visibleCards, notices), [visibleCards, notices]);
@@ -358,31 +357,6 @@ export function HandoverPage() {
     showToast('첨부가 삭제되었습니다.');
   }
 
-  const headerToolbar = useMemo(
-    () => (
-      <BoardToolbar
-        section="header"
-        viewMode={viewMode}
-        searchQuery={searchQuery}
-        quickFilter={quickFilter}
-        category={category}
-        doneCount={doneCount}
-        isManager={isManager}
-        onViewModeChange={setViewMode}
-        onSearchChange={setSearchQuery}
-        onQuickFilterChange={setQuickFilter}
-        onCategoryChange={setCategory}
-        onAdd={openCreateModal}
-        onClearDone={handleClearDone}
-        onExport={() => setExportModalOpen(true)}
-        onActivity={() => setActivityModalOpen(true)}
-      />
-    ),
-    [viewMode, searchQuery, quickFilter, category, doneCount, isManager, requireSession],
-  );
-
-  useRegisterHeaderActions(headerToolbar);
-
   if (isLoading) {
     return (
       <div className="empty-state">인수인계 보드를 불러오는 중…</div>
@@ -399,60 +373,64 @@ export function HandoverPage() {
 
   return (
     <>
-      <TodayStaffBar />
-      <PinnedContactsBar />
+      <div className="handover-workspace">
+        <div className="handover-workspace__sticky">
+          <SummaryBar data={summaryData} totalCount={visibleCards.length} />
+          <BoardToolbar
+            viewMode={viewMode}
+            searchQuery={searchQuery}
+            quickFilter={quickFilter}
+            doneCount={doneCount}
+            isManager={isManager}
+            onViewModeChange={setViewMode}
+            onSearchChange={setSearchQuery}
+            onQuickFilterChange={setQuickFilter}
+            onAdd={openCreateModal}
+            onClearDone={handleClearDone}
+            onExport={() => setExportModalOpen(true)}
+            onActivity={() => setActivityModalOpen(true)}
+          />
+        </div>
 
-      <section className="notices">
-        <NoticePanel
-          type="announcement"
-          title="📢 업무 공지"
-          hint="전체 공지 · 안내 사항"
-          notices={filterNoticesByType(notices, 'announcement')}
-          onAdd={() => openNoticeCreate('announcement')}
-          onOpen={openNoticeEdit}
-          onTogglePin={handleTogglePin}
-        />
-        <NoticePanel
-          type="change"
-          title="🔄 업무 변경"
-          hint="운영·절차 변경 사항"
-          notices={filterNoticesByType(notices, 'change')}
-          onAdd={() => openNoticeCreate('change')}
-          onOpen={openNoticeEdit}
-          onTogglePin={handleTogglePin}
-        />
-      </section>
+        <div className="handover-workspace__board">
+          {viewMode === 'board' ? (
+            <KanbanBoard
+              cards={visibleCards}
+              searchQuery={searchQuery}
+              onMove={handleMove}
+              onOpenCard={openEditModal}
+              onAcknowledge={handleAcknowledge}
+            />
+          ) : (
+            <RoomView cards={visibleCards} onOpenCard={openEditModal} />
+          )}
+        </div>
+      </div>
 
-      <SummaryBar data={summaryData} totalCount={visibleCards.length} />
-
-      <BoardToolbar
-        section="filters"
-        viewMode={viewMode}
-        searchQuery={searchQuery}
-        quickFilter={quickFilter}
-        category={category}
-        doneCount={doneCount}
-        isManager={isManager}
-        onViewModeChange={setViewMode}
-        onSearchChange={setSearchQuery}
-        onQuickFilterChange={setQuickFilter}
-        onCategoryChange={setCategory}
-        onAdd={openCreateModal}
-        onClearDone={handleClearDone}
-        onExport={() => setExportModalOpen(true)}
-        onActivity={() => setActivityModalOpen(true)}
-      />
-
-      {viewMode === 'board' ? (
-        <KanbanBoard
-          cards={visibleCards}
-          onMove={handleMove}
-          onOpenCard={openEditModal}
-          onAcknowledge={handleAcknowledge}
-        />
-      ) : (
-        <RoomView cards={visibleCards} onOpenCard={openEditModal} />
-      )}
+      <HandoverSecondaryPanel noticeCount={notices.length}>
+        <TodayStaffBar />
+        <PinnedContactsBar />
+        <section className="notices">
+          <NoticePanel
+            type="announcement"
+            title="📢 업무 공지"
+            hint="전체 공지 · 안내 사항"
+            notices={filterNoticesByType(notices, 'announcement')}
+            onAdd={() => openNoticeCreate('announcement')}
+            onOpen={openNoticeEdit}
+            onTogglePin={handleTogglePin}
+          />
+          <NoticePanel
+            type="change"
+            title="🔄 업무 변경"
+            hint="운영·절차 변경 사항"
+            notices={filterNoticesByType(notices, 'change')}
+            onAdd={() => openNoticeCreate('change')}
+            onOpen={openNoticeEdit}
+            onTogglePin={handleTogglePin}
+          />
+        </section>
+      </HandoverSecondaryPanel>
 
       <CardModal
         open={modalOpen}

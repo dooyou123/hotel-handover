@@ -7,11 +7,12 @@ import { CardItem } from './card-item';
 
 type SortableCardItemProps = {
   card: Card;
+  searchQuery?: string;
   onOpen: () => void;
   onAcknowledge: () => void;
 };
 
-export function SortableCardItem({ card, onOpen, onAcknowledge }: SortableCardItemProps) {
+export function SortableCardItem({ card, searchQuery, onOpen, onAcknowledge }: SortableCardItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: card.id,
   });
@@ -23,7 +24,13 @@ export function SortableCardItem({ card, onOpen, onAcknowledge }: SortableCardIt
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <CardItem card={card} dragging={isDragging} onOpen={onOpen} onAcknowledge={onAcknowledge} />
+      <CardItem
+        card={card}
+        searchQuery={searchQuery}
+        dragging={isDragging}
+        onOpen={onOpen}
+        onAcknowledge={onAcknowledge}
+      />
     </div>
   );
 }

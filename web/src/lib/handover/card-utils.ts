@@ -1,6 +1,35 @@
 import { HIGHLIGHT_KEYWORDS } from '@/lib/handover/constants';
 import type { Card, QuickFilter, WorkSession } from '@/lib/handover/types';
 
+export function splitTextBySearchQuery(
+  text: string,
+  query: string,
+): { text: string; match: boolean }[] {
+  const q = query.trim();
+  if (!q) return [{ text, match: false }];
+
+  const lower = text.toLowerCase();
+  const qLower = q.toLowerCase();
+  const parts: { text: string; match: boolean }[] = [];
+  let start = 0;
+  let index = lower.indexOf(qLower);
+
+  while (index !== -1) {
+    if (index > start) {
+      parts.push({ text: text.slice(start, index), match: false });
+    }
+    parts.push({ text: text.slice(index, index + q.length), match: true });
+    start = index + q.length;
+    index = lower.indexOf(qLower, start);
+  }
+
+  if (start < text.length) {
+    parts.push({ text: text.slice(start), match: false });
+  }
+
+  return parts.length ? parts : [{ text, match: false }];
+}
+
 export function normalizeRoomKey(room: string): string {
   const trimmed = room.trim();
   return trimmed || '미지정';
