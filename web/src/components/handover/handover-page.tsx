@@ -36,6 +36,7 @@ import { ShiftHandoverModal } from './shift-handover-modal';
 import { HandoverSecondaryPanel } from './handover-secondary-panel';
 import { PinnedNoticesStrip } from './pinned-notices-strip';
 import { SummaryBar } from './summary-bar';
+import { UnackedUrgentAlert } from './unacked-urgent-alert';
 
 export function HandoverPage() {
   const {
@@ -384,6 +385,14 @@ export function HandoverPage() {
             onFilterSelect={setQuickFilter}
           />
           <PinnedNoticesStrip notices={notices} onOpen={openNoticeEdit} />
+          <UnackedUrgentAlert
+            count={summaryData.unackedUrgent.length}
+            isFilterActive={quickFilter === 'unacked'}
+            onShowUnacked={() => {
+              setQuickFilter('unacked');
+              setViewMode('board');
+            }}
+          />
           <BoardToolbar
             viewMode={viewMode}
             searchQuery={searchQuery}
@@ -479,7 +488,7 @@ export function HandoverPage() {
         onClose={() => setShiftModalOpen(false)}
         onComplete={showToast}
         onHandoverComplete={(mode) => {
-          if (mode !== 'start') return;
+          if (mode !== 'start' || summaryData.unackedUrgent.length === 0) return;
           setQuickFilter('unacked');
           setViewMode('board');
           showToast('미확인 긴급 건부터 확인해 주세요.');

@@ -19,12 +19,12 @@ export function SummaryBar({ data, totalCount, activeFilter, onFilterSelect }: S
     warn: boolean;
     filter?: QuickFilter;
   }[] = [
-    { label: '🔴 긴급', count: data.urgentActive.length, warn: false, filter: 'all' },
+    { label: '🔴 긴급', count: data.urgentActive.length, warn: false },
     data.unackedUrgent.length > 0
       ? { label: '⚠️ 미확인 긴급', count: data.unackedUrgent.length, warn: true, filter: 'unacked' }
       : null,
-    { label: '🟡 진행중', count: data.progressActive.length, warn: false, filter: 'all' },
-    { label: '✅ 완료', count: doneCount, warn: false, filter: 'all' },
+    { label: '🟡 진행중', count: data.progressActive.length, warn: false },
+    { label: '✅ 완료', count: doneCount, warn: false },
     { label: '전체', count: totalCount, warn: false, filter: 'all' },
   ].filter(Boolean) as {
     label: string;
@@ -36,7 +36,7 @@ export function SummaryBar({ data, totalCount, activeFilter, onFilterSelect }: S
   return (
     <section className="summary" aria-label="업무 요약" aria-live="polite">
       {stats.map((stat) => {
-        const isInteractive = Boolean(onFilterSelect && stat.filter && stat.filter !== 'all');
+        const isInteractive = Boolean(onFilterSelect && stat.filter);
         const isActive = stat.filter && activeFilter === stat.filter;
 
         if (!isInteractive) {
