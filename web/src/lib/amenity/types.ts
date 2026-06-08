@@ -33,6 +33,7 @@ export interface InventoryItem extends Amenity {
   quantity: number;
   availableBoxes: number;
   fullBoxes: number;
+  smallBoxesPerLargeBox: number;
 }
 
 export function getEffectiveStockForEdit(
@@ -54,6 +55,8 @@ export function calcInventoryMetrics(amenity: Amenity, quantity: number) {
   return {
     availableBoxes: Math.floor(quantity / amenity.unit_size),
     fullBoxes: Math.floor(quantity / amenity.box_size),
+    smallBoxesPerLargeBox:
+      amenity.unit_size > 0 ? Math.floor(amenity.box_size / amenity.unit_size) : 0,
   };
 }
 

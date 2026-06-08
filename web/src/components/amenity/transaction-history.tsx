@@ -51,7 +51,7 @@ export function AmenityTransactionHistory({
                   <th>시간</th>
                   <th>구분</th>
                   <th>어메니티</th>
-                  <th>박스</th>
+                  <th>소박스</th>
                   <th>총개수</th>
                   <th>작성자</th>
                   <th>메모</th>
@@ -91,7 +91,7 @@ export function AmenityTransactionHistory({
                               const label = tx.amenities?.name ?? '거래';
                               if (
                                 !window.confirm(
-                                  `${label} ${tx.type} ${tx.box_count}박스 내역을 삭제할까요?\n재고가 되돌려집니다.`,
+                                  `${label} ${tx.type} 소박스 ${tx.box_count} (${tx.total_items}개) 내역을 삭제할까요?\n재고가 되돌려집니다.`,
                                 )
                               ) {
                                 return;

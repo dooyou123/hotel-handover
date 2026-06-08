@@ -20,6 +20,21 @@ export function getAmenityIcon(name: string) {
   return AMENITY_ICONS[name] ?? '📦';
 }
 
+export function getSmallBoxesPerLargeBox(boxSize: number, unitSize: number) {
+  if (unitSize <= 0) return 0;
+  return boxSize / unitSize;
+}
+
+/** GAS 스프레드시트와 동일: 1소박스=unitSize개, 대박스=boxSize개 */
+export function formatAmenityPackHint(boxSize: number, unitSize: number) {
+  const smallPerLarge = getSmallBoxesPerLargeBox(boxSize, unitSize);
+  const largeLabel =
+    smallPerLarge === 1
+      ? `대박스 ${boxSize.toLocaleString()}개`
+      : `대박스 ${boxSize.toLocaleString()}개(소박스 ${smallPerLarge}개)`;
+  return `1소박스=${unitSize.toLocaleString()}개 · ${largeLabel}`;
+}
+
 export function getStockStatus(quantity: number, boxSize: number) {
   if (quantity === 0) return 'empty' as const;
   const ratio = quantity / boxSize;

@@ -2,6 +2,7 @@
 
 import type { InventoryItem } from '@/lib/amenity/types';
 import {
+  formatAmenityPackHint,
   getAmenityIcon,
   getStockStatus,
   STOCK_BADGE_CLASS,
@@ -47,11 +48,16 @@ export function AmenityStatsBar({ items }: StatsBarProps) {
   );
 }
 
+export type AmenityQuickAction = 'out-small' | 'in-large' | 'custom';
+
 interface InventoryGridProps {
   items: InventoryItem[];
+  canTransact: boolean;
+  busyKey: string | null;
+  onQuickAction: (item: InventoryItem, action: AmenityQuickAction) => void;
 }
 
-export function AmenityInventoryGrid({ items }: InventoryGridProps) {
+export function AmenityInventoryGrid({ items, canTransact, busyKey, onQuickAction }: InventoryGridProps) {
   const sorted = [...items].sort((a, b) => {
     const order = { empty: 0, critical: 1, low: 2, ok: 3 };
     const sa = getStockStatus(a.quantity, a.box_size);
@@ -65,7 +71,7 @@ export function AmenityInventoryGrid({ items }: InventoryGridProps) {
       <div className="schedule-panel__header schedule-panel__header--split">
         <div>
           <h3>재고 현황</h3>
-          <p>품절·부족 품목이 상단에 표시됩니다</p>
+          <p>카드에서 소박스 1개 출고 · 품절·부족 품목이 상단에 표시됩니다</p>
         </div>
         <span className="shift-stat">
           <strong>{items.length}</strong>종
@@ -76,6 +82,9 @@ export function AmenityInventoryGrid({ items }: InventoryGridProps) {
         {sorted.map((item) => {
           const status = getStockStatus(item.quantity, item.box_size);
           const fillPercent = Math.min(100, Math.round((item.quantity / item.box_size) * 100));
+          const canOutSmall = item.quantity >= item.unit_size;
+          const outBusy = busyKey === `${item.id}-out-small`;
+          const inBusy = busyKey === `${item.id}-in-large`;
 
           return (
             <article key={item.id} className={`amenity-card ${STOCK_CARD_CLASS[status]}`.trim()}>
@@ -90,6 +99,8 @@ export function AmenityInventoryGrid({ items }: InventoryGridProps) {
                 <span>개</span>
               </p>
 
+              <p className="amenity-card__unit-hint">{formatAmenityPackHint(item.box_size, item.unit_size)}</p>
+
               <div className="amenity-card__meter">
                 <div
                   className={`amenity-card__meter-fill ${STOCK_METER_CLASS[status]}`}
@@ -99,14 +110,47 @@ export function AmenityInventoryGrid({ items }: InventoryGridProps) {
 
               <div className="amenity-card__meta">
                 <div>
-                  <span>비치 가능</span>
-                  <strong>{item.availableBoxes}박스</strong>
+                  <span>비치가능 소박스</span>
+                  <strong>{item.availableBoxes}</strong>
                 </div>
                 <div>
                   <span>대박스</span>
-                  <strong>{item.fullBoxes}박스</strong>
+                  <strong>{item.fullBoxes}</strong>
                 </div>
               </div>
+
+              {canTransact ? (
+                <div className="amenity-card__actions">
+                  <button
+                    type="button"
+                    className="btn btn--danger btn--small amenity-card__action-main"
+                    disabled={!canOutSmall || outBusy || Boolean(busyKey && !outBusy)}
+                    onClick={() => onQuickAction(item, 'out-small')}
+                  >
+                    {outBusy
+                      ? '처리 중…'
+                      : `소박스 1 출고 (${item.unit_size.toLocaleString()}개)`}
+                  </button>
+                  <div className="amenity-card__actions-row">
+                    <button
+                      type="button"
+                      className="btn btn--ghost btn--small"
+                      disabled={inBusy || Boolean(busyKey && !inBusy)}
+                      onClick={() => onQuickAction(item, 'in-large')}
+                    >
+                      {inBusy ? '…' : `대박스 1 입고`}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn--ghost btn--small"
+                      disabled={Boolean(busyKey)}
+                      onClick={() => onQuickAction(item, 'custom')}
+                    >
+                      다른 수량
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </article>
           );
         })}
