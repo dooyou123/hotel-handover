@@ -83,6 +83,26 @@ export function CardModal({
     }));
   }
 
+  const isDrawer = Boolean(card);
+
+  useEffect(() => {
+    if (!open) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') onClose();
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open, onClose]);
+
+  useEffect(() => {
+    if (!open || !isDrawer) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open, isDrawer]);
+
   useEffect(() => {
     if (!open) return;
     if (card) {
@@ -253,17 +273,10 @@ export function CardModal({
     addPendingFile(file);
   }
 
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(event) => event.stopPropagation()}>
-        <form noValidate onSubmit={handleSubmit} className="modal__form">
-          <div className="modal__header">
-            <h2>{card ? '인수인계 수정' : '새 인수인계'}</h2>
-            <button type="button" className="icon-btn" onClick={onClose} aria-label="닫기">
-              ✕
-            </button>
-          </div>
+  const panelTitle = card ? '인수인계 수정' : '새 인수인계';
 
+  const formFields = (
+    <>
           {!card ? <TemplateBar templates={templates} onApply={applyTemplate} /> : null}
 
           <div className="form-grid">
@@ -494,24 +507,69 @@ export function CardModal({
           </label>
 
           {error ? <p className="amenity-alert" style={{ marginTop: '0.75rem' }}>{error}</p> : null}
+    </>
+  );
 
-          <div className="modal__footer">
-            <div className="modal__footer-left">
-              {card && isManager ? (
-                <button type="button" onClick={handleDelete} disabled={saving} className="btn btn--danger">
-                  삭제
-                </button>
-              ) : null}
-            </div>
-            <div className="modal__footer-right">
-              <button type="button" onClick={onClose} className="btn btn--ghost">
-                취소
+  const formFooter = (
+    <div className="modal__footer">
+      <div className="modal__footer-left">
+        {card && isManager ? (
+          <button type="button" onClick={handleDelete} disabled={saving} className="btn btn--danger">
+            삭제
+          </button>
+        ) : null}
+      </div>
+      <div className="modal__footer-right">
+        <button type="button" onClick={onClose} className="btn btn--ghost">
+          취소
+        </button>
+        <button type="submit" disabled={saving} className="btn btn--primary">
+          {saving ? '저장 중…' : '저장'}
+        </button>
+      </div>
+    </div>
+  );
+
+  if (isDrawer) {
+    return (
+      <div className="drawer-overlay" onClick={onClose}>
+        <aside
+          className="drawer-panel"
+          onClick={(event) => event.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="card-panel-title"
+        >
+          <form noValidate onSubmit={handleSubmit} className="drawer-panel__form">
+            <div className="drawer-panel__header modal__header">
+              <div>
+                <h2 id="card-panel-title">{panelTitle}</h2>
+                {card?.room ? <p className="drawer-panel__subtitle">객실 {card.room}</p> : null}
+              </div>
+              <button type="button" className="icon-btn" onClick={onClose} aria-label="닫기">
+                ✕
               </button>
-              <button type="submit" disabled={saving} className="btn btn--primary">
-                {saving ? '저장 중…' : '저장'}
-              </button>
             </div>
+            <div className="drawer-panel__body">{formFields}</div>
+            {formFooter}
+          </form>
+        </aside>
+      </div>
+    );
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(event) => event.stopPropagation()}>
+        <form noValidate onSubmit={handleSubmit} className="modal__form">
+          <div className="modal__header">
+            <h2 id="card-panel-title">{panelTitle}</h2>
+            <button type="button" className="icon-btn" onClick={onClose} aria-label="닫기">
+              ✕
+            </button>
           </div>
+          {formFields}
+          {formFooter}
         </form>
       </div>
     </div>
