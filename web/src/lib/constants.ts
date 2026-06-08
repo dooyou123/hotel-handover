@@ -39,6 +39,7 @@ export const APP_NAV = [
   { href: '/schedule', label: '스케줄' },
   { href: '/housekeeping', label: '하우스키핑' },
   { href: '/amenity', label: '어메니티' },
+  { href: '/reviews', label: '리뷰' },
   { href: '/stats', label: '통계' },
   { href: '/settings', label: '설정' },
 ] as const;
