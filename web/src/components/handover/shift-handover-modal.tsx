@@ -119,15 +119,15 @@ export function ShiftHandoverModal({
 
   useEffect(() => {
     if (!open || mode !== 'end' || !session.shift) return;
-    fetchChecklistIncomplete(session.shift).then(setChecklist);
-  }, [open, mode, session.shift]);
+    fetchChecklistIncomplete(session.shift, session.group).then(setChecklist);
+  }, [open, mode, session.shift, session.group]);
 
   if (!open) return null;
 
   const metaLine = `${getTodayLabel()} · ${authorLabel || '근무자 미선택'} · ${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}`;
 
   async function handleComplete() {
-    if (!session.shift || !session.name) return;
+    if (!session.shift || !session.group || !session.name) return;
     setSaving(true);
     try {
       await logShiftHandover({

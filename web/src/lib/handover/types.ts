@@ -113,5 +113,7 @@ export type CardInput = {
 
 export type WorkSession = {
   shift: string;
+  /** 근무 조 (A/B/C) */
+  group: string;
   name: string;
 };

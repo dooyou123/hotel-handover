@@ -38,6 +38,13 @@ npm install
 npm run dev
 ```
 
+로컬에서 PC가 매우 느려지거나 팬·기계음이 심하면:
+
+1. **`web/` 폴더에서만** 실행 (`cd web` 후 `npm run dev`)
+2. 기본 dev는 **webpack** 모드(메모리 부담 적음). Turbopack은 `npm run dev:turbo`
+3. 캐시 정리: `rm -rf .next` 후 다시 `npm run dev`
+4. Cursor 등 다른 무거운 앱과 동시에 쓰면 RAM 7GB대 노트북에서 스왑이 발생해 마우스까지 느려질 수 있음
+
 ### 4. Vercel 배포
 
 ```bash
@@ -47,7 +54,7 @@ npm run vercel:setup:prod
 
 상세: [`docs/rebuild/VERCEL-SETUP.md`](../docs/rebuild/VERCEL-SETUP.md)
 
-### 5. 매니저 권한 (필요 시)
+### 5. 관리자 권한 (필요 시)
 
 ```sql
 insert into public.profiles (id, hotel_id, display_name, role)

@@ -61,21 +61,32 @@ export async function logShiftHandover(input: {
   if (error) throw error;
 }
 
-export async function fetchChecklistIncomplete(shift: string): Promise<{ total: number; incomplete: number }> {
+export async function fetchChecklistIncomplete(
+  shift: string,
+  group: string,
+): Promise<{ total: number; incomplete: number }> {
   const supabase = createClient();
   const today = new Date().toISOString().slice(0, 10);
+  const scopes = group ? ['common', group] : ['common'];
 
   const { data: items } = await supabase
     .from('checklist_items')
     .select('id')
     .eq('hotel_id', DEFAULT_HOTEL_ID)
-    .eq('is_active', true);
+    .eq('is_active', true)
+    .in('work_group', scopes);
 
-  const { data: completions } = await supabase
+  let completionsQuery = supabase
     .from('checklist_completions')
     .select('item_id')
     .eq('work_date', today)
     .eq('shift', shift);
+
+  if (group) {
+    completionsQuery = completionsQuery.eq('work_group', group);
+  }
+
+  const { data: completions } = await completionsQuery;
 
   const completedIds = new Set((completions ?? []).map((row) => row.item_id));
   const total = items?.length ?? 0;

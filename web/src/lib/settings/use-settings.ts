@@ -16,6 +16,7 @@ export type ChecklistItemDef = {
   id: string;
   label: string;
   sort_order: number;
+  work_group: string;
 };
 
 export type CardTemplate = {
@@ -62,7 +63,7 @@ export function useChecklistDefinitions() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from('checklist_items')
-        .select('id, label, sort_order')
+        .select('id, label, sort_order, work_group')
         .eq('hotel_id', DEFAULT_HOTEL_ID)
         .eq('is_active', true)
         .order('sort_order');
@@ -115,7 +116,7 @@ export async function deactivateStaff(id: string) {
   if (error) throw error;
 }
 
-export async function createChecklistDefinition(label: string) {
+export async function createChecklistDefinition(label: string, workGroup: string = 'common') {
   const supabase = createClient();
   const { data: maxRow } = await supabase
     .from('checklist_items')
@@ -127,7 +128,7 @@ export async function createChecklistDefinition(label: string) {
   const sortOrder = (maxRow?.sort_order ?? -1) + 1;
   const { error } = await supabase
     .from('checklist_items')
-    .insert({ hotel_id: DEFAULT_HOTEL_ID, label, sort_order: sortOrder });
+    .insert({ hotel_id: DEFAULT_HOTEL_ID, label, sort_order: sortOrder, work_group: workGroup });
   if (error) throw error;
 }
 
@@ -167,4 +168,5 @@ export function invalidateSettingsQueries(queryClient: ReturnType<typeof useQuer
   queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
   queryClient.invalidateQueries({ queryKey: ['card-templates'] });
   queryClient.invalidateQueries({ queryKey: ['checklist'] });
+  queryClient.invalidateQueries({ queryKey: ['user-feedback'] });
 }

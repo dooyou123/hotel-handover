@@ -3,7 +3,7 @@ export const CONTACT_DEPARTMENTS = [
   '엔지니어링',
   '하우스키핑',
   'F&B',
-  '매니저',
+  '관리자',
   '보안',
   '응급',
   '업체',

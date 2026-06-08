@@ -23,6 +23,7 @@ import type {
 import { PinnedContactsBar } from '@/components/contacts/pinned-contacts-bar';
 import { useRegisterHeaderActions } from '@/components/layout/header-actions';
 import { useRegisterShiftHandlers } from '@/components/layout/session-bar-actions';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { TodayStaffBar } from '@/components/schedule/today-staff-bar';
 import { ExportSummaryModal } from './export-summary-modal';
 import { ActivityLogModal } from './activity-log-modal';
@@ -54,6 +55,7 @@ export function HandoverPage() {
   const { data: activityLogs = [], isLoading: activityLoading, refetch: refetchActivity } = useActivityLogs(80);
   const { data: isManager = false } = useIsManager();
   const { session, requireSession, authorLabel } = useWorkSession();
+  const { confirm } = useConfirmDialog();
 
   const [viewMode, setViewMode] = useState<HandoverViewMode>('board');
   const [searchQuery, setSearchQuery] = useState('');
@@ -241,7 +243,14 @@ export function HandoverPage() {
 
   async function handleClearDone() {
     if (!isManager) return;
-    if (!window.confirm(`완료 칸 ${doneCount}건을 모두 삭제합니다.`)) return;
+    const ok = await confirm({
+      title: '완료 칸 비우기',
+      message: `완료 칸 ${doneCount}건을 모두 삭제합니다.`,
+      detail: '삭제된 인수인계는 복구할 수 없습니다.',
+      tone: 'danger',
+      confirmLabel: '모두 삭제',
+    });
+    if (!ok) return;
     try {
       await clearDone.mutateAsync();
       await logActivity({
@@ -338,7 +347,13 @@ export function HandoverPage() {
   }
 
   async function handleDeleteAttachment(attachment: CardAttachment) {
-    if (!window.confirm('첨부 사진을 삭제합니다.')) return;
+    const ok = await confirm({
+      title: '첨부 삭제',
+      message: '첨부 사진을 삭제합니다.',
+      tone: 'danger',
+      confirmLabel: '삭제',
+    });
+    if (!ok) return;
     await deleteAttachment.mutateAsync(attachment);
     showToast('첨부가 삭제되었습니다.');
   }
@@ -363,7 +378,7 @@ export function HandoverPage() {
         onActivity={() => setActivityModalOpen(true)}
       />
     ),
-    [viewMode, searchQuery, quickFilter, category, doneCount, isManager],
+    [viewMode, searchQuery, quickFilter, category, doneCount, isManager, requireSession],
   );
 
   useRegisterHeaderActions(headerToolbar);

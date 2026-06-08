@@ -1,0 +1,46 @@
+export type StatsPeriod = 'week' | 'month';
+
+export type ShiftCount = {
+  shift: string;
+  count: number;
+};
+
+export type DayCount = {
+  date: string;
+  label: string;
+  count: number;
+};
+
+export type AmenityItemUsage = {
+  amenityId: number;
+  name: string;
+  totalItems: number;
+  transactionCount: number;
+};
+
+export type AmenityDayUsage = {
+  date: string;
+  label: string;
+  totalItems: number;
+};
+
+export type StatsSummary = {
+  totalHandovers: number;
+  urgentCount: number;
+  urgentResolvedCount: number;
+  urgentAvgMinutes: number | null;
+  amenityOutboundTotal: number;
+  amenityTransactionCount: number;
+};
+
+export type StatsData = {
+  period: StatsPeriod;
+  rangeLabel: string;
+  startDate: string;
+  endDate: string;
+  summary: StatsSummary;
+  handoversByShift: ShiftCount[];
+  handoversByDay: DayCount[];
+  amenityByItem: AmenityItemUsage[];
+  amenityByDay: AmenityDayUsage[];
+};

@@ -20,7 +20,7 @@ import type { InventoryItem } from '@/lib/amenity/types';
 export function AmenityPageClient() {
   const { session, authorLabel } = useWorkSession();
   const queryClient = useQueryClient();
-  const hasSession = Boolean(session.shift && session.name);
+  const hasSession = Boolean(session.shift && session.group && session.name);
 
   const [formPreset, setFormPreset] = useState<AmenityFormPreset | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -126,7 +126,7 @@ export function AmenityPageClient() {
 
       {!hasSession ? (
         <p className="empty-state" style={{ marginBottom: '1rem' }}>
-          상단 「지금 근무」에서 교대와 담당자를 선택하면 입고/출고를 등록할 수 있습니다.
+          상단 「지금 근무」에서 교대·조·담당자를 선택하면 입고/출고를 등록할 수 있습니다.
         </p>
       ) : null}
 

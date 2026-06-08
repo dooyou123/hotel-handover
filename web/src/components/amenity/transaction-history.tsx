@@ -6,6 +6,7 @@ import {
   deleteAmenityTransaction,
   updateAmenityTransaction,
 } from '@/lib/amenity/api';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { formatAmenityDateTime, type AmenityTransaction, type InventoryItem } from '@/lib/amenity/types';
 
 interface TransactionHistoryProps {
@@ -25,6 +26,7 @@ export function AmenityTransactionHistory({
 }: TransactionHistoryProps) {
   const [editing, setEditing] = useState<AmenityTransaction | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const { confirm, alert: showAlert } = useConfirmDialog();
 
   function showToast(message: string) {
     setToast(message);
@@ -89,19 +91,24 @@ export function AmenityTransactionHistory({
                             className="btn btn--ghost btn--small btn--danger-text"
                             onClick={async () => {
                               const label = tx.amenities?.name ?? '거래';
-                              if (
-                                !window.confirm(
-                                  `${label} ${tx.type} 소박스 ${tx.box_count} (${tx.total_items}개) 내역을 삭제할까요?\n재고가 되돌려집니다.`,
-                                )
-                              ) {
-                                return;
-                              }
+                              const ok = await confirm({
+                                title: '거래 내역 삭제',
+                                message: `${label} · ${tx.type} · 소박스 ${tx.box_count} (${tx.total_items.toLocaleString()}개)`,
+                                detail: '삭제하면 재고가 되돌려집니다.',
+                                tone: 'danger',
+                                confirmLabel: '삭제',
+                              });
+                              if (!ok) return;
                               try {
                                 await deleteAmenityTransaction({ transactionId: tx.id });
                                 showToast('거래 내역이 삭제되었습니다.');
                                 onSuccess();
                               } catch (err) {
-                                window.alert(err instanceof Error ? err.message : '삭제에 실패했습니다.');
+                                await showAlert({
+                                  title: '삭제 실패',
+                                  message: err instanceof Error ? err.message : '삭제에 실패했습니다.',
+                                  tone: 'danger',
+                                });
                               }
                             }}
                           >

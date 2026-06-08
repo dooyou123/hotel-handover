@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CONTACT_DEPARTMENTS, CONTACT_FORM_DEPARTMENTS, type Contact, type ContactInput } from '@/lib/contacts/types';
 import { useContacts } from '@/lib/contacts/use-contacts';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 
 type ContactModalProps = {
   open: boolean;
@@ -22,6 +23,7 @@ function ContactModal({ open, contact, onClose, onSave, onDelete }: ContactModal
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { confirm } = useConfirmDialog();
 
   useEffect(() => {
     if (!open) return;
@@ -135,7 +137,13 @@ function ContactModal({ open, contact, onClose, onSave, onDelete }: ContactModal
                   type="button"
                   className="btn btn--danger"
                   onClick={async () => {
-                    if (!window.confirm(`「${contact.name}」 연락처를 삭제할까요?`)) return;
+                    const ok = await confirm({
+                      title: '연락처 삭제',
+                      message: `「${contact.name}」 연락처를 삭제할까요?`,
+                      tone: 'danger',
+                      confirmLabel: '삭제',
+                    });
+                    if (!ok) return;
                     await onDelete(contact.id);
                     onClose();
                   }}

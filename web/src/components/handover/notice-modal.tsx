@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { SHIFTS } from '@/lib/constants';
 import type { Notice, NoticeInput, NoticeType } from '@/lib/handover/types';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 
 type NoticeModalProps = {
   open: boolean;
@@ -34,6 +35,7 @@ export function NoticeModal({
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { confirm } = useConfirmDialog();
 
   useEffect(() => {
     if (!open) return;
@@ -89,7 +91,13 @@ export function NoticeModal({
 
   async function handleDelete() {
     if (!notice || !isManager) return;
-    if (!window.confirm('이 공지를 삭제합니다.')) return;
+    const ok = await confirm({
+      title: notice.type === 'change' ? '업무 변경 삭제' : '업무 공지 삭제',
+      message: '이 공지를 삭제합니다.',
+      tone: 'danger',
+      confirmLabel: '삭제',
+    });
+    if (!ok) return;
     setSaving(true);
     try {
       await onDelete(notice.id);
@@ -132,7 +140,7 @@ export function NoticeModal({
                     {shift}
                   </option>
                 ))}
-                <option value="매니저">매니저</option>
+                <option value="관리자">관리자</option>
               </select>
             </label>
 

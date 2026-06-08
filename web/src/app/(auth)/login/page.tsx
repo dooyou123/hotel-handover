@@ -8,9 +8,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
 
   return (
-    <div className="app" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: '100%', maxWidth: '28rem' }}>
-        <div className="header__brand" style={{ justifyContent: 'center', marginBottom: '1.5rem' }}>
+    <div className="login-page">
+      <div className="login-page__inner">
+        <div className="login-page__brand header__brand">
           <span className="header__icon" aria-hidden>
             🏨
           </span>
@@ -20,9 +20,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           </div>
         </div>
 
-        <div className="schedule-panel">
+        <div className="schedule-panel login-page__panel">
           {params.error ? (
-            <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p className="login-form__error" style={{ marginBottom: '1rem' }}>
               로그인에 실패했습니다. 다시 시도해 주세요.
             </p>
           ) : null}

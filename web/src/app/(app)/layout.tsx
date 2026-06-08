@@ -2,8 +2,9 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { AppNav } from '@/components/layout/app-nav';
+import { AppHeaderActions } from '@/components/layout/app-header-actions';
+import { HeaderActionsProvider } from '@/components/layout/header-actions';
 import { SessionBar } from '@/components/layout/session-bar';
-import { HeaderActionsProvider, HeaderActionsSlot } from '@/components/layout/header-actions';
 import { SessionBarActionsProvider } from '@/components/layout/session-bar-actions';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -31,10 +32,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               </div>
             </div>
             <div className="header__actions">
-              <HeaderActionsSlot />
-              <Link href="/help" className="btn btn--ghost">
-                도움말
-              </Link>
+              <AppHeaderActions />
             </div>
           </header>
           <AppNav />

@@ -8,6 +8,7 @@ import {
   type InventoryItem,
 } from '@/lib/amenity/types';
 import { formatAmenityPackHint } from '@/lib/amenity/ui';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 
 interface TransactionEditModalProps {
   open: boolean;
@@ -40,6 +41,7 @@ export function AmenityTransactionEditModal({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { confirm } = useConfirmDialog();
 
   useEffect(() => {
     if (!open || !transaction) return;
@@ -86,9 +88,14 @@ export function AmenityTransactionEditModal({
   async function handleDelete() {
     if (!transaction) return;
     const label = transaction.amenities?.name ?? '거래';
-    if (!window.confirm(`${label} ${transaction.type} 소박스 ${transaction.box_count} (${transaction.total_items}개) 내역을 삭제할까요?\n재고가 되돌려집니다.`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: '거래 내역 삭제',
+      message: `${label} · ${transaction.type} · 소박스 ${transaction.box_count} (${transaction.total_items.toLocaleString()}개)`,
+      detail: '삭제하면 재고가 되돌려집니다.',
+      tone: 'danger',
+      confirmLabel: '삭제',
+    });
+    if (!ok) return;
 
     setDeleting(true);
     setError(null);

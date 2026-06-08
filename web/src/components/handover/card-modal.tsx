@@ -7,6 +7,7 @@ import { SHIFTS } from '@/lib/constants';
 import type { Card, CardAttachment, CardInput, ColumnId, Priority } from '@/lib/handover/types';
 import { formatTime } from '@/lib/handover/card-utils';
 import { useCardTemplates, type CardTemplate } from '@/lib/settings/use-settings';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { TemplateBar } from './template-bar';
 
 type CardModalProps = {
@@ -68,6 +69,7 @@ export function CardModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { data: templates = [] } = useCardTemplates();
+  const { confirm } = useConfirmDialog();
 
   function applyTemplate(template: CardTemplate) {
     setForm((prev) => ({
@@ -183,7 +185,14 @@ export function CardModal({
 
   async function handleDelete() {
     if (!card || !isManager) return;
-    if (!window.confirm('이 인수인계를 삭제합니다.')) return;
+    const ok = await confirm({
+      title: '인수인계 삭제',
+      message: '이 인수인계를 삭제합니다.',
+      detail: '삭제하면 복구할 수 없습니다.',
+      tone: 'danger',
+      confirmLabel: '삭제',
+    });
+    if (!ok) return;
     setSaving(true);
     try {
       await onDelete(card.id);

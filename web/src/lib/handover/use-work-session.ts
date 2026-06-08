@@ -1,11 +1,38 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { SESSION_STORAGE_KEY } from '@/lib/constants';
+import { SESSION_STORAGE_KEY, WORK_GROUPS } from '@/lib/constants';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import type { WorkSession } from '@/lib/handover/types';
 
+const EMPTY_SESSION: WorkSession = { shift: '', group: '', name: '' };
+
+function normalizeSession(raw: Partial<WorkSession>): WorkSession {
+  return {
+    shift: raw.shift || '',
+    group: raw.group || '',
+    name: raw.name || '',
+  };
+}
+
+/** SessionBar와 동일한 저장소에서 최신 근무 정보를 읽습니다. */
+export function readWorkSession(): WorkSession {
+  if (typeof window === 'undefined') return EMPTY_SESSION;
+  try {
+    const saved = JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY) || '{}');
+    return normalizeSession(saved);
+  } catch {
+    return EMPTY_SESSION;
+  }
+}
+
+function isSessionComplete(session: WorkSession) {
+  return Boolean(session.shift && session.group && session.name);
+}
+
 export function useWorkSession() {
-  const [session, setSession] = useState<WorkSession>({ shift: '', name: '' });
+  const { alert } = useConfirmDialog();
+  const [session, setSession] = useState<WorkSession>(EMPTY_SESSION);
   const [ready, setReady] = useState(false);
 
   const persistSession = useCallback((next: WorkSession) => {
@@ -16,12 +43,7 @@ export function useWorkSession() {
 
   useEffect(() => {
     function loadFromStorage() {
-      try {
-        const saved = JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY) || '{}');
-        setSession({ shift: saved.shift || '', name: saved.name || '' });
-      } catch {
-        setSession({ shift: '', name: '' });
-      }
+      setSession(readWorkSession());
     }
     loadFromStorage();
     setReady(true);
@@ -35,14 +57,30 @@ export function useWorkSession() {
 
   const requireSession = useCallback(
     (action: string): boolean => {
-      if (session.shift && session.name) return true;
-      window.alert(`교대와 담당자를 선택한 뒤 ${action}할 수 있습니다.`);
+      const current = readWorkSession();
+      if (isSessionComplete(current)) {
+        setSession((prev) =>
+          prev.shift === current.shift && prev.group === current.group && prev.name === current.name
+            ? prev
+            : current,
+        );
+        return true;
+      }
+      void alert({
+        title: '근무 정보 필요',
+        message: `교대·조·담당자를 선택한 뒤 ${action}할 수 있습니다.`,
+        tone: 'warning',
+      });
       return false;
     },
-    [session.shift, session.name],
+    [alert],
   );
 
-  const authorLabel = session.shift && session.name ? `${session.shift} · ${session.name}` : session.shift;
+  const authorLabel = isSessionComplete(session)
+    ? `${session.shift} · ${session.group}조 · ${session.name}`
+    : session.shift && session.name
+      ? `${session.shift} · ${session.name}`
+      : session.shift;
 
-  return { session, ready, requireSession, authorLabel, persistSession };
+  return { session, ready, requireSession, authorLabel, persistSession, workGroups: WORK_GROUPS };
 }

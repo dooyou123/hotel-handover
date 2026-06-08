@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { QueryProvider } from '@/components/providers/query-provider';
+import { ConfirmDialogProvider } from '@/components/ui/confirm-dialog';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -11,10 +12,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="ko">
       <head>
-        <link rel="stylesheet" href="/legacy-handover.css" />
+        <link rel="stylesheet" href="/handover.css" />
       </head>
       <body className="min-h-full antialiased">
-        <QueryProvider>{children}</QueryProvider>
+        <QueryProvider>
+          <ConfirmDialogProvider>{children}</ConfirmDialogProvider>
+        </QueryProvider>
       </body>
     </html>
   );

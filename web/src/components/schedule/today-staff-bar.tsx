@@ -13,7 +13,7 @@ function formatWorkDate(value: string): string {
 
 export function TodayStaffBar() {
   const { data } = useTodaySchedule();
-  const { persistSession } = useWorkSession();
+  const { persistSession, session } = useWorkSession();
 
   if (!data) return null;
 
@@ -52,7 +52,7 @@ export function TodayStaffBar() {
                       <button
                         key={name}
                         type="button"
-                        onClick={() => persistSession({ shift, name })}
+                        onClick={() => persistSession({ shift, group: session.group, name })}
                         className="today-staff-chip"
                       >
                         {name}
