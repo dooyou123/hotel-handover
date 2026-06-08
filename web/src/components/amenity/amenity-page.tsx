@@ -66,7 +66,13 @@ export function AmenityPageClient() {
       </div>
 
       <div style={{ marginTop: '1rem' }}>
-        <AmenityTransactionHistory transactions={transactions} />
+        <AmenityTransactionHistory
+          transactions={transactions}
+          items={items}
+          author={authorLabel || session.name}
+          canEdit={hasSession}
+          onSuccess={() => void refetch()}
+        />
       </div>
     </section>
   );

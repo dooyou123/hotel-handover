@@ -35,6 +35,21 @@ export interface InventoryItem extends Amenity {
   fullBoxes: number;
 }
 
+export function getEffectiveStockForEdit(
+  items: InventoryItem[],
+  editing: AmenityTransaction | null,
+  targetAmenityId: number,
+): number {
+  const target = items.find((item) => item.id === targetAmenityId);
+  if (!target) return 0;
+
+  let qty = target.quantity;
+  if (editing && editing.amenity_id === targetAmenityId) {
+    qty += editing.type === '출고' ? editing.total_items : -editing.total_items;
+  }
+  return qty;
+}
+
 export function calcInventoryMetrics(amenity: Amenity, quantity: number) {
   return {
     availableBoxes: Math.floor(quantity / amenity.unit_size),

@@ -21,6 +21,7 @@ import type {
   ShiftHandoverType,
 } from '@/lib/handover/types';
 import { PinnedContactsBar } from '@/components/contacts/pinned-contacts-bar';
+import { useRegisterHeaderActions } from '@/components/layout/header-actions';
 import { useRegisterShiftHandlers } from '@/components/layout/session-bar-actions';
 import { TodayStaffBar } from '@/components/schedule/today-staff-bar';
 import { ExportSummaryModal } from './export-summary-modal';
@@ -85,7 +86,7 @@ export function HandoverPage() {
     [cards, searchQuery, quickFilter, category, session],
   );
 
-  const summaryData = useMemo(() => buildShiftSummaryData(cards, notices), [cards, notices]);
+  const summaryData = useMemo(() => buildShiftSummaryData(visibleCards, notices), [visibleCards, notices]);
   const activeCard = editingCard ? cards.find((card) => card.id === editingCard.id) ?? editingCard : null;
   const doneCount = cards.filter((card) => card.column_id === 'done').length;
 
@@ -342,22 +343,8 @@ export function HandoverPage() {
     showToast('첨부가 삭제되었습니다.');
   }
 
-  if (isLoading) {
-    return (
-      <div className="empty-state">인수인계 보드를 불러오는 중…</div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="empty-state" style={{ color: '#b91c1c', borderColor: 'rgba(220,38,38,0.25)' }}>
-        카드를 불러오지 못했습니다. Supabase migration과 RLS 설정을 확인해 주세요.
-      </div>
-    );
-  }
-
-  return (
-    <>
+  const headerToolbar = useMemo(
+    () => (
       <BoardToolbar
         section="header"
         viewMode={viewMode}
@@ -375,11 +362,32 @@ export function HandoverPage() {
         onExport={() => setExportModalOpen(true)}
         onActivity={() => setActivityModalOpen(true)}
       />
+    ),
+    [viewMode, searchQuery, quickFilter, category, doneCount, isManager],
+  );
 
+  useRegisterHeaderActions(headerToolbar);
+
+  if (isLoading) {
+    return (
+      <div className="empty-state">인수인계 보드를 불러오는 중…</div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="empty-state" style={{ color: '#b91c1c', borderColor: 'rgba(220,38,38,0.25)' }}>
+        카드를 불러오지 못했습니다. Supabase migration과 RLS 설정을 확인해 주세요.
+      </div>
+    );
+  }
+
+  return (
+    <>
       <TodayStaffBar />
       <PinnedContactsBar />
 
-      <section className="notice-row">
+      <section className="notices">
         <NoticePanel
           type="announcement"
           title="📢 업무 공지"
@@ -400,7 +408,7 @@ export function HandoverPage() {
         />
       </section>
 
-      <SummaryBar data={summaryData} />
+      <SummaryBar data={summaryData} totalCount={visibleCards.length} />
 
       <BoardToolbar
         section="filters"

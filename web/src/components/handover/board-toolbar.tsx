@@ -44,7 +44,7 @@ export function BoardToolbar({
   return (
     <>
       {showHeader ? (
-        <div className="header__actions header__actions--handover" style={{ marginBottom: '1rem', width: '100%' }}>
+        <>
           <div className="search-box">
             <input
               type="search"
@@ -96,31 +96,11 @@ export function BoardToolbar({
             </span>
             <span>새 인수인계</span>
           </button>
-        </div>
+        </>
       ) : null}
 
       {showFilters ? (
         <>
-          <div className="handover-toolbar">
-            <div className="handover-view-toggle">
-              <button
-                type="button"
-                className={`handover-view-toggle__btn${viewMode === 'board' ? ' is-active' : ''}`}
-                onClick={() => onViewModeChange('board')}
-              >
-                칸반
-              </button>
-              <button
-                type="button"
-                className={`handover-view-toggle__btn${viewMode === 'room' ? ' is-active' : ''}`}
-                onClick={() => onViewModeChange('room')}
-              >
-                객실
-              </button>
-            </div>
-            <p className="handover-toolbar__hint">객실 뷰는 객실번호별로 묶어서 봅니다.</p>
-          </div>
-
           <div className="quick-filters">
             {QUICK_FILTERS.map((filter) => (
               <button
@@ -145,6 +125,26 @@ export function BoardToolbar({
                 {filter.label}
               </button>
             ))}
+          </div>
+
+          <div className="handover-toolbar">
+            <div className="handover-view-toggle" role="tablist" aria-label="인수인계 보기 방식">
+              <button
+                type="button"
+                className={`handover-view-toggle__btn${viewMode === 'board' ? ' is-active' : ''}`}
+                onClick={() => onViewModeChange('board')}
+              >
+                칸반
+              </button>
+              <button
+                type="button"
+                className={`handover-view-toggle__btn${viewMode === 'room' ? ' is-active' : ''}`}
+                onClick={() => onViewModeChange('room')}
+              >
+                객실
+              </button>
+            </div>
+            <p className="handover-toolbar__hint">객실 보기: 객실번호별로 업무를 묶어 확인합니다.</p>
           </div>
         </>
       ) : null}

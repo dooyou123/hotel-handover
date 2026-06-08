@@ -70,6 +70,47 @@ export async function addAmenityTransaction(params: {
   return data as AmenityTransaction;
 }
 
+export async function updateAmenityTransaction(params: {
+  transactionId: string;
+  type: AmenityTransactionType;
+  amenityId: number;
+  boxCount: number;
+  author: string;
+  memo?: string;
+  hotelId?: string;
+}) {
+  const supabase = createClient();
+  const hotelId = params.hotelId ?? DEFAULT_HOTEL_ID;
+
+  const { data, error } = await supabase.rpc('update_amenity_transaction', {
+    p_hotel_id: hotelId,
+    p_transaction_id: params.transactionId,
+    p_type: params.type,
+    p_amenity_id: params.amenityId,
+    p_box_count: params.boxCount,
+    p_author: params.author,
+    p_memo: params.memo ?? '',
+  });
+
+  if (error) throw new Error(parseAmenityError(error));
+  return data as AmenityTransaction;
+}
+
+export async function deleteAmenityTransaction(params: {
+  transactionId: string;
+  hotelId?: string;
+}) {
+  const supabase = createClient();
+  const hotelId = params.hotelId ?? DEFAULT_HOTEL_ID;
+
+  const { error } = await supabase.rpc('delete_amenity_transaction', {
+    p_hotel_id: hotelId,
+    p_transaction_id: params.transactionId,
+  });
+
+  if (error) throw new Error(parseAmenityError(error));
+}
+
 export function subscribeAmenityChanges(hotelId: string, onChange: () => void) {
   const supabase = createClient();
   const channel = supabase
@@ -82,7 +123,7 @@ export function subscribeAmenityChanges(hotelId: string, onChange: () => void) {
     .on(
       'postgres_changes',
       {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'amenity_transactions',
         filter: `hotel_id=eq.${hotelId}`,

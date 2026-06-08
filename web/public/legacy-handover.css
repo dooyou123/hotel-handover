@@ -490,6 +490,13 @@ textarea {
   color: var(--text-muted);
 }
 
+.schedule-table__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
 .contacts-page__header {
   display: flex;
   justify-content: space-between;
