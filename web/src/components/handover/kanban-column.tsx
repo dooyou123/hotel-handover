@@ -11,9 +11,17 @@ type KanbanColumnProps = {
   searchQuery?: string;
   onOpenCard: (card: Card) => void;
   onAcknowledge: (cardId: string) => void;
+  onMoveToColumn: (cardId: string, columnId: ColumnId) => void;
 };
 
-export function KanbanColumn({ column, cards, searchQuery, onOpenCard, onAcknowledge }: KanbanColumnProps) {
+export function KanbanColumn({
+  column,
+  cards,
+  searchQuery,
+  onOpenCard,
+  onAcknowledge,
+  onMoveToColumn,
+}: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
   return (
@@ -32,6 +40,7 @@ export function KanbanColumn({ column, cards, searchQuery, onOpenCard, onAcknowl
               searchQuery={searchQuery}
               onOpen={() => onOpenCard(card)}
               onAcknowledge={() => onAcknowledge(card.id)}
+              onMoveToColumn={(columnId) => onMoveToColumn(card.id, columnId)}
             />
           ))}
         </SortableContext>

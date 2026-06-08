@@ -34,6 +34,7 @@ import { NoticePanel } from './notice-panel';
 import { RoomView } from './room-view';
 import { ShiftHandoverModal } from './shift-handover-modal';
 import { HandoverSecondaryPanel } from './handover-secondary-panel';
+import { PinnedNoticesStrip } from './pinned-notices-strip';
 import { SummaryBar } from './summary-bar';
 
 export function HandoverPage() {
@@ -87,7 +88,8 @@ export function HandoverPage() {
     [cards, searchQuery, quickFilter, session],
   );
 
-  const summaryData = useMemo(() => buildShiftSummaryData(visibleCards, notices), [visibleCards, notices]);
+  const summaryData = useMemo(() => buildShiftSummaryData(cards, notices), [cards, notices]);
+  const unpinnedNotices = useMemo(() => notices.filter((notice) => !notice.is_pinned), [notices]);
   const activeCard = editingCard ? cards.find((card) => card.id === editingCard.id) ?? editingCard : null;
   const doneCount = cards.filter((card) => card.column_id === 'done').length;
 
@@ -375,7 +377,13 @@ export function HandoverPage() {
     <>
       <div className="handover-workspace">
         <div className="handover-workspace__sticky">
-          <SummaryBar data={summaryData} totalCount={visibleCards.length} />
+          <SummaryBar
+            data={summaryData}
+            totalCount={cards.length}
+            activeFilter={quickFilter}
+            onFilterSelect={setQuickFilter}
+          />
+          <PinnedNoticesStrip notices={notices} onOpen={openNoticeEdit} />
           <BoardToolbar
             viewMode={viewMode}
             searchQuery={searchQuery}
@@ -407,7 +415,7 @@ export function HandoverPage() {
         </div>
       </div>
 
-      <HandoverSecondaryPanel noticeCount={notices.length}>
+      <HandoverSecondaryPanel noticeCount={unpinnedNotices.length}>
         <TodayStaffBar />
         <PinnedContactsBar />
         <section className="notices">
@@ -415,7 +423,7 @@ export function HandoverPage() {
             type="announcement"
             title="📢 업무 공지"
             hint="전체 공지 · 안내 사항"
-            notices={filterNoticesByType(notices, 'announcement')}
+            notices={filterNoticesByType(unpinnedNotices, 'announcement')}
             onAdd={() => openNoticeCreate('announcement')}
             onOpen={openNoticeEdit}
             onTogglePin={handleTogglePin}
@@ -424,7 +432,7 @@ export function HandoverPage() {
             type="change"
             title="🔄 업무 변경"
             hint="운영·절차 변경 사항"
-            notices={filterNoticesByType(notices, 'change')}
+            notices={filterNoticesByType(unpinnedNotices, 'change')}
             onAdd={() => openNoticeCreate('change')}
             onOpen={openNoticeEdit}
             onTogglePin={handleTogglePin}
@@ -470,6 +478,12 @@ export function HandoverPage() {
         authorLabel={authorLabel}
         onClose={() => setShiftModalOpen(false)}
         onComplete={showToast}
+        onHandoverComplete={(mode) => {
+          if (mode !== 'start') return;
+          setQuickFilter('unacked');
+          setViewMode('board');
+          showToast('미확인 긴급 건부터 확인해 주세요.');
+        }}
         onOpenExport={() => {
           setShiftModalOpen(false);
           setExportModalOpen(true);

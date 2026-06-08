@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -42,6 +42,17 @@ export function KanbanBoard({ cards, searchQuery, onMove, onOpenCard, onAcknowle
   );
 
   const activeCard = activeId ? cards.find((card) => card.id === activeId) : null;
+
+  const handleMoveToColumn = useCallback(
+    async (cardId: string, targetColumn: ColumnId) => {
+      const card = cards.find((item) => item.id === cardId);
+      if (!card || card.column_id === targetColumn) return;
+
+      const targetCards = [...columns[targetColumn].filter((item) => item.id !== cardId), card];
+      await onMove(cardId, targetColumn, targetCards.map((item) => item.id));
+    },
+    [cards, columns, onMove],
+  );
 
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -92,6 +103,7 @@ export function KanbanBoard({ cards, searchQuery, onMove, onOpenCard, onAcknowle
             searchQuery={searchQuery}
             onOpenCard={onOpenCard}
             onAcknowledge={onAcknowledge}
+            onMoveToColumn={handleMoveToColumn}
           />
         ))}
       </div>
