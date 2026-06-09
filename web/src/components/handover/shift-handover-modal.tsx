@@ -121,8 +121,9 @@ export function ShiftHandoverModal({
   const todayLogs = activityLogs.filter((log) => isToday(log.created_at));
 
   useEffect(() => {
-    if (!open || mode !== 'end' || !session.shift) return;
-    fetchChecklistIncomplete(session.shift, session.group).then(setChecklist);
+    if (!open || mode !== 'end' || !session.group) return;
+    const shift = session.shift || session.group;
+    fetchChecklistIncomplete(shift, session.group).then(setChecklist);
   }, [open, mode, session.shift, session.group]);
 
   if (!open) return null;
@@ -130,11 +131,11 @@ export function ShiftHandoverModal({
   const metaLine = `${getTodayLabel()} · ${authorLabel || '근무자 미선택'} · ${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}`;
 
   async function handleComplete() {
-    if (!session.shift || !session.group || !session.name) return;
+    if (!session.group || !session.name) return;
     setSaving(true);
     try {
       await logShiftHandover({
-        shift: session.shift,
+        shift: session.shift || session.group,
         staffName: session.name,
         handoverType: mode,
         unackedUrgent: data.unackedUrgent.length,
@@ -147,8 +148,8 @@ export function ShiftHandoverModal({
       });
       onComplete(
         mode === 'start'
-          ? `${session.shift} · ${session.name} 교대 인수가 기록되었습니다.`
-          : `${session.shift} · ${session.name} 교대 종료가 기록되었습니다.`,
+          ? `${authorLabel} 교대 인수가 기록되었습니다.`
+          : `${authorLabel} 교대 종료가 기록되었습니다.`,
       );
       onHandoverComplete?.(mode);
       onClose();

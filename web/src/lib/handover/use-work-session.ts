@@ -1,16 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { SESSION_STORAGE_KEY, WORK_GROUPS } from '@/lib/constants';
+import { SESSION_STORAGE_KEY, WORK_GROUPS, formatSessionLabel } from '@/lib/constants';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import type { WorkSession } from '@/lib/handover/types';
 
 const EMPTY_SESSION: WorkSession = { shift: '', group: '', name: '' };
 
 function normalizeSession(raw: Partial<WorkSession>): WorkSession {
+  const group = raw.group || '';
   return {
-    shift: raw.shift || '',
-    group: raw.group || '',
+    shift: raw.shift || group,
+    group,
     name: raw.name || '',
   };
 }
@@ -27,7 +28,7 @@ export function readWorkSession(): WorkSession {
 }
 
 function isSessionComplete(session: WorkSession) {
-  return Boolean(session.shift && session.group && session.name);
+  return Boolean(session.group && session.name);
 }
 
 export function useWorkSession() {
@@ -36,8 +37,9 @@ export function useWorkSession() {
   const [ready, setReady] = useState(false);
 
   const persistSession = useCallback((next: WorkSession) => {
-    setSession(next);
-    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(next));
+    const normalized = normalizeSession({ ...next, shift: next.group || next.shift });
+    setSession(normalized);
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(normalized));
     window.dispatchEvent(new Event('handover-session-change'));
   }, []);
 
@@ -68,7 +70,7 @@ export function useWorkSession() {
       }
       void alert({
         title: '근무 정보 필요',
-        message: `교대·조·담당자를 선택한 뒤 ${action}할 수 있습니다.`,
+        message: `조·담당자를 선택한 뒤 ${action}할 수 있습니다.`,
         tone: 'warning',
       });
       return false;
@@ -77,10 +79,8 @@ export function useWorkSession() {
   );
 
   const authorLabel = isSessionComplete(session)
-    ? `${session.shift} · ${session.group}조 · ${session.name}`
-    : session.shift && session.name
-      ? `${session.shift} · ${session.name}`
-      : session.shift;
+    ? formatSessionLabel(session.group, session.name)
+    : session.name || '';
 
   return { session, ready, requireSession, authorLabel, persistSession, workGroups: WORK_GROUPS };
 }

@@ -24,15 +24,17 @@ import {
   type CardTemplateInput,
 } from '@/lib/settings/use-settings';
 import { DataAdminPanel } from '@/components/settings/data-admin-panel';
+import { NavVisibilityPanel } from '@/components/settings/nav-visibility-panel';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 
-type SettingsTab = 'feedback' | 'staff' | 'checklist' | 'templates' | 'data';
+type SettingsTab = 'feedback' | 'staff' | 'checklist' | 'templates' | 'nav' | 'data';
 
 const SETTINGS_TABS: { id: SettingsTab; label: string; hint: string }[] = [
   { id: 'feedback', label: '개선 · 버그', hint: '직원 신고 확인' },
   { id: 'staff', label: '직원', hint: '담당자 목록' },
   { id: 'checklist', label: '체크리스트', hint: '공통 · A/B/C' },
   { id: 'templates', label: '템플릿', hint: '인수인계 빠른 입력' },
+  { id: 'nav', label: '메뉴', hint: '사이드바 표시' },
   { id: 'data', label: '데이터', hint: '초기화 · 샘플' },
 ];
 
@@ -268,6 +270,7 @@ export function SettingsPageClient() {
     staff: activeStaff.length,
     checklist: checklistItems.length,
     templates: templates.length,
+    nav: null,
     data: null,
   };
 
@@ -551,6 +554,10 @@ export function SettingsPageClient() {
                 </div>
               )}
             </article>
+          ) : null}
+
+          {activeTab === 'nav' && isManager ? (
+            <NavVisibilityPanel onSaved={() => showToast('사이드바 메뉴 설정이 저장되었습니다.')} />
           ) : null}
 
           {activeTab === 'data' && isManager ? <DataAdminPanel onToast={showToast} /> : null}

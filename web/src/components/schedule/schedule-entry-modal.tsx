@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { SHIFTS } from '@/lib/constants';
+import { WORK_GROUPS, formatWorkGroupLabel } from '@/lib/constants';
 import type { ScheduleEntry } from '@/lib/schedule/parse-csv';
 import type { ScheduleEntryInput } from '@/lib/schedule/use-schedule';
 
@@ -26,7 +26,7 @@ export function ScheduleEntryModal({
 }: ScheduleEntryModalProps) {
   const [form, setForm] = useState<ScheduleEntryInput>({
     work_date: defaultDate ?? new Date().toISOString().slice(0, 10),
-    shift: SHIFTS[0],
+    shift: WORK_GROUPS[0],
     staff_name: '',
   });
   const [saving, setSaving] = useState(false);
@@ -43,7 +43,7 @@ export function ScheduleEntryModal({
     } else {
       setForm({
         work_date: defaultDate ?? new Date().toISOString().slice(0, 10),
-        shift: SHIFTS[0],
+        shift: WORK_GROUPS[0],
         staff_name: staffNames[0] ?? '',
       });
     }
@@ -90,11 +90,11 @@ export function ScheduleEntryModal({
               />
             </label>
             <label className="field">
-              <span>교대 *</span>
+              <span>조 *</span>
               <select value={form.shift} onChange={(e) => setForm({ ...form, shift: e.target.value })}>
-                {SHIFTS.map((shift) => (
-                  <option key={shift} value={shift}>
-                    {shift}
+                {WORK_GROUPS.map((group) => (
+                  <option key={group} value={group}>
+                    {formatWorkGroupLabel(group)}
                   </option>
                 ))}
               </select>

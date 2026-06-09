@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { SHIFTS } from '@/lib/constants';
+import { WORK_GROUPS, formatWorkGroupLabel } from '@/lib/constants';
 import { useWorkSession } from '@/lib/handover/use-work-session';
 import { useTodaySchedule } from '@/lib/schedule/use-schedule';
 
@@ -11,13 +11,61 @@ function formatWorkDate(value: string): string {
   return date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
 }
 
-export function TodayStaffBar() {
+type TodayStaffBarProps = {
+  variant?: 'default' | 'compact';
+};
+
+export function TodayStaffBar({ variant = 'default' }: TodayStaffBarProps) {
   const { data } = useTodaySchedule();
-  const { persistSession, session } = useWorkSession();
+  const { persistSession } = useWorkSession();
+  const compact = variant === 'compact';
 
   if (!data) return null;
 
-  const hasAny = SHIFTS.some((shift) => (data.shifts[shift] ?? []).length > 0);
+  const hasAny = WORK_GROUPS.some((group) => (data.groups[group] ?? []).length > 0);
+
+  function applyStaff(group: string, name: string) {
+    persistSession({ shift: group, group, name });
+  }
+
+  if (compact) {
+    return (
+      <section className="today-staff-bar today-staff-bar--compact" aria-live="polite">
+        <span className="today-staff-bar__label">오늘 근무</span>
+        {!hasAny ? (
+          <span className="today-staff-bar__compact-empty">
+            스케줄 없음 ·{' '}
+            <Link href="/schedule" className="link-btn">
+              등록
+            </Link>
+          </span>
+        ) : (
+          <div className="today-staff-bar__compact-track">
+            {WORK_GROUPS.map((group) => {
+              const names = data.groups[group] ?? [];
+              if (!names.length) return null;
+              return (
+                <div key={group} className="today-staff-bar__compact-group">
+                  <span className="today-staff-bar__compact-group-label">{formatWorkGroupLabel(group)}</span>
+                  {names.map((name) => (
+                    <button
+                      key={`${group}-${name}`}
+                      type="button"
+                      onClick={() => applyStaff(group, name)}
+                      className="today-staff-chip today-staff-chip--compact"
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <span className="today-staff-bar__compact-date">{formatWorkDate(data.work_date)}</span>
+      </section>
+    );
+  }
 
   return (
     <section className="today-staff-bar" aria-live="polite">
@@ -41,18 +89,18 @@ export function TodayStaffBar() {
         </p>
       ) : (
         <div className="today-staff-bar__grid">
-          {SHIFTS.map((shift) => {
-            const names = data.shifts[shift] ?? [];
+          {WORK_GROUPS.map((group) => {
+            const names = data.groups[group] ?? [];
             return (
-              <article key={shift} className="today-staff-card">
-                <span className="today-staff-card__shift">{shift}</span>
+              <article key={group} className="today-staff-card">
+                <span className="today-staff-card__shift">{formatWorkGroupLabel(group)}</span>
                 <div className="today-staff-card__names">
                   {names.length ? (
                     names.map((name) => (
                       <button
                         key={name}
                         type="button"
-                        onClick={() => persistSession({ shift, group: session.group, name })}
+                        onClick={() => applyStaff(group, name)}
                         className="today-staff-chip"
                       >
                         {name}

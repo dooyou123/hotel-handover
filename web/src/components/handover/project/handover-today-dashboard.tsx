@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { SHIFTS } from '@/lib/constants';
+import { WORK_GROUPS, formatWorkGroupLabel } from '@/lib/constants';
 import { formatAssigneeLabel, isUnackedUrgentCard } from '@/lib/handover/card-utils';
 import { getTodayLabel } from '@/lib/handover/shift-summary';
 import type { Card, Notice } from '@/lib/handover/types';
@@ -160,10 +160,10 @@ export function HandoverTodayDashboard({
           </div>
           {schedule ? (
             <ul className="today-dashboard__schedule">
-              {SHIFTS.map((shift) => (
-                <li key={shift}>
-                  <span>{shift}</span>
-                  <span>{schedule.shifts[shift].length ? schedule.shifts[shift].join(', ') : '—'}</span>
+              {WORK_GROUPS.map((group) => (
+                <li key={group}>
+                  <span>{formatWorkGroupLabel(group)}</span>
+                  <span>{schedule.groups[group].length ? schedule.groups[group].join(', ') : '—'}</span>
                 </li>
               ))}
             </ul>
@@ -177,7 +177,7 @@ export function HandoverTodayDashboard({
             <div className="today-dashboard__panel-head">
               <h4>고정 공지</h4>
               <Link href="/notices" className="today-dashboard__link">
-                게시판
+                게시판 전체
               </Link>
             </div>
             <ul className="today-dashboard__list">

@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { fetchChecklistForShift, toggleChecklistItem } from '@/lib/checklist/use-checklist';
+import { fetchChecklistForShift, toggleChecklistItem, type ChecklistItemView } from '@/lib/checklist/use-checklist';
 import { useWorkSession } from '@/lib/handover/use-work-session';
 import { createClient } from '@/lib/supabase/client';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
@@ -21,11 +21,61 @@ function formatTime(value: string | null): string {
   return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
 }
 
+function ChecklistColumn({
+  title,
+  done,
+  total,
+  items,
+  emptyText,
+  onToggle,
+}: {
+  title: string;
+  done: number;
+  total: number;
+  items: ChecklistItemView[];
+  emptyText: string;
+  onToggle: (itemId: string) => void;
+}) {
+  return (
+    <section className="checklist-section">
+      <div className="checklist-section__header">
+        <h3>{title}</h3>
+        <span className="checklist-section__count">
+          {total ? `${done}/${total}` : '—'}
+        </span>
+      </div>
+      <div className="checklist-page__list checklist-page__list--column">
+        {items.length ? (
+          items.map((item) => (
+            <label
+              key={item.id}
+              className={`checklist-item checklist-item--page${item.completed ? ' is-done' : ''}`}
+            >
+              <input type="checkbox" checked={item.completed} onChange={() => onToggle(item.id)} />
+              <span className="checklist-item__body">
+                <span className="checklist-item__label">{item.label}</span>
+                {item.completed ? (
+                  <span className="checklist-item__meta">
+                    {item.completed_by} · {formatTime(item.completed_at)}
+                  </span>
+                ) : null}
+              </span>
+            </label>
+          ))
+        ) : (
+          <p className="checklist-empty">{emptyText}</p>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function ChecklistPageClient() {
   const { session, requireSession } = useWorkSession();
   const queryClient = useQueryClient();
-  const { shift, group } = session;
-  const ready = Boolean(shift && group);
+  const { group } = session;
+  const shift = session.shift || group;
+  const ready = Boolean(group);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['checklist', DEFAULT_HOTEL_ID, shift, group],
@@ -63,19 +113,22 @@ export function ChecklistPageClient() {
   if (!ready) {
     return (
       <section className="checklist-page">
-        <p className="empty-state">상단 「지금 근무」에서 교대와 조(A/B/C)를 선택하면 체크리스트가 표시됩니다.</p>
+        <p className="empty-state">상단 「지금 근무」에서 조와 담당자를 선택하면 체크리스트가 표시됩니다.</p>
       </section>
     );
   }
 
   const items = data?.items ?? [];
-  const sections = data?.sections ?? [];
+  const commonItems = items.filter((item) => item.work_group === 'common');
+  const groupItems = items.filter((item) => item.work_group === group);
+  const commonDone = commonItems.filter((item) => item.completed).length;
+  const groupDone = groupItems.filter((item) => item.completed).length;
   const completed = items.filter((item) => item.completed).length;
   const metaText = data?.work_date
-    ? `${formatWorkDate(data.work_date)} · ${shift} · ${group}조 · ${
+    ? `${formatWorkDate(data.work_date)} · ${group}조 · ${
         items.length ? `${completed}/${items.length} 완료` : '등록된 항목 없음'
       }`
-    : `${shift} · ${group}조 · ${items.length ? `${completed}/${items.length} 완료` : '등록된 항목 없음'}`;
+    : `${group}조 · ${items.length ? `${completed}/${items.length} 완료` : '등록된 항목 없음'}`;
 
   return (
     <section className="checklist-page">
@@ -83,7 +136,7 @@ export function ChecklistPageClient() {
         <div>
           <h2>교대 체크리스트</h2>
           <p>
-            <strong>공통</strong> 항목은 A/B/C 조 모두 확인하고, <strong>조 전용</strong> 항목은 해당 조만
+            <strong>공통</strong> 항목은 전 조가 확인하고, <strong>조 전용</strong> 항목은 해당 조만
             체크합니다.
           </p>
         </div>
@@ -113,38 +166,23 @@ export function ChecklistPageClient() {
           </p>
         </div>
       ) : (
-        <div className="checklist-sections">
-          {sections.map((section) => {
-            const sectionDone = section.items.filter((item) => item.completed).length;
-            return (
-              <section key={section.scope} className="checklist-section">
-                <div className="checklist-section__header">
-                  <h3>{section.label}</h3>
-                  <span className="checklist-section__count">
-                    {sectionDone}/{section.items.length}
-                  </span>
-                </div>
-                <div className="checklist-page__list">
-                  {section.items.map((item) => (
-                    <label
-                      key={item.id}
-                      className={`checklist-item checklist-item--page${item.completed ? ' is-done' : ''}`}
-                    >
-                      <input type="checkbox" checked={item.completed} onChange={() => handleToggle(item.id)} />
-                      <span className="checklist-item__body">
-                        <span className="checklist-item__label">{item.label}</span>
-                        {item.completed ? (
-                          <span className="checklist-item__meta">
-                            {item.completed_by} · {formatTime(item.completed_at)}
-                          </span>
-                        ) : null}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </section>
-            );
-          })}
+        <div className="checklist-sections checklist-sections--grid">
+          <ChecklistColumn
+            title="공통 확인"
+            done={commonDone}
+            total={commonItems.length}
+            items={commonItems}
+            emptyText="공통 항목이 없습니다. 설정에서 추가하세요."
+            onToggle={handleToggle}
+          />
+          <ChecklistColumn
+            title={`${group}조 전용`}
+            done={groupDone}
+            total={groupItems.length}
+            items={groupItems}
+            emptyText={`${group}조 전용 항목이 없습니다.`}
+            onToggle={handleToggle}
+          />
         </div>
       )}
     </section>

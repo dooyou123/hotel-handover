@@ -1,19 +1,43 @@
 'use client';
 
-import { ACTION_LABELS } from '@/lib/handover/activity';
+import { useState } from 'react';
 import { formatTime } from '@/lib/handover/card-utils';
-import { formatActivityDetail } from '@/lib/handover/shift-summary';
-import type { ActivityLog } from '@/lib/handover/types';
+import {
+  activityBadgeLabel,
+  activityBadgeTone,
+  activityTargetLabel,
+  ENTITY_LABELS,
+  formatActivityActor,
+  formatActivityDetail,
+  formatActivityHeadline,
+} from '@/lib/handover/activity-display';
+import {
+  ACTIVITY_ACTION_OPTIONS,
+  ACTIVITY_ENTITY_OPTIONS,
+  useActivityLogs,
+  type ActivityLogFilters,
+} from '@/lib/handover/use-activity-logs';
 
 type ActivityLogModalProps = {
   open: boolean;
-  logs: ActivityLog[];
-  isLoading: boolean;
   onClose: () => void;
 };
 
-export function ActivityLogModal({ open, logs, isLoading, onClose }: ActivityLogModalProps) {
+const DEFAULT_FILTERS: ActivityLogFilters = {
+  entityType: 'all',
+  action: 'all',
+  query: '',
+};
+
+export function ActivityLogModal({ open, onClose }: ActivityLogModalProps) {
+  const [filters, setFilters] = useState<ActivityLogFilters>(DEFAULT_FILTERS);
+  const { data: logs = [], isLoading } = useActivityLogs({ limit: 150, filters, enabled: open });
+
   if (!open) return null;
+
+  function updateFilters(patch: Partial<ActivityLogFilters>) {
+    setFilters((prev) => ({ ...prev, ...patch }));
+  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -22,11 +46,43 @@ export function ActivityLogModal({ open, logs, isLoading, onClose }: ActivityLog
           <div className="modal__header">
             <div>
               <h2>변경 기록</h2>
-              <p className="shift-modal__sub">카드·공지 추가·수정·삭제 내역</p>
+              <p className="shift-modal__sub">누가 · 무엇을 · 어떻게 바꿨는지 확인합니다 (실시간 갱신)</p>
             </div>
             <button type="button" className="icon-btn" onClick={onClose} aria-label="닫기">
               ✕
             </button>
+          </div>
+
+          <div className="activity-modal__filters">
+            <input
+              type="search"
+              value={filters.query}
+              onChange={(event) => updateFilters({ query: event.target.value })}
+              placeholder="요약·작성자 검색…"
+              aria-label="변경 기록 검색"
+            />
+            <select
+              value={filters.entityType}
+              onChange={(event) => updateFilters({ entityType: event.target.value })}
+              aria-label="유형 필터"
+            >
+              {ACTIVITY_ENTITY_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={filters.action}
+              onChange={(event) => updateFilters({ action: event.target.value })}
+              aria-label="동작 필터"
+            >
+              {ACTIVITY_ACTION_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="activity-modal__body">
@@ -34,28 +90,41 @@ export function ActivityLogModal({ open, logs, isLoading, onClose }: ActivityLog
               <p className="shift-empty">불러오는 중…</p>
             ) : logs.length ? (
               logs.map((log) => {
-                const actor = log.shift && log.staff_name ? `${log.shift} · ${log.staff_name}` : '작성자 미입력';
+                const target = activityTargetLabel(log.summary);
                 const detail = formatActivityDetail(log);
+                const tone = activityBadgeTone(log);
+                const isComment = log.action === 'update' && log.summary.startsWith('댓글:');
+
                 return (
-                  <article key={log.id} className="activity-item">
+                  <article key={log.id} className={`activity-item${tone ? ` activity-item--${tone}` : ''}`}>
                     <div className="activity-item__top">
-                      <span
-                        className={`activity-item__action${
-                          log.action === 'delete' ? ' activity-item__action--delete' : ''
-                        }`}
-                      >
-                        {ACTION_LABELS[log.action] || log.action}
+                      <span className={`activity-item__badge activity-item__badge--${tone || 'default'}`}>
+                        {activityBadgeLabel(log)}
                       </span>
-                      <span className="activity-item__time">{formatTime(log.created_at)}</span>
+                      <span className="activity-item__entity">{ENTITY_LABELS[log.entity_type] ?? log.entity_type}</span>
+                      <time className="activity-item__time" dateTime={log.created_at}>
+                        {formatTime(log.created_at)}
+                      </time>
                     </div>
-                    <p className="activity-item__summary">{log.summary}</p>
-                    <p className="activity-item__meta">{actor}</p>
-                    {detail ? <p className="activity-item__detail">{detail}</p> : null}
+
+                    <p className="activity-item__headline">
+                      <strong>{formatActivityActor(log)}</strong>
+                      <span> {formatActivityHeadline(log)}</span>
+                    </p>
+
+                    {target ? <p className="activity-item__target">{target}</p> : null}
+
+                    {detail ? (
+                      <blockquote className={`activity-item__quote${isComment ? ' activity-item__quote--comment' : ''}`}>
+                        {isComment ? '💬 ' : null}
+                        {detail}
+                      </blockquote>
+                    ) : null}
                   </article>
                 );
               })
             ) : (
-              <p className="shift-empty">아직 기록된 변경 내역이 없습니다.</p>
+              <p className="shift-empty">조건에 맞는 변경 내역이 없습니다.</p>
             )}
           </div>
         </div>

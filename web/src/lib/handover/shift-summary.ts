@@ -58,13 +58,7 @@ export function buildShiftSummaryData(cards: Card[], notices: Notice[]): ShiftSu
   };
 }
 
-export function formatActivityDetail(log: ActivityLog): string {
-  if (!log.details) return '';
-  const changes = log.details.changes;
-  if (Array.isArray(changes)) return changes.join(', ');
-  if (typeof log.details.reason === 'string') return log.details.reason;
-  return '';
-}
+export { formatActivityDetail } from '@/lib/handover/activity-display';
 
 export function cardStatusLabel(card: Card): string {
   return `${COLUMN_LABELS[card.column_id]} · ${card.category}`;

@@ -34,7 +34,7 @@ export function HandoverNoticesNova({ notices }: HandoverNoticesNovaProps) {
         );
       })}
       <Link href="/notices" className="nova-handover-notices__more">
-        게시판 →
+        게시판 전체
       </Link>
     </section>
   );

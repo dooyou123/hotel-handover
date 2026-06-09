@@ -1,5 +1,5 @@
 import { HIGHLIGHT_KEYWORDS } from '@/lib/handover/constants';
-import type { Card, ColumnId, QuickFilter, WorkSession } from '@/lib/handover/types';
+import type { Card, CardComment, ColumnId, QuickFilter, WorkSession } from '@/lib/handover/types';
 
 export type ProjectListSection = {
   id: 'unacked' | 'progress' | 'done' | 'archived';
@@ -108,6 +108,28 @@ export function isUnackedUrgentCard(card: Card): boolean {
   return isUrgentPriorityCard(card) && card.card_acknowledgments.length === 0;
 }
 
+export function getLatestCardComment(card: Card): CardComment | null {
+  if (!card.card_comments.length) return null;
+  return [...card.card_comments].sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null;
+}
+
+function cardMatchesDateRange(card: Card, dateFrom: string | null, dateTo: string | null): boolean {
+  if (!dateFrom && !dateTo) return true;
+  const raw = card.updated_at || card.created_at;
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return false;
+
+  if (dateFrom) {
+    const start = new Date(`${dateFrom}T00:00:00`);
+    if (date < start) return false;
+  }
+  if (dateTo) {
+    const end = new Date(`${dateTo}T23:59:59.999`);
+    if (date > end) return false;
+  }
+  return true;
+}
+
 export function filterCards(
   cards: Card[],
   options: {
@@ -115,11 +137,17 @@ export function filterCards(
     quickFilter: QuickFilter;
     category: string;
     session: WorkSession;
+    dateFrom?: string | null;
+    dateTo?: string | null;
   },
 ): Card[] {
   const q = options.query.trim().toLowerCase();
 
   return cards.filter((card) => {
+    const commentText = card.card_comments
+      .map((comment) => [comment.content, comment.staff_name, comment.shift].join(' '))
+      .join(' ');
+
     const haystack = [
       card.room,
       card.title,
@@ -129,11 +157,13 @@ export function filterCards(
       card.category,
       card.assignee_name,
       card.assignee_shift,
+      commentText,
     ]
       .join(' ')
       .toLowerCase();
 
     if (q && !haystack.includes(q)) return false;
+    if (!cardMatchesDateRange(card, options.dateFrom ?? null, options.dateTo ?? null)) return false;
 
     if (options.quickFilter === 'unacked') {
       return isUnackedUrgentCard(card);
@@ -154,11 +184,16 @@ export function filterCards(
   });
 }
 
+function formatAssigneeGroupLabel(value: string): string {
+  if (/^[A-E]$/u.test(value)) return `${value}조`;
+  return value;
+}
+
 export function formatAssigneeLabel(card: Card): string {
   if (card.assignee_shift && card.assignee_name) {
-    return `${card.assignee_shift} · ${card.assignee_name}`;
+    return `${formatAssigneeGroupLabel(card.assignee_shift)} · ${card.assignee_name}`;
   }
-  if (card.assignee_shift) return card.assignee_shift;
+  if (card.assignee_shift) return formatAssigneeGroupLabel(card.assignee_shift);
   if (card.assignee_name) return card.assignee_name;
   return '';
 }

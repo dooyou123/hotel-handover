@@ -1,4 +1,4 @@
-import { SHIFTS } from '@/lib/constants';
+import { normalizeScheduleGroup } from '@/lib/schedule/group-utils';
 
 export type ScheduleEntry = {
   id: string;
@@ -37,12 +37,7 @@ function parseCsvLine(line: string): string[] {
 }
 
 function normalizeShift(value: string): string | null {
-  const text = value.trim();
-  if ((SHIFTS as readonly string[]).includes(text)) return text;
-  if (text.includes('주') || text.toLowerCase() === 'day') return '주간';
-  if (text.includes('오') || text.toLowerCase() === 'afternoon') return '오후';
-  if (text.includes('야') || text.toLowerCase() === 'night') return '야간';
-  return null;
+  return normalizeScheduleGroup(value);
 }
 
 function normalizeWorkDate(value: string, fallbackMonth: string): string | null {
@@ -93,14 +88,16 @@ export function parseScheduleCsv(
     headerJoined.includes('날짜') ||
     headerJoined.includes('date') ||
     headerJoined.includes('교대') ||
-    headerJoined.includes('shift')
+    headerJoined.includes('shift') ||
+    headerJoined.includes('조') ||
+    headerJoined.includes('group')
   ) {
     dateIndex = headerCells.findIndex((cell) => /날짜|date/i.test(cell));
-    shiftIndex = headerCells.findIndex((cell) => /교대|shift/i.test(cell));
+    shiftIndex = headerCells.findIndex((cell) => /교대|shift|조|group/i.test(cell));
     nameIndex = headerCells.findIndex((cell) => /이름|name|담당|staff/i.test(cell));
     startIndex = 1;
     if (dateIndex < 0 || shiftIndex < 0 || nameIndex < 0) {
-      return { error: 'CSV 헤더는 날짜, 교대, 이름 열이 필요합니다.' };
+      return { error: 'CSV 헤더는 날짜, 조, 이름 열이 필요합니다.' };
     }
   }
 
@@ -116,7 +113,7 @@ export function parseScheduleCsv(
     const staffName = (cells[nameIndex] ?? '').trim();
 
     if (!workDate || !shift || !staffName) {
-      errors.push(`${i + 1}행: 날짜·교대·이름을 확인해 주세요.`);
+      errors.push(`${i + 1}행: 날짜·조·이름을 확인해 주세요.`);
       continue;
     }
     if (month && !workDate.startsWith(`${month}-`)) {
@@ -134,11 +131,11 @@ export function parseScheduleCsv(
 }
 
 export function buildSampleCsv(month: string): string {
-  return `날짜,교대,이름
-${month}-01,주간,김프런
-${month}-01,오후,이데스크
-${month}-01,야간,최야간
-${month}-02,주간,박체크
-${month}-02,오후,김프런
-${month}-02,야간,이데스크`;
+  return `날짜,조,이름
+${month}-01,A조,김프런
+${month}-01,B조,이데스크
+${month}-01,C조,최야간
+${month}-02,A조,박체크
+${month}-02,B조,김프런
+${month}-02,C조,이데스크`;
 }

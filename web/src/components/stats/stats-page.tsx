@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { fetchStatsData, formatDurationMinutes } from '@/lib/stats/api';
+import { fetchStatsData, formatDurationMinutes, formatPercent } from '@/lib/stats/api';
 import type { StatsPeriod } from '@/lib/stats/types';
 
 function maxCount(values: number[]) {
@@ -116,7 +116,7 @@ export function StatsPageClient() {
         <>
           <p className="stats-page__range">{data.rangeLabel}</p>
 
-          <div className="stats-summary">
+          <div className="stats-summary stats-summary--wide">
             <article className="stats-summary-card">
               <p className="stats-summary-card__label">인수인계 등록</p>
               <p className="stats-summary-card__value">
@@ -131,6 +131,25 @@ export function StatsPageClient() {
               </p>
               <p className="stats-summary-card__sub">
                 긴급 {data.summary.urgentCount}건 중 {data.summary.urgentResolvedCount}건 처리됨
+              </p>
+            </article>
+            <article className="stats-summary-card">
+              <p className="stats-summary-card__label">체크리스트 완료율</p>
+              <p className="stats-summary-card__value">{formatPercent(data.summary.checklistCompletionRate)}</p>
+              <p className="stats-summary-card__sub">체크 {data.summary.checklistCompletions.toLocaleString()}회</p>
+            </article>
+            <article className="stats-summary-card">
+              <p className="stats-summary-card__label">할일 완료율</p>
+              <p className="stats-summary-card__value">{formatPercent(data.summary.todoCompletionRate)}</p>
+              <p className="stats-summary-card__sub">
+                {data.summary.todoCompletedCount}/{data.summary.todoDueCount}건 완료
+              </p>
+            </article>
+            <article className="stats-summary-card">
+              <p className="stats-summary-card__label">리뷰 후속 처리</p>
+              <p className="stats-summary-card__value">{formatPercent(data.summary.reviewFollowUpRate)}</p>
+              <p className="stats-summary-card__sub">
+                {data.summary.reviewFollowUpCount}/{data.summary.reviewCount}건 인수인계 연결
               </p>
             </article>
             <article className="stats-summary-card">
@@ -246,8 +265,8 @@ export function StatsPageClient() {
           </div>
 
           <p className="stats-page__note">
-            긴급 처리 시간은 등록 후 <strong>첫 긴급 확인</strong> 또는 <strong>완료 칸 이동</strong> 중
-            더 빠른 시점까지의 평균입니다.
+            긴급 처리 시간은 등록 후 <strong>첫 긴급 확인</strong> 또는 <strong>완료 이동</strong> 중 더 빠른
+            시점까지의 평균입니다. 체크리스트 완료율은 활성 항목 × 기간 일수 × 3교대 대비 체크 횟수입니다.
           </p>
         </>
       ) : null}

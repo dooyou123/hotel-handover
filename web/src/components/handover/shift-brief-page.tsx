@@ -136,11 +136,12 @@ export function ShiftBriefPageClient() {
   }, [reviews]);
 
   const loadChecklist = useCallback(async () => {
-    if (!session.shift || !session.group) {
+    if (!session.group) {
       setChecklist({ total: 0, incomplete: 0 });
       return;
     }
-    setChecklist(await fetchChecklistIncomplete(session.shift, session.group));
+    const shift = session.shift || session.group;
+    setChecklist(await fetchChecklistIncomplete(shift, session.group));
   }, [session.shift, session.group]);
 
   useEffect(() => {
@@ -204,7 +205,7 @@ export function ShiftBriefPageClient() {
         checklistIncomplete: checklist.incomplete,
         progressRemaining: summary.progressActive.length,
       });
-      showToast(`${session.shift} · ${session.name} 교대 인수가 기록되었습니다.`);
+      showToast(`${authorLabel} 교대 인수가 기록되었습니다.`);
     } catch {
       showToast('교대 기록에 실패했습니다.');
     } finally {
@@ -213,7 +214,7 @@ export function ShiftBriefPageClient() {
   }
 
   const isLoading = cardsLoading || noticesLoading || reviewsLoading;
-  const ready = Boolean(session.shift && session.group && session.name);
+  const ready = Boolean(session.group && session.name);
 
   return (
     <div className="shift-brief">

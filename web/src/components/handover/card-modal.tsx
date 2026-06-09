@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { CARD_COLUMN_OPTIONS, CATEGORY_OPTIONS, COLUMN_LABELS, PRIORITY_LABELS } from '@/lib/handover/constants';
 import { parseDueAt, toDateInputValue, toTimeInputValue } from '@/lib/handover/card-utils';
-import { SHIFTS } from '@/lib/constants';
+import { WORK_GROUPS, formatWorkGroupLabel } from '@/lib/constants';
 import type { Card, CardAttachment, CardInput, ColumnId, Priority } from '@/lib/handover/types';
 import type { Todo } from '@/lib/todos/types';
 import { formatTime } from '@/lib/handover/card-utils';
@@ -15,6 +15,7 @@ import { TemplateBar } from './template-bar';
 type CardModalProps = {
   open: boolean;
   card: Card | null;
+  createDraft?: CardInput | null;
   linkedTodo?: Todo | null;
   authorLabel: string;
   defaultShift: string;
@@ -49,6 +50,7 @@ const emptyForm = (): CardInput => ({
 export function CardModal({
   open,
   card,
+  createDraft,
   linkedTodo,
   authorLabel,
   defaultShift,
@@ -89,8 +91,6 @@ export function CardModal({
     }));
   }
 
-  const isDrawer = Boolean(card);
-
   useEffect(() => {
     if (!open) return;
     function onKeyDown(event: KeyboardEvent) {
@@ -101,13 +101,13 @@ export function CardModal({
   }, [open, onClose]);
 
   useEffect(() => {
-    if (!open || !isDrawer) return;
+    if (!open) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = previousOverflow;
     };
-  }, [open, isDrawer]);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -129,14 +129,15 @@ export function CardModal({
       setDueDate(card.due_at ? toDateInputValue(card.due_at) : '');
       setDueTime(card.due_at ? toTimeInputValue(card.due_at) : '');
     } else {
+      const base = createDraft ?? emptyForm();
       setForm({
-        ...emptyForm(),
-        author: authorLabel,
-        assignee_shift: defaultShift,
-        assignee_name: defaultName,
+        ...base,
+        author: base.author || authorLabel,
+        assignee_shift: base.assignee_shift || defaultShift,
+        assignee_name: base.assignee_name || defaultName,
       });
-      setDueDate('');
-      setDueTime('');
+      setDueDate(base.due_at ? toDateInputValue(base.due_at) : '');
+      setDueTime(base.due_at ? toTimeInputValue(base.due_at) : '');
     }
     setError(null);
     setCommentInput('');
@@ -145,7 +146,7 @@ export function CardModal({
       urls.forEach((url) => URL.revokeObjectURL(url));
       return [];
     });
-  }, [open, card, authorLabel, defaultShift, defaultName]);
+  }, [open, card, createDraft, authorLabel, defaultShift, defaultName]);
 
   if (!open) return null;
 
@@ -344,7 +345,7 @@ export function CardModal({
       <label className="field">
         <span>상세</span>
         <textarea
-          rows={isDrawer ? 5 : 3}
+          rows={5}
           className="field-textarea--body"
           value={form.details}
           onChange={(event) => setForm({ ...form, details: event.target.value })}
@@ -376,15 +377,15 @@ export function CardModal({
   const assigneeFields = (
     <div className="form-grid form-grid--compact">
       <label className="field">
-        <span>담당 교대</span>
+        <span>담당 조</span>
         <select
           value={form.assignee_shift}
           onChange={(event) => setForm({ ...form, assignee_shift: event.target.value })}
         >
           <option value="">선택</option>
-          {SHIFTS.map((shift) => (
-            <option key={shift} value={shift}>
-              {shift}
+          {WORK_GROUPS.map((group) => (
+            <option key={group} value={group}>
+              {formatWorkGroupLabel(group)}
             </option>
           ))}
         </select>
@@ -443,6 +444,7 @@ export function CardModal({
           value={commentInput}
           onChange={(event) => setCommentInput(event.target.value)}
           placeholder="예: 23:40 엔지니어링 도착"
+          disabled={commentLoading}
           onKeyDown={async (event) => {
             if (event.key === 'Enter') {
               event.preventDefault();
@@ -549,16 +551,27 @@ export function CardModal({
     </>
   );
 
-  const createFormFields = (
+  const createDrawerFields = (
     <>
-      <TemplateBar templates={templates} onApply={applyTemplate} />
-      {statusFields}
-      <div className="form-grid form-grid--stack">{contentFields}</div>
-      {assigneeFields}
-      <div className="card-extra">
-        <div className="card-extra__block">{attachmentBlock}</div>
-      </div>
-      {error ? <p className="amenity-alert" style={{ marginTop: '0.75rem' }}>{error}</p> : null}
+      {templates.length ? (
+        <section className="drawer-section drawer-section--flush">
+          <TemplateBar templates={templates} onApply={applyTemplate} />
+        </section>
+      ) : null}
+      <section className="drawer-section">
+        <h3 className="drawer-section__title">상태</h3>
+        {statusFields}
+      </section>
+      <section className="drawer-section drawer-section--primary">
+        <h3 className="drawer-section__title">내용</h3>
+        {contentFields}
+      </section>
+      <section className="drawer-section">
+        <h3 className="drawer-section__title">담당 · 마감</h3>
+        {assigneeFields}
+      </section>
+      {attachmentBlock}
+      {error ? <p className="amenity-alert drawer-section__error">{error}</p> : null}
     </>
   );
 
@@ -582,55 +595,49 @@ export function CardModal({
     </div>
   );
 
-  if (isDrawer) {
-    return (
-      <div className="drawer-overlay" onClick={onClose}>
-        <aside
-          className="drawer-panel drawer-panel--card"
-          onClick={(event) => event.stopPropagation()}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="card-panel-title"
-        >
-          <form noValidate onSubmit={handleSubmit} className="drawer-panel__form">
-            <div className="drawer-panel__header modal__header">
-              <div className="drawer-panel__heading">
-                <div className="drawer-panel__chips">
-                  <span className="drawer-chip">{PRIORITY_LABELS[form.priority]}</span>
-                  <span className="drawer-chip">{COLUMN_LABELS[form.column_id]}</span>
-                  {form.room ? <span className="drawer-chip drawer-chip--room">객실 {form.room}</span> : null}
-                </div>
-                <h2 id="card-panel-title" className="drawer-panel__title">
-                  {form.title.trim() || '제목 없음'}
-                </h2>
-                <p className="drawer-panel__mode">{panelTitle}</p>
-              </div>
-              <button type="button" className="icon-btn" onClick={onClose} aria-label="닫기">
-                ✕
-              </button>
-            </div>
-            <div className="drawer-panel__body">{drawerFormFields}</div>
-            {formFooter}
-          </form>
-        </aside>
-      </div>
-    );
-  }
-
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(event) => event.stopPropagation()}>
-        <form noValidate onSubmit={handleSubmit} className="modal__form">
-          <div className="modal__header">
-            <h2 id="card-panel-title">{panelTitle}</h2>
+    <div className="drawer-overlay" onClick={onClose}>
+      <aside
+        className="drawer-panel drawer-panel--card"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="card-panel-title"
+      >
+        <form noValidate onSubmit={handleSubmit} className="drawer-panel__form">
+          <div className="drawer-panel__header modal__header">
+            <div className="drawer-panel__heading">
+              {card ? (
+                <>
+                  <div className="drawer-panel__chips">
+                    <span className="drawer-chip">{PRIORITY_LABELS[form.priority]}</span>
+                    <span className="drawer-chip">{COLUMN_LABELS[form.column_id]}</span>
+                    {form.room ? <span className="drawer-chip drawer-chip--room">객실 {form.room}</span> : null}
+                  </div>
+                  <h2 id="card-panel-title" className="drawer-panel__title">
+                    {form.title.trim() || '제목 없음'}
+                  </h2>
+                  <p className="drawer-panel__mode">{panelTitle}</p>
+                </>
+              ) : (
+                <>
+                  <h2 id="card-panel-title" className="drawer-panel__title">
+                    {panelTitle}
+                  </h2>
+                  <p className="drawer-panel__mode">
+                    {createDraft ? '게시판 글에서 불러왔습니다' : '인수인계 항목을 등록합니다'}
+                  </p>
+                </>
+              )}
+            </div>
             <button type="button" className="icon-btn" onClick={onClose} aria-label="닫기">
               ✕
             </button>
           </div>
-          {createFormFields}
+          <div className="drawer-panel__body">{card ? drawerFormFields : createDrawerFields}</div>
           {formFooter}
         </form>
-      </div>
+      </aside>
     </div>
   );
 }

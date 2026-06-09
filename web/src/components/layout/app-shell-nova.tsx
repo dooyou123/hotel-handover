@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { AppNav } from '@/components/layout/app-nav';
 import { AppHeaderActions } from '@/components/layout/app-header-actions';
+import { TodayStaffBar } from '@/components/schedule/today-staff-bar';
+import { NavRouteGuard } from '@/components/layout/nav-route-guard';
 import { SessionBar } from '@/components/layout/session-bar';
 
 type AppShellNovaProps = {
@@ -30,9 +32,13 @@ export function AppShellNova({ email, children }: AppShellNovaProps) {
       </aside>
 
       <div className="nova-main">
+        <NavRouteGuard />
         <header className="nova-topbar">
-          <SessionBar email={email} />
-          <AppHeaderActions />
+          <TodayStaffBar variant="compact" />
+          <div className="nova-topbar__end">
+            <SessionBar email={email} />
+            <AppHeaderActions />
+          </div>
         </header>
         <main className="nova-content">{children}</main>
       </div>

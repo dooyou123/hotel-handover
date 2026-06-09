@@ -21,7 +21,7 @@ export function DataAdminPanel({ onToast }: DataAdminPanelProps) {
   async function handleReset() {
     const ok = await confirm({
       title: '모든 데이터 초기화',
-      message: '인수인계, 공지, 연락처, 체크리스트, 어메니티, 리뷰 등 호텔 운영 데이터를 모두 삭제합니다.',
+      message: '인수인계, 게시판, 할일, 일정, 연락처, 체크리스트, 어메니티, 리뷰 등 호텔 운영 데이터를 모두 삭제합니다.',
       detail: '직원 계정(로그인)과 호텔 설정은 유지됩니다. 되돌릴 수 없습니다.',
       tone: 'danger',
       confirmLabel: '전체 삭제',
@@ -43,7 +43,7 @@ export function DataAdminPanel({ onToast }: DataAdminPanelProps) {
   async function handleSeed() {
     const ok = await confirm({
       title: '샘플 데이터 추가',
-      message: '데모용 직원, 인수인계, 공지, 연락처, 체크리스트, 어메니티, 리뷰 샘플을 추가합니다.',
+      message: '데모용 직원, 인수인계, 게시판, 할일, 일정, 연락처, 체크리스트, 어메니티, 리뷰 샘플을 추가합니다.',
       detail: '기존 데이터와 중복될 수 있습니다. 완전히 비운 뒤 추가하는 것을 권장합니다.',
       tone: 'default',
       confirmLabel: '샘플 추가',
@@ -74,7 +74,7 @@ export function DataAdminPanel({ onToast }: DataAdminPanelProps) {
       <div className="data-admin-panel__actions">
         <div className="data-admin-panel__card">
           <h4>샘플 데이터 추가</h4>
-          <p>직원, 인수인계 카드, 게시판 글, 연락처, 체크리스트, 어메니티, 리뷰 등을 한 번에 넣습니다.</p>
+          <p>직원, 인수인계, 게시판, 할일, 일정, 연락처, 체크리스트, 어메니티, 리뷰 샘플을 한 번에 넣습니다.</p>
           <button
             type="button"
             className="btn btn--primary btn--small"
@@ -100,7 +100,7 @@ export function DataAdminPanel({ onToast }: DataAdminPanelProps) {
       </div>
 
       <p className="data-admin-panel__note">
-        Supabase에 <code>010_hotel_data_admin.sql</code> 마이그레이션이 적용되어 있어야 합니다.
+        Supabase에 <code>010</code>·<code>018</code> 마이그레이션이 적용되어 있어야 합니다.
       </p>
     </article>
   );

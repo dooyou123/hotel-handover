@@ -22,6 +22,7 @@ type NoticeDrawerProps = {
   onSave: (input: NoticeInput, id?: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onTogglePin?: (notice: Notice) => Promise<void>;
+  onCreateHandover?: (notice: Notice) => void;
 };
 
 export function NoticeDrawer({
@@ -36,6 +37,7 @@ export function NoticeDrawer({
   onSave,
   onDelete,
   onTogglePin,
+  onCreateHandover,
 }: NoticeDrawerProps) {
   const [form, setForm] = useState<NoticeInput>({
     type: defaultType,
@@ -218,15 +220,22 @@ export function NoticeDrawer({
   );
 
   const readFooter = (
-    <div className="modal__footer">
-      <div className="modal__footer-left">
-        {notice && isManager ? (
-          <button type="button" className="btn btn--danger" onClick={handleDelete} disabled={saving}>
-            삭제
+    <div className="notice-drawer__footer">
+      {notice && onCreateHandover ? (
+        <button
+          type="button"
+          className="btn btn--primary notice-drawer__cta"
+          onClick={() => notice && onCreateHandover(notice)}
+        >
+          인수인계로 등록
+        </button>
+      ) : null}
+      <div className="notice-drawer__footer-actions">
+        {notice ? (
+          <button type="button" className="btn btn--ghost" onClick={() => onModeChange('edit')}>
+            수정
           </button>
         ) : null}
-      </div>
-      <div className="modal__footer-right">
         {notice && onTogglePin ? (
           <button
             type="button"
@@ -236,15 +245,15 @@ export function NoticeDrawer({
             {notice?.is_pinned ? '고정 해제' : '고정'}
           </button>
         ) : null}
-        {notice ? (
-          <button type="button" className="btn btn--ghost" onClick={() => onModeChange('edit')}>
-            수정
-          </button>
-        ) : null}
-        <button type="button" className="btn btn--primary" onClick={onClose}>
+        <button type="button" className="btn btn--ghost" onClick={onClose}>
           닫기
         </button>
       </div>
+      {notice && isManager ? (
+        <button type="button" className="btn btn--danger notice-drawer__delete" onClick={handleDelete} disabled={saving}>
+          삭제
+        </button>
+      ) : null}
     </div>
   );
 

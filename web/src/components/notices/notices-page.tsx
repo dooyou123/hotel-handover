@@ -75,6 +75,11 @@ export function NoticesPageClient() {
     window.setTimeout(() => setToast(null), 2500);
   }
 
+  function handleCreateHandover(notice: Notice) {
+    if (!requireSession('인수인계 등록')) return;
+    router.push(`/handover?newFromNotice=${notice.id}`);
+  }
+
   function audit() {
     return { shift: session.shift, staffName: session.name };
   }
@@ -308,6 +313,7 @@ export function NoticesPageClient() {
                     <th scope="col">작성일</th>
                     <th scope="col">유효기간</th>
                     <th scope="col">고정</th>
+                    <th scope="col">인수인계</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -354,6 +360,15 @@ export function NoticesPageClient() {
                             📌
                           </button>
                         </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="project-board__table-handover"
+                            onClick={() => handleCreateHandover(notice)}
+                          >
+                            등록
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
@@ -396,6 +411,17 @@ export function NoticesPageClient() {
                     </button>
                     <button
                       type="button"
+                      className="project-board__handover-btn"
+                      title="인수인계로 등록"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleCreateHandover(notice);
+                      }}
+                    >
+                      →
+                    </button>
+                    <button
+                      type="button"
                       className={`project-board__pin-btn${notice.is_pinned ? ' is-active' : ''}`}
                       title={notice.is_pinned ? '고정 해제' : '고정'}
                       onClick={(event) => handleTogglePin(notice, event)}
@@ -426,6 +452,7 @@ export function NoticesPageClient() {
         onSave={handleSave}
         onDelete={handleDelete}
         onTogglePin={handleTogglePin}
+        onCreateHandover={handleCreateHandover}
       />
 
       {toast ? <div className="toast toast--project">{toast}</div> : null}

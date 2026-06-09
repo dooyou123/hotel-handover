@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
+import { subscribeNoticesRealtime } from '@/lib/supabase/handover-realtime';
 import { todayDateString } from '@/lib/handover/shift-summary';
 import type { Notice, NoticeInput, NoticeType } from '@/lib/handover/types';
 
@@ -12,7 +13,7 @@ function isActiveNotice(notice: Notice): boolean {
   return notice.expires_at >= todayDateString();
 }
 
-async function fetchNotices(): Promise<Notice[]> {
+export async function fetchNotices(): Promise<Notice[]> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from('notices')
@@ -31,20 +32,7 @@ export function useNotices() {
 
   const query = useQuery({ queryKey, queryFn: fetchNotices });
 
-  useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase
-      .channel('handover-notices')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'notices', filter: `hotel_id=eq.${DEFAULT_HOTEL_ID}` },
-        () => queryClient.invalidateQueries({ queryKey }),
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
+  useEffect(() => subscribeNoticesRealtime(queryClient), [queryClient]);
 
   const createNotice = useMutation({
     mutationFn: async (input: NoticeInput) => {

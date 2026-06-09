@@ -1,15 +1,16 @@
 export const DEFAULT_HOTEL_ID =
   process.env.NEXT_PUBLIC_DEFAULT_HOTEL_ID ?? '00000000-0000-4000-8000-000000000001';
 
+/** @deprecated 레거시 데이터·통계용. UI·스케줄은 WORK_GROUPS 사용 */
 export const SHIFTS = ['주간', '오후', '야간'] as const;
 
-/** 근무 조 — 체크리스트·인수인계 그룹 (A/B/C) */
-export const WORK_GROUPS = ['A', 'B', 'C'] as const;
+/** 근무 조 — 체크리스트·인수인계·스케줄 그룹 */
+export const WORK_GROUPS = ['A', 'B', 'C', 'D', 'E'] as const;
 
 export type WorkGroupCode = (typeof WORK_GROUPS)[number];
 
 /** checklist_items.work_group: common = 전 조 공통 */
-export const CHECKLIST_SCOPES = ['common', 'A', 'B', 'C'] as const;
+export const CHECKLIST_SCOPES = ['common', 'A', 'B', 'C', 'D', 'E'] as const;
 export type ChecklistScope = (typeof CHECKLIST_SCOPES)[number];
 
 export const CHECKLIST_SCOPE_LABELS: Record<ChecklistScope, string> = {
@@ -17,7 +18,18 @@ export const CHECKLIST_SCOPE_LABELS: Record<ChecklistScope, string> = {
   A: 'A조',
   B: 'B조',
   C: 'C조',
+  D: 'D조',
+  E: 'E조',
 };
+
+export function formatWorkGroupLabel(group: string): string {
+  return group ? `${group}조` : '';
+}
+
+export function formatSessionLabel(group: string, name: string): string {
+  if (!group || !name) return '';
+  return `${formatWorkGroupLabel(group)} · ${name}`;
+}
 
 export const FEEDBACK_CATEGORIES = [
   { value: 'bug', label: '버그 · 오류' },
@@ -32,18 +44,28 @@ export const FEEDBACK_STATUS_LABELS: Record<string, string> = {
   closed: '종료',
 };
 
+export const NAV_CATEGORIES = ['core', 'ops', 'insight', 'system'] as const;
+export type NavCategory = (typeof NAV_CATEGORIES)[number];
+
+export const NAV_CATEGORY_LABELS: Record<NavCategory, string> = {
+  core: '업무',
+  ops: '운영',
+  insight: '분석',
+  system: '시스템',
+};
+
 export const APP_NAV = [
-  { href: '/handover', label: '인수인계' },
-  { href: '/notices', label: '게시판' },
-  { href: '/contacts', label: '연락처' },
-  { href: '/checklist', label: '체크리스트' },
-  { href: '/schedule', label: '일정' },
-  { href: '/todos', label: '할일' },
-  { href: '/housekeeping', label: '하우스키핑' },
-  { href: '/amenity', label: '어메니티' },
-  { href: '/reviews', label: '리뷰' },
-  { href: '/stats', label: '통계' },
-  { href: '/settings', label: '설정' },
+  { href: '/handover', label: '인수인계', category: 'core' as const },
+  { href: '/notices', label: '게시판', category: 'core' as const },
+  { href: '/todos', label: '할일', category: 'core' as const },
+  { href: '/schedule', label: '일정', category: 'core' as const },
+  { href: '/contacts', label: '연락처', category: 'ops' as const },
+  { href: '/checklist', label: '체크리스트', category: 'ops' as const },
+  { href: '/housekeeping', label: '하우스키핑', category: 'ops' as const },
+  { href: '/amenity', label: '어메니티', category: 'ops' as const },
+  { href: '/reviews', label: '리뷰', category: 'ops' as const },
+  { href: '/stats', label: '통계', category: 'insight' as const },
+  { href: '/settings', label: '설정', category: 'system' as const },
 ] as const;
 
 export const SESSION_STORAGE_KEY = 'handover-session';

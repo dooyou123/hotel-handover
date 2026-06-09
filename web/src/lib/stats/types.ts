@@ -31,6 +31,14 @@ export type StatsSummary = {
   urgentAvgMinutes: number | null;
   amenityOutboundTotal: number;
   amenityTransactionCount: number;
+  checklistCompletions: number;
+  checklistCompletionRate: number | null;
+  todoDueCount: number;
+  todoCompletedCount: number;
+  todoCompletionRate: number | null;
+  reviewCount: number;
+  reviewFollowUpCount: number;
+  reviewFollowUpRate: number | null;
 };
 
 export type StatsData = {

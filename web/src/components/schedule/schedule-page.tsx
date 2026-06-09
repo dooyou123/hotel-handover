@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { SHIFTS } from '@/lib/constants';
+import { WORK_GROUPS, formatWorkGroupLabel } from '@/lib/constants';
+import { emptyGroupSchedule, normalizeScheduleGroup } from '@/lib/schedule/group-utils';
 import { useMonthEvents } from '@/lib/events/use-events';
 import type { HotelEvent } from '@/lib/events/types';
 import { useWorkSession } from '@/lib/handover/use-work-session';
@@ -65,14 +66,14 @@ export function SchedulePageClient() {
   }, []);
 
   const tableRows = useMemo(() => {
-    const byDate = new Map<string, Record<(typeof SHIFTS)[number], string[]>>();
+    const byDate = new Map<string, Record<(typeof WORK_GROUPS)[number], string[]>>();
     entries.forEach((entry) => {
       if (!byDate.has(entry.work_date)) {
-        byDate.set(entry.work_date, { 주간: [], 오후: [], 야간: [] });
+        byDate.set(entry.work_date, emptyGroupSchedule());
       }
       const row = byDate.get(entry.work_date)!;
-      const shift = entry.shift as (typeof SHIFTS)[number];
-      if (row[shift]) row[shift].push(entry.staff_name);
+      const group = normalizeScheduleGroup(entry.shift);
+      if (group) row[group].push(entry.staff_name);
     });
     return [...byDate.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [entries]);
@@ -158,7 +159,7 @@ export function SchedulePageClient() {
       <section className="schedule-page">
         <div className="schedule-page__intro">
           <h2>일정 관리</h2>
-          <p>교대 근무표와 호텔 일정(VIP·회의·점검 등)을 한곳에서 관리합니다.</p>
+          <p>조별 근무표와 호텔 일정(VIP·회의·점검 등)을 한곳에서 관리합니다.</p>
         </div>
 
         <div className="schedule-tabs" role="tablist" aria-label="일정 종류">
@@ -169,7 +170,7 @@ export function SchedulePageClient() {
             className={`schedule-tabs__btn${tab === 'roster' ? ' is-active' : ''}`}
             onClick={() => setTab('roster')}
           >
-            교대 근무표
+            조별 근무표
           </button>
           <button
             type="button"
@@ -195,7 +196,7 @@ export function SchedulePageClient() {
               <div className="schedule-panel__header">
                 <div>
                   <h3>CSV 일괄 업로드</h3>
-                  <p>CSV 형식: 날짜, 교대, 이름</p>
+                  <p>CSV 형식: 날짜, 조, 이름 (예: A조, B, C)</p>
                 </div>
                 <button
                   type="button"
@@ -229,7 +230,7 @@ export function SchedulePageClient() {
 
               <label className="schedule-field schedule-field--full">
                 <span>CSV 내용</span>
-                <textarea rows={6} value={csvText} onChange={(e) => setCsvText(e.target.value)} placeholder="날짜,교대,이름" />
+                <textarea rows={6} value={csvText} onChange={(e) => setCsvText(e.target.value)} placeholder="날짜,조,이름" />
               </label>
 
               <div className="schedule-upload__actions">
@@ -263,18 +264,18 @@ export function SchedulePageClient() {
                     <thead>
                       <tr>
                         <th>날짜</th>
-                        <th>주간</th>
-                        <th>오후</th>
-                        <th>야간</th>
+                        {WORK_GROUPS.map((group) => (
+                          <th key={group}>{formatWorkGroupLabel(group)}</th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {tableRows.map(([workDate, shifts]) => (
+                      {tableRows.map(([workDate, groups]) => (
                         <tr key={workDate}>
                           <td>{formatDateLabel(workDate)}</td>
-                          {SHIFTS.map((shift) => (
-                            <td key={shift} className={shifts[shift].length ? undefined : 'schedule-table__empty'}>
-                              {shifts[shift].length ? shifts[shift].join(', ') : '-'}
+                          {WORK_GROUPS.map((group) => (
+                            <td key={group} className={groups[group].length ? undefined : 'schedule-table__empty'}>
+                              {groups[group].length ? groups[group].join(', ') : '-'}
                             </td>
                           ))}
                         </tr>
@@ -303,7 +304,9 @@ export function SchedulePageClient() {
                         }}
                       >
                         <span className="schedule-entry-list__date">{formatDateLabel(entry.work_date)}</span>
-                        <span className="schedule-entry-list__shift">{entry.shift}</span>
+                        <span className="schedule-entry-list__shift">
+                          {formatWorkGroupLabel(normalizeScheduleGroup(entry.shift) ?? entry.shift)}
+                        </span>
                         <span className="schedule-entry-list__name">{entry.staff_name}</span>
                       </button>
                     </li>

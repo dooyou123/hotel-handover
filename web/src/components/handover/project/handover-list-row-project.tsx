@@ -10,6 +10,7 @@ import {
 } from '@/lib/handover/card-utils';
 import type { Card } from '@/lib/handover/types';
 import { SearchHighlight } from '@/components/handover/search-highlight';
+import { HandoverCardListExtras } from './handover-card-list-extras';
 
 type HandoverListRowProjectProps = {
   card: Card;
@@ -70,6 +71,7 @@ export function HandoverListRowProject({
           {formatAssigneeLabel(card) ? <span>· 담당 {formatAssigneeLabel(card)}</span> : null}
           <span>· {card.column_id === 'done' ? formatTime(card.updated_at) : formatElapsed(card.updated_at || card.created_at)}</span>
         </span>
+        <HandoverCardListExtras card={card} />
       </button>
       <div className="project-list-row__actions">
         {isUnacked ? (

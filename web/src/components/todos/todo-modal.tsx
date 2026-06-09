@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { SHIFTS } from '@/lib/constants';
+import { WORK_GROUPS, formatWorkGroupLabel } from '@/lib/constants';
 import type { Card } from '@/lib/handover/types';
 import {
   TODO_PRIORITY_LABELS,
@@ -142,15 +142,15 @@ export function TodoModal({
               </select>
             </label>
             <label className="field">
-              <span>담당 교대</span>
+              <span>담당 조</span>
               <select
                 value={form.assignee_shift}
                 onChange={(e) => setForm({ ...form, assignee_shift: e.target.value })}
               >
                 <option value="">미지정</option>
-                {SHIFTS.map((shift) => (
-                  <option key={shift} value={shift}>
-                    {shift}
+                {WORK_GROUPS.map((group) => (
+                  <option key={group} value={group}>
+                    {formatWorkGroupLabel(group)}
                   </option>
                 ))}
               </select>

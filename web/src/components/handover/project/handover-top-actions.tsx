@@ -6,6 +6,7 @@ type HandoverTopActionsProps = {
   onOpenShiftBrief: () => void;
   onExport: () => void;
   onActivity: () => void;
+  layout?: 'bar' | 'grid';
 };
 
 export function HandoverTopActions({
@@ -14,9 +15,13 @@ export function HandoverTopActions({
   onOpenShiftBrief,
   onExport,
   onActivity,
+  layout = 'bar',
 }: HandoverTopActionsProps) {
   return (
-    <section className="handover-top-actions" aria-label="교대 · 기록">
+    <section
+      className={`handover-top-actions${layout === 'grid' ? ' handover-top-actions--grid' : ''}`}
+      aria-label="교대 · 기록"
+    >
       <button type="button" className="handover-top-actions__btn" onClick={onShiftStart}>
         교대 시작
       </button>

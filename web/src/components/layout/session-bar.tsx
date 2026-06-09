@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { SESSION_STORAGE_KEY, SHIFTS, WORK_GROUPS } from '@/lib/constants';
+import { SESSION_STORAGE_KEY, WORK_GROUPS, formatSessionLabel } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
 import { UserMenu } from '@/components/layout/user-menu';
 
@@ -23,7 +23,12 @@ export function SessionBar({ email }: SessionBarProps) {
     function loadFromStorage() {
       try {
         const saved = JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY) || '{}');
-        setSession({ shift: saved.shift || '', group: saved.group || '', name: saved.name || '' });
+        const group = saved.group || '';
+        setSession({
+          shift: saved.shift || group,
+          group,
+          name: saved.name || '',
+        });
       } catch {
         setSession({ shift: '', group: '', name: '' });
       }
@@ -48,8 +53,9 @@ export function SessionBar({ email }: SessionBarProps) {
   }, []);
 
   function persist(next: SessionState) {
-    setSession(next);
-    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(next));
+    const normalized = { ...next, shift: next.group };
+    setSession(normalized);
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(normalized));
     window.dispatchEvent(new Event('handover-session-change'));
   }
 
@@ -59,27 +65,12 @@ export function SessionBar({ email }: SessionBarProps) {
     window.location.href = '/login';
   }
 
-  const ready = Boolean(session.shift && session.group && session.name);
-  const sessionLabel = ready
-    ? `${session.shift} · ${session.group}조 · ${session.name}`
-    : '근무 설정 필요';
+  const ready = Boolean(session.group && session.name);
+  const sessionLabel = ready ? formatSessionLabel(session.group, session.name) : '근무 설정 필요';
 
   return (
     <div className="session-bar session-bar--compact">
       <div className="session-bar__cluster" title={sessionLabel} aria-label={sessionLabel}>
-        <select
-          className="session-bar__select"
-          value={session.shift}
-          aria-label="현재 교대"
-          onChange={(e) => persist({ ...session, shift: e.target.value })}
-        >
-          <option value="">교대</option>
-          {SHIFTS.map((shift) => (
-            <option key={shift} value={shift}>
-              {shift}
-            </option>
-          ))}
-        </select>
         <select
           className="session-bar__select session-bar__select--narrow"
           value={session.group}

@@ -30,7 +30,7 @@ function getDateRange(period: StatsPeriod) {
     startDate,
     endDate,
     startIso: `${startDate}T00:00:00`,
-    endIso: `${endDate}T23:59:59.999Z`,
+    endIso: `${endDate}T23:59:59`,
     rangeLabel,
   };
 }
@@ -247,11 +247,73 @@ export function formatDurationMinutes(minutes: number | null) {
   return rest > 0 ? `${hours}시간 ${rest}분` : `${hours}시간`;
 }
 
+export function formatPercent(value: number | null) {
+  if (value == null) return '—';
+  return `${value}%`;
+}
+
+function calcPercent(completed: number, total: number): number | null {
+  if (total <= 0) return null;
+  return Math.round((completed / total) * 100);
+}
+
+function todoInPeriod(
+  todo: { due_date: string | null; created_at: string },
+  startDate: string,
+  endDate: string,
+): boolean {
+  if (todo.due_date) {
+    return todo.due_date >= startDate && todo.due_date <= endDate;
+  }
+  const created = todo.created_at.slice(0, 10);
+  return created >= startDate && created <= endDate;
+}
+
+type ReviewStatsRow = {
+  id: string;
+  created_at: string;
+  follow_up_card_id: string | null;
+};
+
+/** follow_up_card_id 컬럼(013) 미적용 DB 호환 — 기본 조회는 id·created_at 만 */
+async function fetchReviewsInPeriod(startIso: string, endIso: string): Promise<ReviewStatsRow[]> {
+  const supabase = createClient();
+
+  const basic = await supabase
+    .from('guest_reviews')
+    .select('id, created_at')
+    .eq('hotel_id', DEFAULT_HOTEL_ID)
+    .gte('created_at', startIso)
+    .lte('created_at', endIso);
+
+  if (basic.error) {
+    console.warn('guest_reviews stats skipped:', basic.error.message);
+    return [];
+  }
+
+  return (basic.data ?? []).map((row) => ({
+    id: row.id,
+    created_at: row.created_at,
+    follow_up_card_id: null,
+  }));
+}
+
 export async function fetchStatsData(period: StatsPeriod): Promise<StatsData> {
   const supabase = createClient();
   const { startDate, endDate, startIso, endIso, rangeLabel } = getDateRange(period);
+  const dayCount = enumerateDates(startDate, endDate).length;
 
-  const [createsRes, urgentRes, movesRes, amenityRes, urgentAcksRes, hkRes] = await Promise.all([
+  const [
+    createsRes,
+    urgentRes,
+    movesRes,
+    amenityRes,
+    urgentAcksRes,
+    hkRes,
+    checklistItemsRes,
+    checklistCompletionsRes,
+    todosRes,
+  ] = await Promise.all([
     supabase
       .from('activity_logs')
       .select('shift, created_at')
@@ -295,6 +357,21 @@ export async function fetchStatsData(period: StatsPeriod): Promise<StatsData> {
       .eq('hotel_id', DEFAULT_HOTEL_ID)
       .gte('work_date', startDate)
       .lte('work_date', endDate),
+    supabase
+      .from('checklist_items')
+      .select('id')
+      .eq('hotel_id', DEFAULT_HOTEL_ID)
+      .eq('is_active', true),
+    supabase
+      .from('checklist_completions')
+      .select('id, work_date, checklist_items!inner(hotel_id)')
+      .eq('checklist_items.hotel_id', DEFAULT_HOTEL_ID)
+      .gte('work_date', startDate)
+      .lte('work_date', endDate),
+    supabase
+      .from('todos')
+      .select('id, due_date, status, created_at, completed_at')
+      .eq('hotel_id', DEFAULT_HOTEL_ID),
   ]);
 
   if (createsRes.error) throw createsRes.error;
@@ -303,6 +380,13 @@ export async function fetchStatsData(period: StatsPeriod): Promise<StatsData> {
   if (amenityRes.error) throw amenityRes.error;
   if (urgentAcksRes.error) throw urgentAcksRes.error;
   if (hkRes.error) throw hkRes.error;
+  if (checklistItemsRes.error) throw checklistItemsRes.error;
+  if (checklistCompletionsRes.error) {
+    console.warn('checklist_completions stats fallback:', checklistCompletionsRes.error.message);
+  }
+  if (todosRes.error) throw todosRes.error;
+
+  const reviews = await fetchReviewsInPeriod(startIso, endIso);
 
   const creates = createsRes.data ?? [];
   const urgentCards = urgentRes.data ?? [];
@@ -315,6 +399,27 @@ export async function fetchStatsData(period: StatsPeriod): Promise<StatsData> {
 
   const amenityOutboundTotal = amenityRows.reduce((sum, row) => sum + row.total_items, 0);
 
+  const activeChecklistItems = checklistItemsRes.data?.length ?? 0;
+  const checklistCompletions = checklistCompletionsRes.data?.length ?? 0;
+  const checklistExpected = activeChecklistItems * dayCount * SHIFTS.length;
+  const checklistCompletionRate = calcPercent(checklistCompletions, checklistExpected);
+
+  const todos = todosRes.data ?? [];
+  const todosInPeriod = todos.filter((todo) => todoInPeriod(todo, startDate, endDate));
+  const todoDueCount = todosInPeriod.length;
+  const todoCompletedCount = todosInPeriod.filter(
+    (todo) =>
+      todo.status === 'done' &&
+      todo.completed_at &&
+      todo.completed_at >= startIso &&
+      todo.completed_at <= endIso,
+  ).length;
+  const todoCompletionRate = calcPercent(todoCompletedCount, todoDueCount);
+
+  const reviewCount = reviews.length;
+  const reviewFollowUpCount = reviews.filter((review) => review.follow_up_card_id).length;
+  const reviewFollowUpRate = calcPercent(reviewFollowUpCount, reviewCount);
+
   const summary: StatsSummary = {
     totalHandovers: creates.length,
     urgentCount: urgentCards.length,
@@ -322,6 +427,14 @@ export async function fetchStatsData(period: StatsPeriod): Promise<StatsData> {
     urgentAvgMinutes,
     amenityOutboundTotal,
     amenityTransactionCount: amenityRows.length,
+    checklistCompletions,
+    checklistCompletionRate,
+    todoDueCount,
+    todoCompletedCount,
+    todoCompletionRate,
+    reviewCount,
+    reviewFollowUpCount,
+    reviewFollowUpRate,
   };
 
   const amenityShiftRows = amenityRows.map((row) => ({ shift: shiftFromAuthor(row.author ?? '') }));

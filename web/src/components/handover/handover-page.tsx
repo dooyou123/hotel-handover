@@ -1,10 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
+import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { cardSummaryLabel, logActivity } from '@/lib/handover/activity';
 import { filterCards, isArchivedCard } from '@/lib/handover/card-utils';
+import { cardInputFromNotice } from '@/lib/handover/notice-to-card';
 import { openShiftBriefWindow } from '@/lib/handover/open-shift-brief';
 import { buildShiftSummaryData, todayDateString } from '@/lib/handover/shift-summary';
 import { useActivityLogs } from '@/lib/handover/use-activity-logs';
@@ -49,6 +52,8 @@ function todoPriorityToCard(priority: TodoPriority): Priority {
 }
 
 export function HandoverPage() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const {
     cards,
@@ -70,7 +75,11 @@ export function HandoverPage() {
     refetch: refetchArchived,
   } = useArchivedCards();
   const { notices } = useNotices();
-  const { data: activityLogs = [], isLoading: activityLoading, refetch: refetchActivity } = useActivityLogs(80);
+  const { data: activityLogs = [] } = useActivityLogs({ limit: 80 });
+
+  function refreshActivityLogs() {
+    void queryClient.invalidateQueries({ queryKey: ['activity-logs', DEFAULT_HOTEL_ID] });
+  }
   const { data: isManager = false } = useIsManager();
   const { session, requireSession, authorLabel } = useWorkSession();
   const { confirm } = useConfirmDialog();
@@ -84,11 +93,14 @@ export function HandoverPage() {
   } = useMonthEvents(currentMonth);
   const { data: todaySchedule } = useTodaySchedule();
 
-  const [viewMode, setViewMode] = useState<HandoverViewMode>('today');
+  const [viewMode, setViewMode] = useState<HandoverViewMode>('board');
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchDateFrom, setSearchDateFrom] = useState('');
+  const [searchDateTo, setSearchDateTo] = useState('');
   const [quickFilter, setQuickFilter] = useState<QuickFilter>('all');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<Card | null>(null);
+  const [createDraft, setCreateDraft] = useState<CardInput | null>(null);
   const [todoModalOpen, setTodoModalOpen] = useState(false);
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [eventModalOpen, setEventModalOpen] = useState(false);
@@ -117,19 +129,46 @@ export function HandoverPage() {
     const card = cards.find((item) => item.id === cardId) ?? archivedCards.find((item) => item.id === cardId);
     if (card) {
       setEditingCard(card);
+      setCreateDraft(null);
       setModalOpen(true);
     }
   }, [searchParams, cards, archivedCards, isLoading]);
 
+  useEffect(() => {
+    const noticeId = searchParams.get('newFromNotice');
+    if (!noticeId || isLoading || !notices.length) return;
+    const notice = notices.find((item) => item.id === noticeId);
+    if (!notice) return;
+    setEditingCard(null);
+    setCreateDraft(cardInputFromNotice(notice, authorLabel));
+    setModalOpen(true);
+    router.replace('/handover', { scroll: false });
+  }, [searchParams, notices, isLoading, authorLabel, router]);
+
   const boardCards = useMemo(
-    () => filterCards(cards, { query: searchQuery, quickFilter, category: '', session }),
-    [cards, searchQuery, quickFilter, session],
+    () =>
+      filterCards(cards, {
+        query: searchQuery,
+        quickFilter,
+        category: '',
+        session,
+        dateFrom: searchDateFrom || null,
+        dateTo: searchDateTo || null,
+      }),
+    [cards, searchQuery, quickFilter, session, searchDateFrom, searchDateTo],
   );
 
   const archivedSearchMatches = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    return filterCards(archivedCards, { query: searchQuery, quickFilter: 'all', category: '', session });
-  }, [archivedCards, searchQuery, session]);
+    if (!searchQuery.trim() && !searchDateFrom && !searchDateTo) return [];
+    return filterCards(archivedCards, {
+      query: searchQuery,
+      quickFilter: 'all',
+      category: '',
+      session,
+      dateFrom: searchDateFrom || null,
+      dateTo: searchDateTo || null,
+    });
+  }, [archivedCards, searchQuery, session, searchDateFrom, searchDateTo]);
 
   const visibleCards = useMemo(() => {
     if (!archivedSearchMatches.length) return boardCards;
@@ -161,7 +200,7 @@ export function HandoverPage() {
   const doneCount = cards.filter((card) => card.column_id === 'done').length;
   const archivedCount = archivedCards.length;
 
-  const audit = () => ({ shift: session.shift, staffName: session.name });
+  const audit = () => ({ shift: session.group || session.shift, staffName: session.name });
 
   function showToast(message: string) {
     setToast(message);
@@ -171,7 +210,22 @@ export function HandoverPage() {
   function openCreateModal() {
     if (!requireSession('인수인계 추가')) return;
     setEditingCard(null);
+    setCreateDraft(null);
     setModalOpen(true);
+  }
+
+  function openCreateFromNotice(noticeId: string) {
+    const notice = notices.find((item) => item.id === noticeId);
+    if (!notice) return;
+    if (!requireSession('인수인계 추가')) return;
+    setEditingCard(null);
+    setCreateDraft(cardInputFromNotice(notice, authorLabel));
+    setModalOpen(true);
+  }
+
+  function closeCardModal() {
+    setModalOpen(false);
+    setCreateDraft(null);
   }
 
   function openEditModal(card: Card) {
@@ -245,7 +299,7 @@ export function HandoverPage() {
     } else {
       const created = await createCard.mutateAsync({
         ...input,
-        assignee_shift: input.assignee_shift || session.shift,
+        assignee_shift: input.assignee_shift || session.group || session.shift,
         assignee_name: input.assignee_name || session.name,
       });
       if (options?.pendingFiles?.length) {
@@ -268,7 +322,7 @@ export function HandoverPage() {
       });
       showToast('인수인계가 추가되었습니다.');
     }
-    refetchActivity();
+    refreshActivityLogs();
   }
 
   async function handleDelete(id: string) {
@@ -290,7 +344,7 @@ export function HandoverPage() {
       });
     }
     showToast('삭제되었습니다.');
-    refetchActivity();
+    refreshActivityLogs();
   }
 
   async function handleAcknowledge(cardId: string) {
@@ -327,7 +381,7 @@ export function HandoverPage() {
         details: { from: card.column_id, to: 'done', quick: true },
       });
       showToast('완료 처리했습니다.');
-      refetchActivity();
+      refreshActivityLogs();
     } catch {
       showToast('완료 처리에 실패했습니다.');
     }
@@ -351,7 +405,7 @@ export function HandoverPage() {
         description,
         due_date: dueDate,
         priority: cardPriorityToTodo(card.priority),
-        assignee_shift: card.assignee_shift || session.shift,
+        assignee_shift: card.assignee_shift || session.group || session.shift,
         assignee_name: card.assignee_name || session.name,
         author: authorLabel,
       });
@@ -383,7 +437,7 @@ export function HandoverPage() {
         resolution: '',
         next_action: '',
         author: authorLabel,
-        assignee_shift: todo.assignee_shift || session.shift,
+        assignee_shift: todo.assignee_shift || session.group || session.shift,
         assignee_name: todo.assignee_name || session.name,
         due_at: todo.due_date ? `${todo.due_date}T12:00:00` : null,
       });
@@ -447,7 +501,7 @@ export function HandoverPage() {
         summary: `완료 보관 (${doneCount}건)`,
       });
       showToast('완료 칸을 비웠습니다. 보관함에서 확인할 수 있습니다.');
-      refetchActivity();
+      refreshActivityLogs();
       refetchArchived();
     } catch {
       showToast('완료 보관에 실패했습니다.');
@@ -468,7 +522,7 @@ export function HandoverPage() {
         summary: `보관 복원: ${cardSummaryLabel(card.room, card.title)}`,
       });
       showToast('완료 칸으로 복원했습니다.');
-      refetchActivity();
+      refreshActivityLogs();
       refetchArchived();
     } catch {
       showToast('복원에 실패했습니다.');
@@ -493,7 +547,7 @@ export function HandoverPage() {
         summary: `댓글: ${cardSummaryLabel(card.room, card.title)}`,
         details: { changes: [content] },
       });
-      refetchActivity();
+      refreshActivityLogs();
     }
   }
 
@@ -541,7 +595,7 @@ export function HandoverPage() {
       showUnacked();
       return;
     }
-    setViewMode('today');
+    setViewMode('board');
   };
 
   return (
@@ -558,6 +612,8 @@ export function HandoverPage() {
           alerts={alerts}
           viewMode={viewMode}
           searchQuery={searchQuery}
+          searchDateFrom={searchDateFrom}
+          searchDateTo={searchDateTo}
           quickFilter={quickFilter}
           doneCount={doneCount}
           archivedCount={archivedCount}
@@ -565,6 +621,8 @@ export function HandoverPage() {
           isManager={isManager}
           onViewModeChange={setViewMode}
           onSearchChange={setSearchQuery}
+          onSearchDateFromChange={setSearchDateFrom}
+          onSearchDateToChange={setSearchDateTo}
           onQuickFilterChange={setQuickFilter}
           onAdd={openCreateModal}
           onArchiveDone={handleArchiveDone}
@@ -588,19 +646,21 @@ export function HandoverPage() {
             setEditingEvent(event);
             setEventModalOpen(true);
           }}
+          onCreateFromNotice={openCreateFromNotice}
         />
       </div>
 
       <CardModal
         open={modalOpen}
         card={activeCard}
+        createDraft={createDraft}
         linkedTodo={linkedTodo}
         authorLabel={authorLabel}
-        defaultShift={session.shift}
+        defaultShift={session.group || session.shift}
         defaultName={session.name}
         staffNames={staffNames}
         isManager={isManager}
-        onClose={() => setModalOpen(false)}
+        onClose={closeCardModal}
         onSave={handleSave}
         onDelete={handleDelete}
         onAddComment={handleAddComment}
@@ -615,7 +675,7 @@ export function HandoverPage() {
         todo={editingTodo}
         linkedCard={editingTodo?.linked_card_id ? cards.find((c) => c.id === editingTodo.linked_card_id) ?? null : null}
         authorLabel={authorLabel}
-        defaultShift={session.shift}
+        defaultShift={session.group || session.shift}
         defaultName={session.name}
         staffNames={staffNames}
         onClose={() => setTodoModalOpen(false)}
@@ -653,12 +713,7 @@ export function HandoverPage() {
         }}
       />
 
-      <ActivityLogModal
-        open={activityModalOpen}
-        logs={activityLogs}
-        isLoading={activityLoading}
-        onClose={() => setActivityModalOpen(false)}
-      />
+      <ActivityLogModal open={activityModalOpen} onClose={() => setActivityModalOpen(false)} />
 
       <ExportSummaryModal
         open={exportModalOpen}

@@ -1,7 +1,8 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { DEFAULT_HOTEL_ID, SHIFTS } from '@/lib/constants';
+import { DEFAULT_HOTEL_ID, type WorkGroupCode } from '@/lib/constants';
+import { emptyGroupSchedule, normalizeScheduleGroup } from '@/lib/schedule/group-utils';
 import { createClient } from '@/lib/supabase/client';
 import { todayDateString } from '@/lib/handover/shift-summary';
 import { monthDateRange } from '@/lib/schedule/month-range';
@@ -9,7 +10,7 @@ import { parseScheduleCsv, type ParsedScheduleRow, type ScheduleEntry } from '@/
 
 export type TodaySchedule = {
   work_date: string;
-  shifts: Record<(typeof SHIFTS)[number], string[]>;
+  groups: Record<WorkGroupCode, string[]>;
 };
 
 async function fetchMonthSchedule(month: string): Promise<ScheduleEntry[]> {
@@ -40,13 +41,13 @@ async function fetchTodaySchedule(): Promise<TodaySchedule> {
     .order('staff_name');
   if (error) throw error;
 
-  const shifts: TodaySchedule['shifts'] = { 주간: [], 오후: [], 야간: [] };
+  const groups = emptyGroupSchedule();
   (data ?? []).forEach((row) => {
-    const shift = row.shift as (typeof SHIFTS)[number];
-    if (shifts[shift]) shifts[shift].push(row.staff_name);
+    const group = normalizeScheduleGroup(row.shift);
+    if (group) groups[group].push(row.staff_name);
   });
 
-  return { work_date: workDate, shifts };
+  return { work_date: workDate, groups };
 }
 
 export function useMonthSchedule(month: string) {
