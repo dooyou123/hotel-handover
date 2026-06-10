@@ -198,16 +198,6 @@ export function SchedulePageClient() {
                   <h3>CSV 일괄 업로드</h3>
                   <p>CSV 형식: 날짜, 조, 이름 (예: A조, B, C)</p>
                 </div>
-                <button
-                  type="button"
-                  className="btn btn--primary btn--small"
-                  onClick={() => {
-                    setEditingEntry(null);
-                    setEntryModalOpen(true);
-                  }}
-                >
-                  + 근무 추가
-                </button>
               </div>
 
               <div className="schedule-upload__controls">
@@ -252,6 +242,16 @@ export function SchedulePageClient() {
                   <h3>{month} 근무표</h3>
                   <p>{entries.length ? `${entries.length}건` : '등록된 근무가 없습니다.'}</p>
                 </div>
+                <button
+                  type="button"
+                  className="btn btn--primary btn--small"
+                  onClick={() => {
+                    setEditingEntry(null);
+                    setEntryModalOpen(true);
+                  }}
+                >
+                  + 근무 추가
+                </button>
               </div>
 
               {rosterLoading ? (

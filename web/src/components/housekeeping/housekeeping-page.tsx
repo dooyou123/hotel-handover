@@ -20,16 +20,20 @@ import {
   type HkBedSuffix,
 } from '@/lib/housekeeping/rooms';
 import {
+  EMPTY_HK_STATUS_NOTES,
   HK_BED_TYPES,
   HK_EXTRA_BED_ACTIONS,
   buildDefaultBedRooms,
   emptySpecialRoom,
   mapSpecialRoomsFromSaved,
+  mapStatusNotesFromReport,
   mergeBedRoomsFromSaved,
   type HousekeepingBedDraft,
+  type HousekeepingReport,
   type HousekeepingSpecialDraft,
   type HkBedType,
   type HkExtraBedAction,
+  type HkStatusNotes,
   type SaveHousekeepingInput,
 } from '@/lib/housekeeping/types';
 import { todayDateString } from '@/lib/handover/shift-summary';
@@ -37,6 +41,7 @@ import { readWorkSession, useWorkSession } from '@/lib/handover/use-work-session
 import { HkBedTypeBadge } from '@/components/housekeeping/hk-bed-type-badge';
 import { HkChangedRoomCard } from '@/components/housekeeping/hk-changed-room-card';
 import { HkReportDashboard } from '@/components/housekeeping/hk-report-dashboard';
+import { HkStatusNotesFields } from '@/components/housekeeping/hk-status-notes-fields';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 
 function formatDateLabel(workDate: string): string {
@@ -62,6 +67,7 @@ function buildEmptyForm(workDate: string): FormState {
     work_date: workDate,
     previous_day_notes: '',
     next_day_notes: '',
+    statusNotes: { ...EMPTY_HK_STATUS_NOTES },
     bedRooms: buildDefaultBedRooms(),
     specialRooms: [emptySpecialRoom(0)],
   };
@@ -83,12 +89,27 @@ function applyBedRoomPatch(
   patch: Partial<HousekeepingBedDraft>,
 ): HousekeepingBedDraft {
   const merged = { ...patch };
-  if (patch.room_type !== undefined && patch.room_type !== room.room_type) {
-    const autoAction = inferExtraBedOnTypeChange(room.room_type, patch.room_type);
+  const typeChanged = patch.room_type !== undefined && patch.room_type !== room.room_type;
+  const ebChanged =
+    patch.extra_bed_action !== undefined && patch.extra_bed_action !== room.extra_bed_action;
+
+  if (typeChanged) {
+    const autoAction = inferExtraBedOnTypeChange(room.room_type, patch.room_type as HkBedType);
     if (autoAction !== undefined && patch.extra_bed_action === undefined) {
       merged.extra_bed_action = autoAction;
     }
   }
+
+  const nextType = patch.room_type !== undefined ? patch.room_type : room.room_type;
+  const nextEb =
+    merged.extra_bed_action !== undefined ? merged.extra_bed_action : room.extra_bed_action;
+
+  if (typeChanged || ebChanged) {
+    merged.bed_type_changed_at = new Date().toISOString();
+  } else if (nextType === '' && nextEb === '') {
+    merged.bed_type_changed_at = null;
+  }
+
   return { ...room, ...merged };
 }
 
@@ -127,6 +148,7 @@ export function HousekeepingPageClient() {
       work_date: workDate,
       previous_day_notes: report?.previous_day_notes ?? '',
       next_day_notes: report?.next_day_notes ?? '',
+      statusNotes: mapStatusNotesFromReport(report),
       bedRooms: allRooms.length ? mergeBedRoomsFromSaved(allRooms) : buildDefaultBedRooms(),
       specialRooms: mapSpecialRoomsFromSaved(allRooms),
     });
@@ -222,7 +244,7 @@ export function HousekeepingPageClient() {
   }
 
   function clearBedRoom(roomNumber: string) {
-    updateBedRoomByNumber(roomNumber, { room_type: '', extra_bed_action: '' });
+    updateBedRoomByNumber(roomNumber, { room_type: '', extra_bed_action: '', bed_type_changed_at: null });
     setDraftRoomNumbers((prev) => {
       const next = new Set(prev);
       next.delete(roomNumber);
@@ -288,25 +310,29 @@ export function HousekeepingPageClient() {
     });
   }
 
+  function updateStatusNotes(next: HkStatusNotes) {
+    updateForm({ statusNotes: next });
+  }
+
+  function buildPrintReport(): HousekeepingReport {
+    const base = data?.report;
+    return {
+      id: base?.id ?? '',
+      hotel_id: base?.hotel_id ?? DEFAULT_HOTEL_ID,
+      work_date: workDate,
+      previous_day_notes: form.previous_day_notes,
+      next_day_notes: form.next_day_notes,
+      ...form.statusNotes,
+      author: base?.author ?? authorLabel,
+      staff_name: base?.staff_name ?? '',
+      shift: base?.shift ?? '',
+      created_at: base?.created_at ?? '',
+      updated_at: base?.updated_at ?? '',
+    };
+  }
+
   function handlePrint() {
-    const report = data?.report
-      ? {
-          ...data.report,
-          previous_day_notes: form.previous_day_notes,
-          next_day_notes: form.next_day_notes,
-        }
-      : {
-          id: '',
-          hotel_id: DEFAULT_HOTEL_ID,
-          work_date: workDate,
-          previous_day_notes: form.previous_day_notes,
-          next_day_notes: form.next_day_notes,
-          author: authorLabel,
-          staff_name: '',
-          shift: '',
-          created_at: '',
-          updated_at: '',
-        };
+    const report = buildPrintReport();
 
     const ok = openHousekeepingPrintWindow(
       report,
@@ -400,7 +426,7 @@ export function HousekeepingPageClient() {
               </button>
             </div>
             <button type="button" className="btn btn--ghost" onClick={handlePrint}>
-              보기 / 인쇄
+              전달용 인쇄
             </button>
           </div>
         ) : (
@@ -417,7 +443,7 @@ export function HousekeepingPageClient() {
                 전날 불러오기
               </button>
               <button type="button" className="btn btn--ghost" onClick={handlePrint}>
-                보기 / 인쇄
+                전달용 인쇄
               </button>
               <button
                 type="button"
@@ -442,6 +468,7 @@ export function HousekeepingPageClient() {
               baseline={baseline}
               previousDayNotes={form.previous_day_notes}
               nextDayNotes={form.next_day_notes}
+              statusNotes={form.statusNotes}
               summary={bedChangeSummary}
               findBedRoomIndex={findBedRoomIndexForFloor}
             />
@@ -507,6 +534,16 @@ export function HousekeepingPageClient() {
               />
             </label>
           </div>
+        </article>
+
+        <article className="schedule-panel housekeeping-panel">
+          <div className="schedule-panel__header">
+            <div>
+              <h3>객실 상태 · 전달</h3>
+              <p>H/U · Comp · VIP/선정비 · O.O · 장기 숙박 · 정비 유의 · 퇴근 후 DELIVERY · 기타</p>
+            </div>
+          </div>
+          <HkStatusNotesFields value={form.statusNotes} onChange={updateStatusNotes} />
         </article>
 
         <article className="schedule-panel housekeeping-panel">

@@ -1,11 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { WORK_GROUPS, formatWorkGroupLabel } from '@/lib/constants';
 import { getTodayLabel } from '@/lib/handover/shift-summary';
 import type { Card } from '@/lib/handover/types';
 import type { HotelEvent } from '@/lib/events/types';
-import type { TodaySchedule } from '@/lib/schedule/use-schedule';
 import { filterTodayEvents, filterTodayTodos, isTodoOverdue } from '@/lib/today/alerts';
 import { TODO_PRIORITY_LABELS, type Todo } from '@/lib/todos/types';
 import { isUnackedUrgentCard } from '@/lib/handover/card-utils';
@@ -14,7 +12,6 @@ type HandoverTodaySidebarProps = {
   cards: Card[];
   todos: Todo[];
   events: HotelEvent[];
-  schedule: TodaySchedule | undefined;
   onOpenCard: (card: Card) => void;
   onOpenTodo: (todo: Todo) => void;
   onOpenEvent: (event: HotelEvent) => void;
@@ -41,7 +38,6 @@ export function HandoverTodaySidebar({
   cards,
   todos,
   events,
-  schedule,
   onOpenCard,
   onOpenTodo,
   onOpenEvent,
@@ -151,24 +147,6 @@ export function HandoverTodaySidebar({
             </ul>
           ) : (
             <p className="today-dashboard__empty">없음</p>
-          )}
-        </div>
-
-        <div className="handover-today-sidebar__panel">
-          <div className="handover-today-sidebar__panel-head">
-            <h4>오늘 근무</h4>
-          </div>
-          {schedule ? (
-            <ul className="today-dashboard__schedule">
-              {WORK_GROUPS.map((group) => (
-                <li key={group}>
-                  <span>{formatWorkGroupLabel(group)}</span>
-                  <span>{schedule.groups[group].length ? schedule.groups[group].join(', ') : '—'}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="today-dashboard__empty">불러오는 중…</p>
           )}
         </div>
       </div>

@@ -100,7 +100,11 @@ export function AmenityInventoryGrid({
                   <p className="amenity-grid-card__stock">
                     <strong>{item.quantity.toLocaleString()}</strong>개
                     <span>· {item.remainingBoxes}박스</span>
+                    {item.minQuantity > 0 ? <span>· 최소 {item.minQuantity}</span> : null}
                   </p>
+                  {item.minQuantity > 0 && item.quantity <= item.minQuantity ? (
+                    <p className="amenity-grid-card__low">재고 부족 알림</p>
+                  ) : null}
                   <p className="amenity-grid-card__usage">
                     30일 <strong>{item.monthlyUsage.toLocaleString()}</strong>개
                   </p>

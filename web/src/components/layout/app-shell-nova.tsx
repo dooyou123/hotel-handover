@@ -3,6 +3,7 @@ import { AppNav } from '@/components/layout/app-nav';
 import { AppHeaderActions } from '@/components/layout/app-header-actions';
 import { TodayStaffBar } from '@/components/schedule/today-staff-bar';
 import { NavRouteGuard } from '@/components/layout/nav-route-guard';
+import { OpsBootstrap } from '@/components/layout/ops-bootstrap';
 import { SessionBar } from '@/components/layout/session-bar';
 
 type AppShellNovaProps = {
@@ -25,6 +26,9 @@ export function AppShellNova({ email, children }: AppShellNovaProps) {
         </div>
         <AppNav variant="nova" />
         <div className="nova-sidebar__foot">
+          <Link href="/sop" className="nova-sidebar__foot-link">
+            SOP
+          </Link>
           <Link href="/help" className="nova-sidebar__foot-link">
             도움말
           </Link>
@@ -40,7 +44,9 @@ export function AppShellNova({ email, children }: AppShellNovaProps) {
             <AppHeaderActions />
           </div>
         </header>
-        <main className="nova-content">{children}</main>
+        <main className="nova-content">
+          <OpsBootstrap>{children}</OpsBootstrap>
+        </main>
       </div>
     </div>
   );

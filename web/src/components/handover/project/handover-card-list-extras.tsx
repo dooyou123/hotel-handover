@@ -18,7 +18,9 @@ export function HandoverCardListExtras({ card }: HandoverCardListExtrasProps) {
       {latestComment ? (
         <p className="project-list-row__comment">
           <span className="project-list-row__comment-label">댓글</span>
-          <span className="project-list-row__comment-text">{latestComment.content}</span>
+          <span className="project-list-row__comment-text" title={latestComment.content}>
+            {latestComment.content}
+          </span>
           <span className="project-list-row__comment-meta">
             {latestComment.staff_name || latestComment.shift}
             {latestComment.created_at ? ` · ${formatTime(latestComment.created_at)}` : ''}

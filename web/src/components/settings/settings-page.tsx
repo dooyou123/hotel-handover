@@ -24,6 +24,7 @@ import {
   type CardTemplateInput,
 } from '@/lib/settings/use-settings';
 import { DataAdminPanel } from '@/components/settings/data-admin-panel';
+import { HotelOpsSettingsPanel } from '@/components/settings/hotel-ops-settings-panel';
 import { NavVisibilityPanel } from '@/components/settings/nav-visibility-panel';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 
@@ -56,6 +57,7 @@ function TemplateModal({ open, template, onClose, onSaved }: TemplateModalProps)
     title: '',
     next_action: '',
     details: '',
+    work_group: '',
   });
   const [saving, setSaving] = useState(false);
   const { confirm } = useConfirmDialog();
@@ -71,6 +73,7 @@ function TemplateModal({ open, template, onClose, onSaved }: TemplateModalProps)
         title: template.title,
         next_action: template.next_action,
         details: template.details,
+        work_group: template.work_group || '',
       });
     } else {
       setForm({
@@ -81,6 +84,7 @@ function TemplateModal({ open, template, onClose, onSaved }: TemplateModalProps)
         title: '',
         next_action: '',
         details: '',
+        work_group: '',
       });
     }
   }, [open, template]);
@@ -152,13 +156,22 @@ function TemplateModal({ open, template, onClose, onSaved }: TemplateModalProps)
                 ))}
               </select>
             </label>
-            <label className="field field--full">
+            <label className="field">
               <span>카테고리</span>
               <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
                 {CATEGORY_OPTIONS.map((c) => (
                   <option key={c} value={c}>
                     {c}
                   </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>조별 루틴</span>
+              <select value={form.work_group} onChange={(e) => setForm({ ...form, work_group: e.target.value })}>
+                <option value="">공통</option>
+                {['A', 'B', 'C', 'D', 'E'].map((g) => (
+                  <option key={g} value={g}>{g}조</option>
                 ))}
               </select>
             </label>
@@ -557,7 +570,10 @@ export function SettingsPageClient() {
           ) : null}
 
           {activeTab === 'nav' && isManager ? (
-            <NavVisibilityPanel onSaved={() => showToast('사이드바 메뉴 설정이 저장되었습니다.')} />
+            <>
+              <NavVisibilityPanel onSaved={() => showToast('사이드바 메뉴 설정이 저장되었습니다.')} />
+              <HotelOpsSettingsPanel onSaved={showToast} />
+            </>
           ) : null}
 
           {activeTab === 'data' && isManager ? <DataAdminPanel onToast={showToast} /> : null}

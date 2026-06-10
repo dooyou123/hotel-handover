@@ -1,5 +1,10 @@
 import { HkBedTypeBadge, HkExtraBedBadge } from '@/components/housekeeping/hk-bed-type-badge';
-import type { HousekeepingBedDraft, HkBedType, HkExtraBedAction } from '@/lib/housekeeping/types';
+import {
+  formatBedTypeChangedAt,
+  type HousekeepingBedDraft,
+  type HkBedType,
+  type HkExtraBedAction,
+} from '@/lib/housekeeping/types';
 
 type HkChangedRoomCardProps = {
   room: HousekeepingBedDraft;
@@ -18,6 +23,8 @@ export function HkChangedRoomCard({
   onEbChange,
   onClear,
 }: HkChangedRoomCardProps) {
+  const changedAtLabel = formatBedTypeChangedAt(room.bed_type_changed_at);
+
   return (
     <article className="hk-room-card">
       <div className="hk-room-card__head">
@@ -27,7 +34,14 @@ export function HkChangedRoomCard({
 
       <div className="hk-room-card__body">
         {readOnly ? (
-          <HkExtraBedBadge action={room.extra_bed_action} size="md" />
+          <>
+            <HkExtraBedBadge action={room.extra_bed_action} size="md" />
+            {changedAtLabel ? (
+              <p className="hk-room-card__changed-at" title={room.bed_type_changed_at ?? undefined}>
+                변경 요청 {changedAtLabel}
+              </p>
+            ) : null}
+          </>
         ) : (
           <>
             <label className="hk-room-card__field">

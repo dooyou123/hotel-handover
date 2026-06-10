@@ -132,6 +132,9 @@ html[data-ui='nova'] .nova-nav__btn.is-active {
 }
 
 html[data-ui='nova'] .nova-sidebar__foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 0.85rem;
   padding-top: 0.75rem;
   border-top: 1px solid var(--border);
 }

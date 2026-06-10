@@ -21,6 +21,9 @@ export type GuestReview = {
   reservation_number: string;
   author: string;
   follow_up_card_id: string | null;
+  room_number: string;
+  room_action_completed_at: string | null;
+  room_action_completed_by: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -34,5 +37,6 @@ export type GuestReviewInput = {
   check_in_date: string | null;
   check_out_date: string | null;
   reservation_number: string;
+  room_number: string;
   author: string;
 };

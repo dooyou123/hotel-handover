@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, type FormEvent } from 'react';
-import { addAmenityTransaction } from '@/lib/amenity/api';
+import { addAmenityTransaction, adjustAmenityInventory, updateAmenityMinQuantity } from '@/lib/amenity/api';
 import { orderBoxItemCount } from '@/lib/amenity/reorder';
 import type { AmenityTransactionType, InventoryItem } from '@/lib/amenity/types';
 import { getStockStatus, STOCK_BADGE_CLASS, STOCK_LABELS } from '@/lib/amenity/ui';
@@ -15,6 +15,7 @@ interface TransactionPanelProps {
   onSelect: (id: number) => void;
   onSuccess: () => void;
   onError: (message: string) => void;
+  onMinQuantitySaved?: () => void;
 }
 
 export function AmenityTransactionPanel({
@@ -26,11 +27,16 @@ export function AmenityTransactionPanel({
   onSelect,
   onSuccess,
   onError,
+  onMinQuantitySaved,
 }: TransactionPanelProps) {
+  const [minQtyText, setMinQtyText] = useState('0');
   const [type, setType] = useState<AmenityTransactionType>('출고');
   const [quantityText, setQuantityText] = useState('1');
   const [memo, setMemo] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [adjustQtyText, setAdjustQtyText] = useState('');
+  const [adjustMemo, setAdjustMemo] = useState('');
+  const [adjusting, setAdjusting] = useState(false);
 
   const selected = items.find((item) => item.id === selectedId) ?? items[0] ?? null;
 
@@ -48,7 +54,10 @@ export function AmenityTransactionPanel({
   useEffect(() => {
     setQuantityText('1');
     setMemo('');
-  }, [selected?.id, type]);
+    setMinQtyText(String(selected?.minQuantity ?? 0));
+    setAdjustQtyText(String(selected?.quantity ?? 0));
+    setAdjustMemo('');
+  }, [selected?.id, selected?.minQuantity, selected?.quantity, type]);
 
   if (!selected) {
     return (
@@ -61,6 +70,42 @@ export function AmenityTransactionPanel({
   const status = getStockStatus(selected.quantity, selected.box_size);
   const isStockInsufficient = type === '출고' && selected.quantity < quantity;
   const orderFillQty = orderBoxItemCount(selected.orderBoxes, selected.box_size);
+  const adjustQty = Number.parseInt(adjustQtyText.trim(), 10);
+  const adjustQtyValid = Number.isFinite(adjustQty) && adjustQty >= 0;
+  const adjustDelta = adjustQtyValid ? adjustQty - selected.quantity : 0;
+
+  async function handleAdjustSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!canTransact) {
+      onError('상단 「지금 근무」를 먼저 설정해 주세요.');
+      return;
+    }
+    if (!adjustQtyValid) {
+      onError('실사 수량을 0 이상 숫자로 입력해 주세요.');
+      return;
+    }
+    if (adjustDelta === 0) {
+      onError('시스템 재고와 실사 수량이 같습니다.');
+      return;
+    }
+
+    setAdjusting(true);
+    try {
+      await adjustAmenityInventory({
+        amenityId: selected!.id,
+        actualQuantity: adjustQty,
+        currentQuantity: selected!.quantity,
+        author,
+        memo: adjustMemo,
+      });
+      setAdjustMemo('');
+      onSuccess();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : '재고조정에 실패했습니다.');
+    } finally {
+      setAdjusting(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -132,6 +177,34 @@ export function AmenityTransactionPanel({
             {STOCK_LABELS[status]}
           </span>
         </div>
+
+        <label className="field">
+          <span>최소 재고 (알림)</span>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <input
+              type="number"
+              min={0}
+              value={minQtyText}
+              onChange={(e) => setMinQtyText(e.target.value)}
+              disabled={busy || submitting}
+            />
+            <button
+              type="button"
+              className="btn btn--ghost btn--xs"
+              disabled={busy || submitting}
+              onClick={async () => {
+                try {
+                  await updateAmenityMinQuantity(selected.id, Number(minQtyText) || 0);
+                  onMinQuantitySaved?.();
+                } catch (err) {
+                  onError(err instanceof Error ? err.message : '저장에 실패했습니다.');
+                }
+              }}
+            >
+              저장
+            </button>
+          </div>
+        </label>
 
         <div className="amenity-side-panel__usage">
           <div>
@@ -230,10 +303,55 @@ export function AmenityTransactionPanel({
 
         <button
           type="submit"
-          className={`btn btn--primary amenity-side-panel__submit${type === '출고' ? ' btn--danger' : ''}`}
+          className={`btn amenity-side-panel__submit ${type === '출고' ? 'btn--danger amenity-side-panel__submit--out' : 'btn--primary'}`}
           disabled={!canTransact || busy || submitting || isStockInsufficient}
         >
           {submitting ? '저장 중…' : `${type} ${quantity.toLocaleString()}개`}
+        </button>
+      </form>
+
+      <form className="amenity-adjust-panel" onSubmit={handleAdjustSubmit}>
+        <div className="amenity-adjust-panel__head">
+          <h4>실사 · 재고조정</h4>
+          <p>실물 재고와 시스템이 다를 때 맞춥니다.</p>
+        </div>
+        <div className="amenity-adjust-panel__current">
+          <span>시스템 재고</span>
+          <strong>{selected.quantity.toLocaleString()}개</strong>
+        </div>
+        <label className="field">
+          <span>실사 수량 (개)</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            value={adjustQtyText}
+            onChange={(e) => setAdjustQtyText(e.target.value.replace(/[^\d]/g, ''))}
+            placeholder="실제 개수"
+            disabled={busy || adjusting}
+          />
+        </label>
+        {adjustQtyValid && adjustDelta !== 0 ? (
+          <p className={`amenity-adjust-panel__delta${adjustDelta > 0 ? ' is-plus' : ' is-minus'}`}>
+            {adjustDelta > 0 ? `입고 ${adjustDelta.toLocaleString()}개` : `출고 ${Math.abs(adjustDelta).toLocaleString()}개`} 반영
+          </p>
+        ) : null}
+        <label className="field">
+          <span>사유 (선택)</span>
+          <input
+            type="text"
+            value={adjustMemo}
+            onChange={(e) => setAdjustMemo(e.target.value)}
+            placeholder="예: 실사 차이, 파손 폐기"
+            disabled={busy || adjusting}
+          />
+        </label>
+        <button
+          type="submit"
+          className="btn btn--ghost amenity-adjust-panel__submit"
+          disabled={!canTransact || busy || adjusting || !adjustQtyValid || adjustDelta === 0}
+        >
+          {adjusting ? '조정 중…' : '재고조정 적용'}
         </button>
       </form>
     </aside>

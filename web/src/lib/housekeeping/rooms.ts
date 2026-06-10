@@ -8,7 +8,7 @@ export const HK_FLOORS = HK_FLOORS_ASC;
 export const HK_BED_SUFFIXES = ['02', '10', '16'] as const;
 
 /** 트윈/트리플 대상에서 제외되는 객실 */
-export const HK_EXCLUDED_ROOM_NUMBERS = new Set(['416', '516', '1302']);
+export const HK_EXCLUDED_ROOM_NUMBERS = new Set(['416', '516', '1316', '1302']);
 
 export type HkBedSuffix = (typeof HK_BED_SUFFIXES)[number];
 export type HkFloor = (typeof HK_FLOORS_ASC)[number];

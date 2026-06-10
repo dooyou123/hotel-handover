@@ -25,7 +25,6 @@ import type {
 } from '@/lib/handover/types';
 import { useMonthEvents } from '@/lib/events/use-events';
 import type { HotelEvent, HotelEventInput } from '@/lib/events/types';
-import { useTodaySchedule } from '@/lib/schedule/use-schedule';
 import { buildTodayAlerts } from '@/lib/today/alerts';
 import type { Todo, TodoInput, TodoPriority } from '@/lib/todos/types';
 import { useTodos } from '@/lib/todos/use-todos';
@@ -91,8 +90,6 @@ export function HandoverPage() {
     createEvent: createEventMutation,
     updateEvent: updateEventMutation,
   } = useMonthEvents(currentMonth);
-  const { data: todaySchedule } = useTodaySchedule();
-
   const [viewMode, setViewMode] = useState<HandoverViewMode>('board');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchDateFrom, setSearchDateFrom] = useState('');
@@ -211,15 +208,6 @@ export function HandoverPage() {
     if (!requireSession('인수인계 추가')) return;
     setEditingCard(null);
     setCreateDraft(null);
-    setModalOpen(true);
-  }
-
-  function openCreateFromNotice(noticeId: string) {
-    const notice = notices.find((item) => item.id === noticeId);
-    if (!notice) return;
-    if (!requireSession('인수인계 추가')) return;
-    setEditingCard(null);
-    setCreateDraft(cardInputFromNotice(notice, authorLabel));
     setModalOpen(true);
   }
 
@@ -605,10 +593,8 @@ export function HandoverPage() {
           summaryData={summaryData}
           cards={cards}
           visibleCards={visibleCards}
-          notices={notices}
           todos={todos}
           events={events}
-          schedule={todaySchedule}
           alerts={alerts}
           viewMode={viewMode}
           searchQuery={searchQuery}
@@ -646,7 +632,6 @@ export function HandoverPage() {
             setEditingEvent(event);
             setEventModalOpen(true);
           }}
-          onCreateFromNotice={openCreateFromNotice}
         />
       </div>
 

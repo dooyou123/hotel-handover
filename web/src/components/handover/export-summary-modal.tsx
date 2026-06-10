@@ -167,13 +167,13 @@ export function ExportSummaryModal({
 
   return (
     <>
-      <div className="modal-overlay" onClick={onClose}>
-        <div className="modal modal--export" onClick={(event) => event.stopPropagation()}>
-          <div className="export-modal">
+      <div className="modal-overlay modal-overlay--fullscreen" onClick={onClose}>
+        <div className="modal modal--export-fullscreen" onClick={(event) => event.stopPropagation()}>
+          <div className="export-modal export-modal--fullscreen">
             <div className="modal__header">
               <div>
-                <h2>일일 요약 내보내기</h2>
-                <p className="shift-modal__sub">{metaLine}</p>
+                <h2>일일 요약</h2>
+                <p className="shift-modal__sub">{metaLine} · 인수인계 확인용 전체 화면</p>
               </div>
               <button type="button" className="icon-btn" onClick={onClose} aria-label="닫기">
                 ✕

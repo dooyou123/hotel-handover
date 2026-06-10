@@ -220,41 +220,44 @@ export function NoticeDrawer({
   );
 
   const readFooter = (
-    <div className="notice-drawer__footer">
+    <footer className="notice-drawer__footer">
       {notice && onCreateHandover ? (
         <button
           type="button"
-          className="btn btn--primary notice-drawer__cta"
-          onClick={() => notice && onCreateHandover(notice)}
+          className="notice-drawer__primary"
+          onClick={() => onCreateHandover(notice)}
         >
           인수인계로 등록
         </button>
       ) : null}
-      <div className="notice-drawer__footer-actions">
+
+      <div className="notice-drawer__toolbar" role="group" aria-label="게시글 작업">
         {notice ? (
-          <button type="button" className="btn btn--ghost" onClick={() => onModeChange('edit')}>
+          <button type="button" className="notice-drawer__tool" onClick={() => onModeChange('edit')}>
             수정
           </button>
         ) : null}
         {notice && onTogglePin ? (
-          <button
-            type="button"
-            className="btn btn--ghost"
-            onClick={() => notice && void onTogglePin(notice)}
-          >
-            {notice?.is_pinned ? '고정 해제' : '고정'}
+          <button type="button" className="notice-drawer__tool" onClick={() => void onTogglePin(notice)}>
+            {notice.is_pinned ? '고정 해제' : '고정'}
           </button>
         ) : null}
-        <button type="button" className="btn btn--ghost" onClick={onClose}>
+        <button type="button" className="notice-drawer__tool" onClick={onClose}>
           닫기
         </button>
       </div>
+
       {notice && isManager ? (
-        <button type="button" className="btn btn--danger notice-drawer__delete" onClick={handleDelete} disabled={saving}>
+        <button
+          type="button"
+          className="notice-drawer__danger"
+          onClick={handleDelete}
+          disabled={saving}
+        >
           삭제
         </button>
       ) : null}
-    </div>
+    </footer>
   );
 
   const formFooter = (

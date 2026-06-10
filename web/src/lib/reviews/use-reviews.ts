@@ -64,6 +64,42 @@ export function useReviews() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
   });
 
+  const completeRoomAction = useMutation({
+    mutationFn: async ({ id, by }: { id: string; by: string }) => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('guest_reviews')
+        .update({
+          room_action_completed_at: new Date().toISOString(),
+          room_action_completed_by: by.trim(),
+        })
+        .eq('id', id)
+        .select('*')
+        .single();
+      if (error) throw error;
+      return data as GuestReview;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  const cancelRoomAction = useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('guest_reviews')
+        .update({
+          room_action_completed_at: null,
+          room_action_completed_by: '',
+        })
+        .eq('id', id)
+        .select('*')
+        .single();
+      if (error) throw error;
+      return data as GuestReview;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
   const deleteReview = useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient();
@@ -80,5 +116,7 @@ export function useReviews() {
     createReview,
     updateReview,
     deleteReview,
+    completeRoomAction,
+    cancelRoomAction,
   };
 }

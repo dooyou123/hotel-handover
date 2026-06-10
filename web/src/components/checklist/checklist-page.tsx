@@ -1,12 +1,18 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { fetchChecklistForShift, toggleChecklistItem, type ChecklistItemView } from '@/lib/checklist/use-checklist';
+import {
+  fetchChecklistForShift,
+  resetChecklistCompletions,
+  toggleChecklistItem,
+  type ChecklistItemView,
+} from '@/lib/checklist/use-checklist';
 import { useWorkSession } from '@/lib/handover/use-work-session';
 import { createClient } from '@/lib/supabase/client';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 
 function formatWorkDate(value: string): string {
   const date = new Date(`${value}T00:00:00`);
@@ -28,6 +34,8 @@ function ChecklistColumn({
   items,
   emptyText,
   onToggle,
+  onReset,
+  resetBusy,
 }: {
   title: string;
   done: number;
@@ -35,14 +43,26 @@ function ChecklistColumn({
   items: ChecklistItemView[];
   emptyText: string;
   onToggle: (itemId: string) => void;
+  onReset?: () => void;
+  resetBusy?: boolean;
 }) {
   return (
     <section className="checklist-section">
       <div className="checklist-section__header">
         <h3>{title}</h3>
-        <span className="checklist-section__count">
-          {total ? `${done}/${total}` : '—'}
-        </span>
+        <div className="checklist-section__actions">
+          {onReset && done > 0 ? (
+            <button
+              type="button"
+              className="checklist-section__reset"
+              onClick={onReset}
+              disabled={resetBusy}
+            >
+              {resetBusy ? '초기화 중…' : '초기화'}
+            </button>
+          ) : null}
+          <span className="checklist-section__count">{total ? `${done}/${total}` : '—'}</span>
+        </div>
       </div>
       <div className="checklist-page__list checklist-page__list--column">
         {items.length ? (
@@ -72,10 +92,12 @@ function ChecklistColumn({
 
 export function ChecklistPageClient() {
   const { session, requireSession } = useWorkSession();
+  const { confirm } = useConfirmDialog();
   const queryClient = useQueryClient();
   const { group } = session;
   const shift = session.shift || group;
   const ready = Boolean(group);
+  const [resettingScope, setResettingScope] = useState<'common' | string | null>(null);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['checklist', DEFAULT_HOTEL_ID, shift, group],
@@ -103,10 +125,31 @@ export function ChecklistPageClient() {
       return;
     }
     try {
-      const result = await toggleChecklistItem(itemId, session.shift, session.group, session.name);
+      const result = await toggleChecklistItem(itemId, shift, group, session.name);
       queryClient.setQueryData(['checklist', DEFAULT_HOTEL_ID, shift, group], result);
     } catch {
       refetch();
+    }
+  }
+
+  async function handleReset(scope: 'common' | string, label: string) {
+    if (!requireSession('체크리스트 초기화')) return;
+    const ok = await confirm({
+      title: `${label} 초기화`,
+      message: `오늘 ${label} 체크를 모두 해제합니다. 계속할까요?`,
+      tone: 'warning',
+      confirmLabel: '초기화',
+    });
+    if (!ok) return;
+
+    setResettingScope(scope);
+    try {
+      const result = await resetChecklistCompletions(scope, shift, group);
+      queryClient.setQueryData(['checklist', DEFAULT_HOTEL_ID, shift, group], result);
+    } catch {
+      refetch();
+    } finally {
+      setResettingScope(null);
     }
   }
 
@@ -174,6 +217,8 @@ export function ChecklistPageClient() {
             items={commonItems}
             emptyText="공통 항목이 없습니다. 설정에서 추가하세요."
             onToggle={handleToggle}
+            onReset={() => void handleReset('common', '공통 확인')}
+            resetBusy={resettingScope === 'common'}
           />
           <ChecklistColumn
             title={`${group}조 전용`}
@@ -182,6 +227,8 @@ export function ChecklistPageClient() {
             items={groupItems}
             emptyText={`${group}조 전용 항목이 없습니다.`}
             onToggle={handleToggle}
+            onReset={() => void handleReset(group, `${group}조 전용`)}
+            resetBusy={resettingScope === group}
           />
         </div>
       )}

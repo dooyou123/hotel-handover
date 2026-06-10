@@ -17,6 +17,11 @@ test.describe('인증·라우팅', () => {
     await page.goto('/help');
     await expect(page).toHaveURL(/\/login/);
   });
+
+  test('미로그인 시 rate-confirm 접근하면 login으로 리다이렉트', async ({ page }) => {
+    await page.goto('/rate-confirm');
+    await expect(page).toHaveURL(/\/login/);
+  });
 });
 
 test.describe('스테이징 UAT smoke (로그인 계정 필요)', () => {
@@ -37,10 +42,17 @@ test.describe('스테이징 UAT smoke (로그인 계정 필요)', () => {
     await expect(page.getByRole('button', { name: '일일 요약' })).toBeVisible();
   });
 
+  test('헤더 — 객실 통합 검색 모달', async ({ page }) => {
+    await page.getByRole('button', { name: '객실 검색' }).click();
+    await expect(page.getByPlaceholder('객실번호 (예: 802)')).toBeVisible();
+    await page.keyboard.press('Escape');
+  });
+
   test('도움말 페이지', async ({ page }) => {
     await page.getByRole('link', { name: '도움말' }).click();
     await expect(page).toHaveURL(/\/help/);
-    await expect(page.getByRole('heading', { name: '프런트 인수인계 보드 — 사용 안내' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '사용 안내' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '객실료 컨펌' })).toBeVisible();
   });
 
   test('탭 네비게이션', async ({ page }) => {
@@ -48,7 +60,25 @@ test.describe('스테이징 UAT smoke (로그인 계정 필요)', () => {
     await expect(page).toHaveURL(/\/contacts/);
     await page.getByRole('link', { name: '체크리스트' }).click();
     await expect(page).toHaveURL(/\/checklist/);
-    await page.getByRole('link', { name: '스케줄' }).click();
+    await page.getByRole('link', { name: '일정' }).click();
     await expect(page).toHaveURL(/\/schedule/);
+  });
+
+  test('객실료 컨펌 페이지', async ({ page }) => {
+    await page.goto('/rate-confirm');
+    await expect(page.getByRole('heading', { name: /객실료/ })).toBeVisible();
+    await expect(page.getByText('TL-Lincoln RAW')).toBeVisible();
+    await expect(page.getByText('PMS보내기')).toBeVisible();
+  });
+
+  test('SOP · 매뉴얼 페이지', async ({ page }) => {
+    await page.goto('/sop');
+    await expect(page.getByRole('heading', { name: /SOP/ })).toBeVisible();
+    await expect(page.getByPlaceholder(/키워드 검색/)).toBeVisible();
+  });
+
+  test('픽업·택시 페이지', async ({ page }) => {
+    await page.goto('/transport');
+    await expect(page.getByRole('heading', { name: '픽업 · 택시 예약' })).toBeVisible();
   });
 });

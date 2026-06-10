@@ -13,9 +13,15 @@ import {
   isBedRoomChangedToday,
   type BedRoomBaseline,
 } from '@/lib/housekeeping/baseline';
-import type { HousekeepingBedDraft, HousekeepingSpecialDraft } from '@/lib/housekeeping/types';
+import {
+  hasAnyStatusNotes,
+  type HousekeepingBedDraft,
+  type HousekeepingSpecialDraft,
+  type HkStatusNotes,
+} from '@/lib/housekeeping/types';
 import { HkBedTypeBadge, HkExtraBedBadge } from '@/components/housekeeping/hk-bed-type-badge';
 import { HkChangedRoomCard } from '@/components/housekeeping/hk-changed-room-card';
+import { HkStatusNotesFields } from '@/components/housekeeping/hk-status-notes-fields';
 
 type HkReportDashboardProps = {
   workDateLabel: string;
@@ -24,6 +30,7 @@ type HkReportDashboardProps = {
   baseline: BedRoomBaseline;
   previousDayNotes: string;
   nextDayNotes: string;
+  statusNotes: HkStatusNotes;
   summary: {
     twinCount: number;
     tripleCount: number;
@@ -52,6 +59,7 @@ export function HkReportDashboard({
   baseline,
   previousDayNotes,
   nextDayNotes,
+  statusNotes,
   summary,
   findBedRoomIndex,
 }: HkReportDashboardProps) {
@@ -184,6 +192,16 @@ export function HkReportDashboard({
           </div>
         </div>
       </section>
+
+      {hasAnyStatusNotes(statusNotes) ? (
+        <section className="hk-dash__section">
+          <div className="hk-dash__section-head">
+            <h3>객실 상태 · 전달</h3>
+            <p>H/U · Comp · VIP · O.O · 장기 숙박 · 정비 유의 · 퇴근 후 DELIVERY</p>
+          </div>
+          <HkStatusNotesFields value={statusNotes} onChange={() => {}} readOnly />
+        </section>
+      ) : null}
 
       {specials.length ? (
         <section className="hk-dash__section">

@@ -1,11 +1,36 @@
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
 import type {
+  HousekeepingBedDraft,
   HousekeepingReport,
   HousekeepingReportBundle,
   HousekeepingRoomRow,
   SaveHousekeepingInput,
 } from '@/lib/housekeeping/types';
+
+type ExistingBedRoom = Pick<
+  HousekeepingRoomRow,
+  'room_number' | 'room_type' | 'extra_bed_action' | 'bed_type_changed_at'
+>;
+
+function resolveBedTypeChangedAt(
+  room: HousekeepingBedDraft,
+  existing: ExistingBedRoom | undefined,
+): string | null {
+  const roomType = room.room_type || '';
+  const ebAction = room.extra_bed_action || '';
+  if (!roomType && !ebAction) return null;
+
+  if (existing) {
+    const unchanged =
+      existing.room_type === roomType &&
+      existing.extra_bed_action === ebAction &&
+      existing.bed_type_changed_at;
+    if (unchanged) return existing.bed_type_changed_at;
+  }
+
+  return room.bed_type_changed_at || new Date().toISOString();
+}
 
 function splitRooms(rooms: HousekeepingRoomRow[]): Pick<HousekeepingReportBundle, 'bedRooms' | 'specialRooms'> {
   return {
@@ -44,11 +69,20 @@ export async function fetchHousekeepingReport(workDate: string): Promise<Houseke
 
 export async function saveHousekeepingReport(input: SaveHousekeepingInput): Promise<HousekeepingReportBundle> {
   const supabase = createClient();
+  const notes = input.statusNotes;
   const reportPayload = {
     hotel_id: DEFAULT_HOTEL_ID,
     work_date: input.work_date,
     previous_day_notes: input.previous_day_notes.trim(),
     next_day_notes: input.next_day_notes.trim(),
+    hk_house_use: notes.hk_house_use.trim(),
+    hk_comp: notes.hk_comp.trim(),
+    hk_vip_prep: notes.hk_vip_prep.trim(),
+    hk_out_of_order: notes.hk_out_of_order.trim(),
+    hk_long_stay: notes.hk_long_stay.trim(),
+    hk_maintenance_attention: notes.hk_maintenance_attention.trim(),
+    hk_post_shift_delivery: notes.hk_post_shift_delivery.trim(),
+    hk_maintenance_notes: notes.hk_maintenance_notes.trim(),
     author: input.author.trim(),
     staff_name: input.staff_name.trim(),
     shift: input.shift.trim(),
@@ -76,6 +110,19 @@ export async function saveHousekeepingReport(input: SaveHousekeepingInput): Prom
     reportId = created.id;
   }
 
+  let existingBedByRoom = new Map<string, ExistingBedRoom>();
+  if (reportId) {
+    const { data: existingBedRooms, error: existingError } = await supabase
+      .from('housekeeping_report_rooms')
+      .select('room_number, room_type, extra_bed_action, bed_type_changed_at')
+      .eq('report_id', reportId)
+      .eq('row_kind', 'bed');
+    if (existingError) throw existingError;
+    existingBedByRoom = new Map(
+      (existingBedRooms ?? []).map((room) => [room.room_number as string, room as ExistingBedRoom]),
+    );
+  }
+
   const { error: deleteError } = await supabase
     .from('housekeeping_report_rooms')
     .delete()
@@ -89,6 +136,7 @@ export async function saveHousekeepingReport(input: SaveHousekeepingInput): Prom
       row_kind: 'bed' as const,
       room_type: room.room_type || '',
       extra_bed_action: room.extra_bed_action || '',
+      bed_type_changed_at: resolveBedTypeChangedAt(room, existingBedByRoom.get(room.room_number.trim())),
       early_checkin: '',
       is_vip: false,
       is_long_stay: false,

@@ -220,6 +220,41 @@ export function formatElapsed(value: string): string {
   return `${days}일`;
 }
 
+/** 목록·카드용 최종 수정 시각 (최근: N분 전, 오래됨: 날짜·시각) */
+export function formatUpdatedAt(value: string): { label: string; title: string; iso: string } {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return { label: '', title: '', iso: '' };
+
+  const title = date.toLocaleString('ko-KR', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const iso = date.toISOString();
+
+  const minutes = Math.floor((Date.now() - date.getTime()) / 60_000);
+  if (minutes < 60) {
+    return { label: `수정 ${Math.max(minutes, 1)}분 전`, title, iso };
+  }
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return { label: `수정 ${hours}시간 전`, title, iso };
+  }
+  const days = Math.floor(hours / 24);
+  if (days < 7) {
+    return { label: `수정 ${days}일 전`, title, iso };
+  }
+
+  return {
+    label: `수정 ${formatTime(value)}`,
+    title,
+    iso,
+  };
+}
+
 export function formatDueLabel(dueAt: string | null, overdue: boolean): string {
   if (!dueAt) return '';
   const date = new Date(dueAt);

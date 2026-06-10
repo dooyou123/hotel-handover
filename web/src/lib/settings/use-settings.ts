@@ -16,7 +16,7 @@ export type ChecklistItemDef = {
   id: string;
   label: string;
   sort_order: number;
-  work_group: string;
+  work_group?: string;
 };
 
 export type CardTemplate = {
@@ -30,6 +30,7 @@ export type CardTemplate = {
   details: string;
   sort_order: number;
   is_active: boolean;
+  work_group?: string;
 };
 
 export type CardTemplateInput = {
@@ -40,6 +41,7 @@ export type CardTemplateInput = {
   title: string;
   next_action: string;
   details: string;
+  work_group?: string;
 };
 
 export function useStaffList(includeInactive = false) {

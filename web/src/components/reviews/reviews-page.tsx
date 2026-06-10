@@ -36,6 +36,7 @@ const emptyForm = (authorLabel: string): GuestReviewInput => ({
   check_in_date: null,
   check_out_date: null,
   reservation_number: '',
+  room_number: '',
   author: authorLabel,
 });
 
@@ -56,6 +57,7 @@ function ReviewModal({ open, review, authorLabel, onClose, onSave, onDelete }: R
         check_in_date: review.check_in_date,
         check_out_date: review.check_out_date,
         reservation_number: review.reservation_number,
+        room_number: review.room_number || '',
         author: review.author || authorLabel,
       });
     } else {
@@ -86,6 +88,7 @@ function ReviewModal({ open, review, authorLabel, onClose, onSave, onDelete }: R
           content_ko: form.content_ko.trim(),
           guest_name: form.guest_name.trim(),
           reservation_number: form.reservation_number.trim(),
+          room_number: form.room_number.trim(),
           author: form.author.trim() || authorLabel,
         },
         review?.id,
@@ -142,6 +145,14 @@ function ReviewModal({ open, review, authorLabel, onClose, onSave, onDelete }: R
                 value={form.reservation_number}
                 onChange={(e) => setForm({ ...form, reservation_number: e.target.value })}
                 placeholder="예: BK-20260315-001"
+              />
+            </label>
+            <label className="field">
+              <span>객실</span>
+              <input
+                value={form.room_number}
+                onChange={(e) => setForm({ ...form, room_number: e.target.value })}
+                placeholder="802"
               />
             </label>
             <label className="field">
@@ -233,13 +244,16 @@ function matchesFilter(review: GuestReview, filter: ReviewFilter): boolean {
 export function ReviewsPageClient() {
   const queryClient = useQueryClient();
   const { session, requireSession, authorLabel } = useWorkSession();
-  const { reviews, isLoading, error, createReview, updateReview, deleteReview } = useReviews();
+  const { confirm } = useConfirmDialog();
+  const { reviews, isLoading, error, createReview, updateReview, deleteReview, completeRoomAction, cancelRoomAction } =
+    useReviews();
   const [filter, setFilter] = useState<ReviewFilter>('전체');
   const [query, setQuery] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<GuestReview | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [followUpBusyId, setFollowUpBusyId] = useState<string | null>(null);
+  const [actionBusyId, setActionBusyId] = useState<string | null>(null);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -270,6 +284,39 @@ export function ReviewsPageClient() {
   function showToast(message: string) {
     setToast(message);
     window.setTimeout(() => setToast(null), 2500);
+  }
+
+  async function handleRoomActionComplete(review: GuestReview) {
+    if (!requireSession('객실 조치 완료')) return;
+    setActionBusyId(review.id);
+    try {
+      await completeRoomAction.mutateAsync({ id: review.id, by: authorLabel });
+      showToast('객실 조치 완료로 기록했습니다.');
+    } catch (caught) {
+      showToast(caught instanceof Error ? caught.message : '기록에 실패했습니다.');
+    } finally {
+      setActionBusyId(null);
+    }
+  }
+
+  async function handleRoomActionCancel(review: GuestReview) {
+    if (!requireSession('조치 완료 취소')) return;
+    const ok = await confirm({
+      title: '객실 조치 완료 취소',
+      message: '잘못 기록한 객실 조치 완료를 취소합니다. 다시 「객실 조치 완료」를 누를 수 있습니다.',
+      confirmLabel: '취소하기',
+    });
+    if (!ok) return;
+
+    setActionBusyId(review.id);
+    try {
+      await cancelRoomAction.mutateAsync(review.id);
+      showToast('객실 조치 완료 기록을 취소했습니다.');
+    } catch (caught) {
+      showToast(caught instanceof Error ? caught.message : '취소에 실패했습니다.');
+    } finally {
+      setActionBusyId(null);
+    }
   }
 
   async function handleFollowUp(review: GuestReview) {
@@ -401,26 +448,61 @@ export function ReviewsPageClient() {
                 <div className="review-card__footer">
                   <p>
                     {review.author || '등록자 미입력'} · {formatReviewDate(review.updated_at || review.created_at)}
+                    {review.room_number ? ` · ${review.room_number}호` : ''}
                   </p>
-                  {review.sentiment === 'negative' ? (
-                    review.follow_up_card_id ? (
-                      <Link href="/handover" className="btn btn--ghost btn--xs">
-                        인수인계 카드 보기
-                      </Link>
-                    ) : (
+                  {review.room_action_completed_at ? (
+                    <p className="review-card__action-done">
+                      객실 조치 완료 · {review.room_action_completed_by || '—'} ·{' '}
+                      {formatReviewDate(review.room_action_completed_at)}
+                    </p>
+                  ) : null}
+                  <div className="review-card__footer-actions">
+                    {review.sentiment === 'negative' ? (
+                      review.follow_up_card_id ? (
+                        <Link href="/handover" className="btn btn--ghost btn--xs">
+                          인수인계 카드 보기
+                        </Link>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn--outline btn--xs"
+                          disabled={followUpBusyId === review.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void handleFollowUp(review);
+                          }}
+                        >
+                          {followUpBusyId === review.id ? '…' : '인수인계 카드 만들기'}
+                        </button>
+                      )
+                    ) : null}
+                    {review.sentiment === 'negative' && !review.room_action_completed_at ? (
                       <button
                         type="button"
-                        className="btn btn--outline btn--xs"
-                        disabled={followUpBusyId === review.id}
+                        className="btn btn--primary btn--xs"
+                        disabled={actionBusyId === review.id}
                         onClick={(event) => {
                           event.stopPropagation();
-                          void handleFollowUp(review);
+                          void handleRoomActionComplete(review);
                         }}
                       >
-                        {followUpBusyId === review.id ? '…' : '인수인계 카드 만들기'}
+                        {actionBusyId === review.id ? '…' : '객실 조치 완료'}
                       </button>
-                    )
-                  ) : null}
+                    ) : null}
+                    {review.sentiment === 'negative' && review.room_action_completed_at ? (
+                      <button
+                        type="button"
+                        className="btn btn--ghost btn--xs"
+                        disabled={actionBusyId === review.id}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void handleRoomActionCancel(review);
+                        }}
+                      >
+                        {actionBusyId === review.id ? '…' : '조치 완료 취소'}
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               </article>
             ))}

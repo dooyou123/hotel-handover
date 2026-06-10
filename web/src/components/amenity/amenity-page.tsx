@@ -84,7 +84,11 @@ export function AmenityPageClient() {
           busy={isFetching}
           onSelect={handleSelect}
           onSuccess={() => {
-            showToast('거래가 등록되었습니다.');
+            showToast('처리되었습니다.');
+            void refetch();
+          }}
+          onMinQuantitySaved={() => {
+            showToast('최소 재고가 저장되었습니다.');
             void refetch();
           }}
           onError={showToast}

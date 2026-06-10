@@ -10,6 +10,8 @@ import type { Todo } from '@/lib/todos/types';
 import { formatTime } from '@/lib/handover/card-utils';
 import { useCardTemplates, type CardTemplate } from '@/lib/settings/use-settings';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
+import { SopSuggestions } from '@/components/sop/sop-suggestions';
+import { RoutineTemplateBar } from './routine-template-bar';
 import { TemplateBar } from './template-bar';
 
 type CardModalProps = {
@@ -352,6 +354,7 @@ export function CardModal({
           placeholder="상황·배경을 구체적으로 적어 주세요"
         />
       </label>
+      <SopSuggestions title={form.title} details={form.details} category={form.category} />
       {form.column_id === 'done' ? (
         <label className="field">
           <span>처리 결과 *</span>
@@ -551,11 +554,17 @@ export function CardModal({
     </>
   );
 
+  const generalTemplates = templates.filter((t) => !(t.work_group || '').trim());
   const createDrawerFields = (
     <>
-      {templates.length ? (
+      {defaultShift ? (
         <section className="drawer-section drawer-section--flush">
-          <TemplateBar templates={templates} onApply={applyTemplate} />
+          <RoutineTemplateBar workGroup={defaultShift} templates={templates} onApply={applyTemplate} />
+        </section>
+      ) : null}
+      {generalTemplates.length ? (
+        <section className="drawer-section drawer-section--flush">
+          <TemplateBar templates={generalTemplates} onApply={applyTemplate} />
         </section>
       ) : null}
       <section className="drawer-section">

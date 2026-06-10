@@ -51,7 +51,9 @@ export async function fetchAmenityInventoryData(hotelId = DEFAULT_HOTEL_ID) {
   const inventory = (inventoryRes.data ?? []) as AmenityInventoryRow[];
   const transactions = (transactionsRes.data ?? []) as AmenityTransaction[];
 
-  const inventoryMap = new Map(inventory.map((row) => [row.amenity_id, row.quantity]));
+  const inventoryMap = new Map(
+    inventory.map((row) => [row.amenity_id, { quantity: row.quantity, min_quantity: row.min_quantity ?? 0 }]),
+  );
   const monthlyUsageMap = new Map<number, number>();
   for (const row of usageRes.data ?? []) {
     const id = row.amenity_id as number;
@@ -59,11 +61,14 @@ export async function fetchAmenityInventoryData(hotelId = DEFAULT_HOTEL_ID) {
   }
 
   const items: InventoryItem[] = amenities.map((amenity) => {
-    const quantity = inventoryMap.get(amenity.id) ?? 0;
+    const inv = inventoryMap.get(amenity.id);
+    const quantity = inv?.quantity ?? 0;
+    const minQuantity = inv?.min_quantity ?? 0;
     const monthlyUsage = monthlyUsageMap.get(amenity.id) ?? 0;
     return {
       ...amenity,
       quantity,
+      minQuantity,
       monthlyUsage,
       remainingBoxes: countRemainingBoxes(quantity, amenity.unit_size),
       orderBoxes: calcSuggestedOrderBoxes(quantity, monthlyUsage, amenity.box_size),
@@ -136,6 +141,63 @@ export async function deleteAmenityTransaction(params: {
   });
 
   if (error) throw new Error(parseAmenityError(error));
+}
+
+/** 실사 수량에 맞춰 입고/출고 거래를 자동 생성합니다. */
+export async function adjustAmenityInventory(params: {
+  amenityId: number;
+  actualQuantity: number;
+  currentQuantity: number;
+  author: string;
+  memo?: string;
+  hotelId?: string;
+}) {
+  const actual = Math.max(0, Math.floor(params.actualQuantity));
+  const diff = actual - params.currentQuantity;
+  if (diff === 0) return null;
+
+  const note =
+    params.memo?.trim() ||
+    `재고조정 — 실사 ${actual.toLocaleString()}개 (시스템 ${params.currentQuantity.toLocaleString()}개)`;
+
+  return addAmenityTransaction({
+    type: diff > 0 ? '입고' : '출고',
+    amenityId: params.amenityId,
+    quantity: Math.abs(diff),
+    author: params.author,
+    memo: note,
+    hotelId: params.hotelId,
+  });
+}
+
+export async function updateAmenityMinQuantity(amenityId: number, minQuantity: number, hotelId = DEFAULT_HOTEL_ID) {
+  const supabase = createClient();
+  const qty = Math.max(0, minQuantity);
+
+  const { data: existing } = await supabase
+    .from('amenity_inventory')
+    .select('quantity')
+    .eq('hotel_id', hotelId)
+    .eq('amenity_id', amenityId)
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await supabase
+      .from('amenity_inventory')
+      .update({ min_quantity: qty })
+      .eq('hotel_id', hotelId)
+      .eq('amenity_id', amenityId);
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await supabase.from('amenity_inventory').insert({
+    hotel_id: hotelId,
+    amenity_id: amenityId,
+    quantity: 0,
+    min_quantity: qty,
+  });
+  if (error) throw error;
 }
 
 export function subscribeAmenityChanges(hotelId: string, onChange: () => void) {

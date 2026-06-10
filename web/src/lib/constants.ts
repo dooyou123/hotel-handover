@@ -31,6 +31,19 @@ export function formatSessionLabel(group: string, name: string): string {
   return `${formatWorkGroupLabel(group)} · ${name}`;
 }
 
+/** 조별 근무 시간 (루틴 템플릿·인수인계 안내) */
+export const WORK_GROUP_HOURS: Record<string, string> = {
+  A: '07:00~16:00',
+  B: '13:00~22:00',
+  C: '22:00~07:00',
+};
+
+/** 컴플레인 SLA 목표 */
+export const COMPLAINT_SLA_FIRST_RESPONSE_MIN = 30;
+export const COMPLAINT_SLA_RESOLUTION_HOURS = 24;
+
+export const FACILITY_CATEGORIES = ['시설', '컴플레인'] as const;
+
 export const FEEDBACK_CATEGORIES = [
   { value: 'bug', label: '버그 · 오류' },
   { value: 'feature', label: '기능 개선' },
@@ -64,6 +77,10 @@ export const APP_NAV = [
   { href: '/housekeeping', label: '하우스키핑', category: 'ops' as const },
   { href: '/amenity', label: '어메니티', category: 'ops' as const },
   { href: '/reviews', label: '리뷰', category: 'ops' as const },
+  { href: '/transport', label: '픽업·택시', category: 'ops' as const },
+  { href: '/facility', label: '시설 현황', category: 'ops' as const },
+  { href: '/rate-confirm', label: '객실료 컨펌', category: 'ops' as const },
+  { href: '/sop', label: 'SOP·매뉴얼', category: 'ops' as const },
   { href: '/stats', label: '통계', category: 'insight' as const },
   { href: '/settings', label: '설정', category: 'system' as const },
 ] as const;

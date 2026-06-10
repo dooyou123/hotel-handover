@@ -3,12 +3,12 @@
 import { PRIORITY_LABELS } from '@/lib/handover/constants';
 import {
   formatAssigneeLabel,
-  formatElapsed,
-  formatTime,
+  formatUpdatedAt,
   isArchivedCard,
   isUrgentPriorityCard,
 } from '@/lib/handover/card-utils';
 import type { Card } from '@/lib/handover/types';
+import { ComplaintSlaBadge } from '@/components/handover/complaint-sla-badge';
 import { SearchHighlight } from '@/components/handover/search-highlight';
 import { HandoverCardListExtras } from './handover-card-list-extras';
 
@@ -34,6 +34,9 @@ export function HandoverListRowProject({
   const status =
     archived ? '보관' : card.column_id === 'done' ? '완료' : isUnacked ? '미확인' : '진행';
   const canComplete = !archived && card.column_id !== 'done';
+  const author = card.author?.trim() || '미입력';
+  const assignee = formatAssigneeLabel(card);
+  const updatedAt = formatUpdatedAt(card.updated_at || card.created_at);
 
   return (
     <article
@@ -50,10 +53,10 @@ export function HandoverListRowProject({
         <span className={`project-list-row__status project-list-row__status--${status === '미확인' ? 'warn' : status === '완료' ? 'done' : status === '보관' ? 'archive' : 'active'}`}>
           {status}
         </span>
-        <span className="project-list-row__room">
+        <span className="project-list-row__room project-list-row__clamp-1" title={card.room || undefined}>
           {card.room ? <SearchHighlight text={card.room} query={searchQuery} /> : '—'}
         </span>
-        <span className="project-list-row__title">
+        <span className="project-list-row__title project-list-row__clamp-2" title={card.title}>
           <SearchHighlight text={card.title} query={searchQuery} />
         </span>
         <span className="project-list-row__meta">
@@ -62,14 +65,33 @@ export function HandoverListRowProject({
           {archived ? <span className="project-list-row__badge project-list-row__badge--archive">완료 보관</span> : null}
         </span>
         {preview ? (
-          <span className="project-list-row__preview">
+          <span className="project-list-row__preview project-list-row__clamp-2" title={preview}>
             <SearchHighlight text={preview} query={searchQuery} />
           </span>
         ) : null}
+        <ComplaintSlaBadge card={card} />
         <span className="project-list-row__foot">
-          <span>{card.author || '작성자 미입력'}</span>
-          {formatAssigneeLabel(card) ? <span>· 담당 {formatAssigneeLabel(card)}</span> : null}
-          <span>· {card.column_id === 'done' ? formatTime(card.updated_at) : formatElapsed(card.updated_at || card.created_at)}</span>
+          <span className="project-list-row__people">
+            <span className="project-list-row__person">
+              <em className="project-list-row__person-label">작성</em>
+              <span className="project-list-row__person-name" title={author}>
+                {author}
+              </span>
+            </span>
+            {assignee ? (
+              <span className="project-list-row__person project-list-row__person--assignee">
+                <em className="project-list-row__person-label">담당</em>
+                <span className="project-list-row__person-name" title={assignee}>
+                  {assignee}
+                </span>
+              </span>
+            ) : null}
+          </span>
+          {updatedAt.label ? (
+            <time className="project-list-row__updated" dateTime={updatedAt.iso} title={updatedAt.title}>
+              {updatedAt.label}
+            </time>
+          ) : null}
         </span>
         <HandoverCardListExtras card={card} />
       </button>

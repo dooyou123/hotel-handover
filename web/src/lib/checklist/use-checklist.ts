@@ -133,6 +133,44 @@ export async function toggleChecklistItem(
   return fetchChecklistForShift(shift, group);
 }
 
+/** 오늘·현재 교대·조 기준으로 공통 또는 조 전용 체크 완료 기록을 삭제합니다. */
+export async function resetChecklistCompletions(
+  scope: 'common' | string,
+  shift: string,
+  group: string,
+): Promise<ChecklistData> {
+  const { createClient } = await import('@/lib/supabase/client');
+  const { DEFAULT_HOTEL_ID } = await import('@/lib/constants');
+  const supabase = createClient();
+  const workDate = todayDateString();
+  const itemWorkGroup = scope === 'common' ? 'common' : scope;
+
+  const { data: items, error: itemsError } = await supabase
+    .from('checklist_items')
+    .select('id')
+    .eq('hotel_id', DEFAULT_HOTEL_ID)
+    .eq('is_active', true)
+    .eq('work_group', itemWorkGroup);
+
+  if (itemsError) throw itemsError;
+
+  const itemIds = (items ?? []).map((row) => row.id);
+  if (!itemIds.length) {
+    return fetchChecklistForShift(shift, group);
+  }
+
+  const { error } = await supabase
+    .from('checklist_completions')
+    .delete()
+    .eq('work_date', workDate)
+    .eq('shift', shift)
+    .eq('work_group', group)
+    .in('item_id', itemIds);
+
+  if (error) throw error;
+  return fetchChecklistForShift(shift, group);
+}
+
 export function isValidShift(shift: string): shift is (typeof SHIFTS)[number] {
   return (SHIFTS as readonly string[]).includes(shift);
 }

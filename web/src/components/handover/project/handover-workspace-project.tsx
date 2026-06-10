@@ -1,9 +1,8 @@
 'use client';
 
 import type { ShiftSummaryData } from '@/lib/handover/shift-summary';
-import type { Card, HandoverViewMode, Notice, QuickFilter } from '@/lib/handover/types';
+import type { Card, HandoverViewMode, QuickFilter } from '@/lib/handover/types';
 import type { HotelEvent } from '@/lib/events/types';
-import type { TodaySchedule } from '@/lib/schedule/use-schedule';
 import type { TodayAlertItem } from '@/lib/today/alerts';
 import type { Todo } from '@/lib/todos/types';
 import { RoomView } from '@/components/handover/room-view';
@@ -15,10 +14,8 @@ type HandoverWorkspaceProjectProps = {
   summaryData: ShiftSummaryData;
   cards: Card[];
   visibleCards: Card[];
-  notices: Notice[];
   todos: Todo[];
   events: HotelEvent[];
-  schedule: TodaySchedule | undefined;
   alerts: TodayAlertItem[];
   viewMode: HandoverViewMode;
   searchQuery: string;
@@ -50,17 +47,14 @@ type HandoverWorkspaceProjectProps = {
   onOpenTodo: (todo: Todo) => void;
   onToggleTodo: (todo: Todo) => void;
   onOpenEvent: (event: HotelEvent) => void;
-  onCreateFromNotice: (noticeId: string) => void;
 };
 
 export function HandoverWorkspaceProject({
   summaryData,
   cards,
   visibleCards,
-  notices,
   todos,
   events,
-  schedule,
   alerts,
   viewMode,
   searchQuery,
@@ -92,7 +86,6 @@ export function HandoverWorkspaceProject({
   onOpenTodo,
   onToggleTodo,
   onOpenEvent,
-  onCreateFromNotice,
 }: HandoverWorkspaceProjectProps) {
   return (
     <div className="project-handover">
@@ -137,10 +130,8 @@ export function HandoverWorkspaceProject({
         <HandoverAsideProject
           summaryData={summaryData}
           cards={cards}
-          notices={notices}
           todos={todos}
           events={events}
-          schedule={schedule}
           alerts={alerts}
           quickFilter={quickFilter}
           onQuickFilterChange={onQuickFilterChange}
@@ -155,7 +146,6 @@ export function HandoverWorkspaceProject({
           onOpenEvent={onOpenEvent}
           onAcknowledge={onAcknowledge}
           onToggleTodo={onToggleTodo}
-          onCreateFromNotice={onCreateFromNotice}
         />
       </div>
     </div>

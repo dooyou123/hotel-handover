@@ -4,7 +4,8 @@ import { splitTextBySearchQuery } from '@/lib/handover/card-utils';
 import { monthDateRange } from '@/lib/schedule/month-range';
 import { buildSummaryText, getExportFilename, hasSummaryContent } from '@/lib/handover/daily-summary';
 import { buildShiftSummaryData } from '@/lib/handover/shift-summary';
-import type { ActivityLog, Card, Notice } from '@/lib/handover/types';
+import { performReconciliation } from '@/lib/rate-confirm/compare-engine';
+import { isStatusEqual, normalizeDate, normalizeRate } from '@/lib/rate-confirm/normalize';
 
 test('monthDateRange uses last day of month', () => {
   assert.deepEqual(monthDateRange('2026-06'), { start: '2026-06-01', end: '2026-06-30' });
@@ -52,4 +53,87 @@ test('splitTextBySearchQuery highlights matching segments', () => {
     { text: ' 민원', match: false },
   ]);
   assert.deepEqual(splitTextBySearchQuery('민원 처리', ''), [{ text: '민원 처리', match: false }]);
+});
+
+test('parseAmount strips currency formatting', () => {
+  const { parseAmount } = require('@/lib/rate-confirm/parse') as typeof import('@/lib/rate-confirm/parse');
+  assert.equal(parseAmount('₩120,000'), 120000);
+  assert.equal(parseAmount('95000원'), 95000);
+  assert.equal(parseAmount(''), null);
+});
+
+test('reconcile engine sums TL multi-room and detects rate mismatch', () => {
+  const tlSheet = {
+    headers: ['ota', 'status', 'rate', 'account', 'guest', 'cidate'],
+    fileName: 'tl.csv',
+    rows: [
+      { ota: '1645822028', status: '예약', rate: '754,596', account: 'Agoda', guest: 'Rie Yoshida', cidate: '2026.05.20(수)' },
+      { ota: '1645822028', status: '예약', rate: '1,307,640', account: 'Agoda', guest: 'Rie Yoshida', cidate: '2026.05.20(수)' },
+      { ota: '9999999999', status: '취소', rate: '150,000', account: 'Expedia', guest: 'Cancelled', cidate: '2026.05.20(수)' },
+    ],
+  };
+  const pmsSheet = {
+    headers: ['ota', 'status', 'rate', 'account', 'guest', 'cidate'],
+    fileName: 'pms.csv',
+    rows: [
+      { ota: '1645822028', status: '예약', rate: '1,395,768', account: '카드 결제', guest: 'Rie Yoshida', cidate: '2026-05-20' },
+    ],
+  };
+  const mapping = {
+    ota: 'ota',
+    guestName: 'guest',
+    status: 'status',
+    rate: 'rate',
+    account: 'account',
+    ciDate: 'cidate',
+  };
+  const result = performReconciliation(tlSheet, pmsSheet, mapping, mapping);
+  assert.equal(result.summary.tlCount, 1);
+  assert.equal(result.summary.errorCount, 1);
+  assert.equal(result.errors[0]?.errors.includes('RATE_MISMATCH'), true);
+  assert.equal(normalizeRate(result.errors[0]?.tl?.rate ?? 0), 2062236);
+});
+
+test('status and date normalization', () => {
+  assert.equal(isStatusEqual('예약', 'RR'), true);
+  assert.equal(normalizeDate('2026.05.20(수)'), '2026-05-20');
+  assert.equal(normalizeDate('2026-05-20'), '2026-05-20');
+});
+
+test('SOP search ranks keyword and title matches', async () => {
+  const { searchSopArticles, suggestSopArticles } = await import('../src/lib/sop/search.ts');
+  const articles = [
+    {
+      id: '1',
+      hotel_id: 'h',
+      title: '119 · 112 긴급 연락',
+      body: '119 화재',
+      category: '긴급대응' as const,
+      keywords: ['119', '응급'],
+      is_pinned: true,
+      sort_order: 0,
+      author_name: '',
+      is_active: true,
+      created_at: '',
+      updated_at: '',
+    },
+    {
+      id: '2',
+      hotel_id: 'h',
+      title: '환불 안내',
+      body: '수수료',
+      category: '결제/환불' as const,
+      keywords: ['환불'],
+      is_pinned: false,
+      sort_order: 1,
+      author_name: '',
+      is_active: true,
+      created_at: '',
+      updated_at: '',
+    },
+  ];
+  const hits = searchSopArticles(articles, '119');
+  assert.equal(hits[0]?.id, '1');
+  const suggested = suggestSopArticles(articles, { title: '소음 컴플레인', details: '', category: '컴플레인' });
+  assert.equal(suggested.length, 0);
 });

@@ -10,11 +10,17 @@ import {
   isHkBedRoomTarget,
 } from '@/lib/housekeeping/rooms';
 import {
+  HK_STATUS_NOTE_FIELDS,
+  formatBedTypeChangedAt,
+  hasAnyStatusNotes,
+  hkBedTypeLabel,
+  hkExtraBedActionLabel,
+  mapStatusNotesFromReport,
   type HousekeepingBedDraft,
   type HousekeepingReport,
   type HousekeepingSpecialDraft,
-  hkBedTypeLabel,
-  hkExtraBedActionLabel,
+  type HkBedType,
+  type HkExtraBedAction,
 } from '@/lib/housekeeping/types';
 
 function escapeHtml(value: string): string {
@@ -30,15 +36,14 @@ function formatWorkDateLabel(workDate: string): string {
   const date = new Date(`${workDate}T00:00:00`);
   if (Number.isNaN(date.getTime())) return workDate;
   return date.toLocaleDateString('ko-KR', {
-    year: 'numeric',
-    month: 'long',
+    month: 'numeric',
     day: 'numeric',
     weekday: 'short',
   });
 }
 
 export function getHousekeepingExportFilename(workDate: string, ext: string): string {
-  return `하우스키핑리포트_${workDate}.${ext}`;
+  return `하우스키핑전달_${workDate}.${ext}`;
 }
 
 export function getChangedBedRooms(
@@ -61,31 +66,15 @@ function getFilledSpecialRooms(specialRooms: HousekeepingSpecialDraft[]): Housek
   );
 }
 
-const PRINT_STYLES = `
-  @page {
-    size: A4 portrait;
-    margin: 10mm 12mm;
-  }
-
-  :root {
-    --text: #171717;
-    --muted: #737373;
-    --border: #e5e5e5;
-    --surface: #ffffff;
-    --surface-2: #fafafa;
-    --primary: #166534;
-  }
-
-  * { box-sizing: border-box; }
+const PRINT_OVERRIDES = `
+  @page { size: A4 portrait; margin: 6mm 7mm; }
 
   html, body {
     margin: 0;
     padding: 0;
-    font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-    color: var(--text);
-    background: var(--surface);
-    font-size: 11px;
-    line-height: 1.45;
+    background: #fff;
+    font-size: 9px;
+    line-height: 1.25;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -98,521 +87,303 @@ const PRINT_STYLES = `
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 12px 20px;
+    padding: 10px 16px;
     background: #14532d;
     color: #fff;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   }
 
-  .preview-toolbar__title {
-    font-size: 14px;
-    font-weight: 700;
-  }
+  .preview-toolbar__title { font-size: 13px; font-weight: 700; }
 
   .preview-toolbar__btn {
-    padding: 8px 16px;
+    padding: 7px 14px;
     border: 0;
-    border-radius: 8px;
+    border-radius: 6px;
     background: #fff;
     color: #14532d;
     font: inherit;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
     cursor: pointer;
   }
 
-  .sheet {
-    width: 100%;
-    max-width: 680px;
-    margin: 0 auto;
-    padding: 20px 18px 28px;
+  /* A4 1장 압축 — HK 보기 화면은 그대로, 인쇄만 축소 */
+  .hk-dash--print-a4 {
+    gap: 0.3rem !important;
+    padding: 8px 10px 6px !important;
   }
 
-  .sheet__header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    padding-bottom: 12px;
-    margin-bottom: 14px;
-    border-bottom: 2px solid var(--primary);
+  .hk-dash--print-a4 .hk-dash__hero {
+    padding: 0.35rem 0.5rem !important;
+    gap: 0.35rem !important;
   }
 
-  .sheet__title {
-    margin: 0;
-    font-size: 22px;
+  .hk-dash--print-a4 .hk-dash__eyebrow {
+    font-size: 0.62rem !important;
+    margin-bottom: 0 !important;
+  }
+
+  .hk-dash--print-a4 .hk-dash__title {
+    font-size: 1rem !important;
+  }
+
+  .hk-dash--print-a4 .hk-dash__stat {
+    padding: 0.15rem 0.4rem !important;
+    font-size: 0.68rem !important;
+  }
+
+  .hk-dash--print-a4 .hk-dash__section-head {
+    padding: 0.25rem 0.45rem 0.2rem !important;
+  }
+
+  .hk-dash--print-a4 .hk-dash__section-head h3 {
+    font-size: 0.82rem !important;
+    margin-bottom: 0 !important;
+  }
+
+  .hk-dash--print-a4 .hk-dash__section-head p,
+  .hk-dash--print-a4 .hk-dash__legend {
+    font-size: 0.62rem !important;
+  }
+
+  .hk-dash--print-a4 .hk-dash__legend--inline {
+    margin-top: 0.15rem !important;
+    gap: 0.35rem 0.55rem !important;
+  }
+
+  .hk-dash--print-a4 .hk-dash__changed-grid {
+    grid-template-columns: repeat(auto-fill, minmax(6.8rem, 1fr)) !important;
+    gap: 0.3rem !important;
+    padding: 0.35rem 0.45rem 0.4rem !important;
+  }
+
+  .hk-dash--print-a4 .hk-room-card {
+    padding: 0.3rem 0.35rem !important;
+    gap: 0.2rem !important;
+  }
+
+  .hk-dash--print-a4 .hk-room-card__number {
+    font-size: 0.88rem !important;
+  }
+
+  .hk-dash--print-a4 .hk-type-badge--lg {
+    padding: 0.1rem 0.35rem !important;
+    font-size: 0.62rem !important;
+  }
+
+  .hk-dash--print-a4 .hk-eb-badge--md {
+    padding: 0.08rem 0.3rem !important;
+    font-size: 0.58rem !important;
+  }
+
+  .hk-dash--print-a4 .hk-room-card__changed-at {
+    font-size: 0.58rem !important;
+    margin-top: 0 !important;
+  }
+
+  .hk-dash--print-a4 .hk-dash__empty {
+    margin: 0.35rem 0.45rem !important;
+    padding: 0.45rem !important;
+    font-size: 0.72rem !important;
+  }
+
+  /* 객실 맵: 셀 높이 ~45% (4.5rem → 2rem) */
+  .hk-dash--print-a4 .hk-dash__map-wrap {
+    padding: 0.3rem 0.4rem 0.35rem !important;
+  }
+
+  .hk-dash--print-a4 .hk-dash__map {
+    grid-template-columns: 1.6rem repeat(3, minmax(0, 1fr)) !important;
+    gap: 0.12rem !important;
+  }
+
+  .hk-dash--print-a4 .hk-dash__map-colhead,
+  .hk-dash--print-a4 .hk-dash__map-rowhead {
+    font-size: 0.58rem !important;
+    padding: 0.1rem !important;
+  }
+
+  .hk-dash--print-a4 .hk-dash__map-cell {
+    min-height: 0 !important;
+    height: 2rem !important;
+    padding: 0.08rem 0.05rem !important;
+    gap: 0 !important;
+    border-radius: 2px !important;
+  }
+
+  .hk-dash--print-a4 .hk-dash__map-room {
+    font-size: 0.62rem !important;
     font-weight: 800;
-    letter-spacing: -0.03em;
+    line-height: 1 !important;
   }
 
-  .sheet__subtitle {
-    margin: 6px 0 0;
-    color: var(--muted);
-    font-size: 12px;
-  }
-
-  .sheet__meta {
-    text-align: right;
-    font-size: 12px;
-    line-height: 1.55;
-    color: var(--muted);
-    flex-shrink: 0;
-  }
-
-  .sheet__meta strong {
-    display: block;
-    color: var(--text);
-    font-size: 15px;
+  .hk-dash--print-a4 .hk-map-type {
+    font-size: 0.52rem !important;
     font-weight: 800;
+    line-height: 1 !important;
   }
 
-  .summary-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 14px;
+  .hk-dash--print-a4 .hk-map-type--twin { color: #0369a1; }
+  .hk-dash--print-a4 .hk-map-type--triple { color: #b45309; }
+  .hk-dash--print-a4 .hk-map-type--unset { color: #a3a3a3; }
+
+  .hk-dash--print-a4 .hk-dash__map-cell--changed {
+    outline-width: 1.5px !important;
   }
 
-  .summary-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 5px 11px;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: var(--surface-2);
-    font-size: 12px;
-    color: var(--muted);
+  .hk-dash--print-a4 .hk-status-notes {
+    padding: 0.3rem 0.4rem 0.35rem !important;
+    gap: 0.3rem 0.45rem !important;
   }
 
-  .summary-chip strong {
-    color: var(--text);
-    font-weight: 800;
+  .hk-dash--print-a4 .hk-status-notes__item {
+    padding: 0.3rem 0.4rem !important;
   }
 
-  .summary-chip--twin {
-    border-color: #bae6fd;
-    background: #e0f2fe;
-    color: #0369a1;
+  .hk-dash--print-a4 .hk-status-notes__item h4 {
+    font-size: 0.62rem !important;
+    margin-bottom: 0.15rem !important;
   }
 
-  .summary-chip--triple {
-    border-color: #fde68a;
-    background: #fef3c7;
-    color: #b45309;
+  .hk-dash--print-a4 .hk-status-notes__item p {
+    font-size: 0.68rem !important;
+    line-height: 1.3 !important;
   }
 
-  .summary-chip--add {
-    border-color: #bbf7d0;
-    background: #f0fdf4;
-    color: #166534;
+  .hk-dash--print-a4 .hk-dash__special-list {
+    padding: 0.3rem 0.4rem 0.35rem !important;
+    gap: 0.25rem !important;
   }
 
-  .summary-chip--remove {
-    border-color: #fecaca;
-    background: #fef2f2;
-    color: #b91c1c;
+  .hk-dash--print-a4 .hk-dash__special-card {
+    padding: 0.3rem 0.4rem !important;
   }
 
-  .notes {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-bottom: 14px;
+  .hk-dash--print-a4 .hk-dash__special-card strong {
+    font-size: 0.78rem !important;
+    margin-bottom: 0.15rem !important;
   }
 
-  .notes__item {
-    padding: 10px 12px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--surface-2);
-    min-height: 2.5rem;
+  .hk-dash--print-a4 .hk-dash__special-card p {
+    font-size: 0.68rem !important;
+    margin-top: 0.2rem !important;
   }
 
-  .notes__label {
-    display: block;
-    margin-bottom: 5px;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--muted);
+  .hk-dash--print-a4 .hk-dash__tag {
+    font-size: 0.58rem !important;
+    padding: 0.05rem 0.35rem !important;
   }
 
-  .notes__text {
-    margin: 0;
-    font-size: 12px;
-    white-space: pre-wrap;
-    word-break: break-word;
+  .hk-dash--print-a4 .hk-dash__notes {
+    padding: 0.3rem 0.4rem 0.35rem !important;
+    gap: 0.3rem !important;
   }
 
-  .section {
-    margin-bottom: 14px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    overflow: hidden;
+  .hk-dash--print-a4 .hk-dash__notes article {
+    padding: 0.3rem 0.4rem !important;
   }
 
-  .section__head {
-    padding: 8px 12px;
-    background: var(--surface-2);
-    border-bottom: 1px solid var(--border);
+  .hk-dash--print-a4 .hk-dash__notes h4 {
+    font-size: 0.62rem !important;
+    margin-bottom: 0.15rem !important;
   }
 
-  .section__head h2 {
-    margin: 0 0 2px;
-    font-size: 14px;
-    font-weight: 800;
-  }
-
-  .section__head p {
-    margin: 0;
-    font-size: 11px;
-    color: var(--muted);
-  }
-
-  .changed-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    padding: 12px;
-  }
-
-  .room-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    padding: 12px 10px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--surface);
-    text-align: center;
-  }
-
-  .room-card__no {
-    font-size: 20px;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    line-height: 1;
-  }
-
-  .pill {
-    display: inline-block;
-    padding: 4px 10px;
-    border-radius: 999px;
-    font-size: 11px;
-    font-weight: 700;
-    line-height: 1.35;
-    white-space: nowrap;
-  }
-
-  .pill--twin { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
-  .pill--triple { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
-  .pill--unset { background: var(--surface-2); color: var(--muted); border: 1px dashed var(--border); }
-  .pill--dash { color: var(--muted); font-size: 11px; }
-
-  .pill--eb-add { background: #166534; color: #fff; }
-  .pill--eb-remove { background: #b91c1c; color: #fff; }
-  .pill--eb-keep { background: #e5e5e5; color: #525252; }
-
-  .room-map {
-    display: grid;
-    grid-template-columns: 2.8rem repeat(3, 1fr);
-    gap: 5px;
-    padding: 12px;
-  }
-
-  .room-map__corner,
-  .room-map__colhead,
-  .room-map__rowhead {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
-    font-weight: 700;
-    color: var(--muted);
-  }
-
-  .room-map__rowhead {
-    justify-content: flex-end;
-    padding-right: 4px;
-  }
-
-  .room-map__colhead {
-    padding: 4px 2px;
-    background: var(--surface-2);
-    border-radius: 4px;
-  }
-
-  .room-map__cell {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    min-height: 52px;
-    padding: 4px 2px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--surface-2);
-    font-size: 10px;
-  }
-
-  .room-map__cell--twin { background: #e0f2fe; border-color: #bae6fd; }
-  .room-map__cell--triple { background: #fef3c7; border-color: #fde68a; }
-  .room-map__cell--changed { outline: 2px solid var(--primary); outline-offset: -1px; }
-  .room-map__cell--na { color: var(--muted); border-style: dashed; background: transparent; }
-
-  .room-map__no {
-    font-size: 11px;
-    font-weight: 800;
-  }
-
-  .data-table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  .data-table th,
-  .data-table td {
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--border);
-    text-align: left;
-    vertical-align: middle;
-    font-size: 12px;
-  }
-
-  .data-table th {
-    font-size: 10px;
-    font-weight: 700;
-    color: var(--muted);
-    background: var(--surface);
-  }
-
-  .data-table tr:last-child td {
-    border-bottom: 0;
-  }
-
-  .data-table .col-room {
-    width: 4.5rem;
-    font-weight: 800;
-    white-space: nowrap;
-  }
-
-  .tag {
-    display: inline-block;
-    margin: 0 4px 2px 0;
-    padding: 3px 7px;
-    border-radius: 999px;
-    font-size: 10px;
-    font-weight: 700;
-  }
-
-  .tag--vip { background: #fffbeb; color: #92400e; }
-  .tag--long { background: #eff6ff; color: #1d4ed8; }
-  .tag--early { background: #f5f3ff; color: #6d28d9; }
-
-  .empty {
-    padding: 20px 12px;
-    text-align: center;
-    color: var(--muted);
-    font-size: 12px;
-  }
-
-  .sheet__footer {
-    margin-top: 16px;
-    padding-top: 10px;
-    border-top: 1px solid var(--border);
-    font-size: 10px;
-    color: var(--muted);
-    text-align: center;
+  .hk-dash--print-a4 .hk-dash__notes p {
+    font-size: 0.68rem !important;
+    line-height: 1.3 !important;
   }
 
   @media screen {
-    body {
-      background: #f4f4f5;
-    }
-
-    .sheet {
-      margin-top: 0;
-      margin-bottom: 24px;
+    body { background: #f4f4f5; }
+    .hk-dash--print-a4 {
+      max-width: 52rem;
+      margin: 0 auto 24px;
       background: #fff;
-      border-radius: 0 0 12px 12px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-    }
-  }
-
-  @media (max-width: 560px) {
-    .changed-grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
-
-    .notes {
-      grid-template-columns: 1fr;
+      border-radius: 0 0 8px 8px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
     }
   }
 
   @media print {
     .preview-toolbar { display: none !important; }
-    body { background: #fff; }
-    .sheet {
-      max-width: none;
-      margin: 0;
-      padding: 0;
-      box-shadow: none;
-      border-radius: 0;
-    }
-    .section { break-inside: avoid; }
-    .notes { break-inside: avoid; }
-    .changed-grid { grid-template-columns: repeat(3, 1fr); }
+    .hk-dash--print-a4 { padding: 0 !important; }
   }
 `;
 
-function bedTypePillHtml(roomType: string): string {
-  if (roomType === 'twin') return '<span class="pill pill--twin">트윈</span>';
-  if (roomType === 'triple') return '<span class="pill pill--triple">트리플</span>';
-  return '<span class="pill pill--unset">미설정</span>';
+function mapTypeCompactHtml(type: HkBedType): string {
+  if (type === 'twin') return '<span class="hk-map-type hk-map-type--twin">트</span>';
+  if (type === 'triple') return '<span class="hk-map-type hk-map-type--triple">삼</span>';
+  return '<span class="hk-map-type hk-map-type--unset">—</span>';
 }
 
-function extraBedPillHtml(action: string): string {
-  if (action === 'add') {
-    return `<span class="pill pill--eb-add">${escapeHtml(hkExtraBedActionLabel(action))}</span>`;
-  }
-  if (action === 'remove') {
-    return `<span class="pill pill--eb-remove">${escapeHtml(hkExtraBedActionLabel(action))}</span>`;
-  }
-  if (action === 'keep') {
-    return `<span class="pill pill--eb-keep">${escapeHtml(hkExtraBedActionLabel(action))}</span>`;
-  }
-  return '';
+function bedTypeBadgeHtml(type: HkBedType, size: 'sm' | 'md' | 'lg' = 'md'): string {
+  const label = type ? hkBedTypeLabel(type) : '미설정';
+  const classes = [
+    'hk-type-badge',
+    `hk-type-badge--${size}`,
+    type === 'twin' ? 'hk-type-badge--twin' : '',
+    type === 'triple' ? 'hk-type-badge--triple' : '',
+    !type ? 'hk-type-badge--unset' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  return `<span class="${classes}">${escapeHtml(label)}</span>`;
 }
 
-function renderSummaryHtml(bedRooms: HousekeepingBedDraft[], baseline: BedRoomBaseline): string {
-  const changed = getChangedBedRooms(bedRooms, baseline);
-  const ebAdd = bedRooms.filter((room) => room.extra_bed_action === 'add').length;
-  const ebRemove = bedRooms.filter((room) => room.extra_bed_action === 'remove').length;
-  const twinCount = bedRooms.filter((room) => getEffectiveBedType(room, baseline) === 'twin').length;
-  const tripleCount = bedRooms.filter((room) => getEffectiveBedType(room, baseline) === 'triple').length;
+function ebBadgeHtml(action: HkExtraBedAction, size: 'sm' | 'md' = 'sm'): string {
+  if (!action) return '';
+  const classes = [
+    'hk-eb-badge',
+    `hk-eb-badge--${size}`,
+    action === 'add' ? 'hk-eb-badge--add' : '',
+    action === 'remove' ? 'hk-eb-badge--remove' : '',
+    action === 'keep' ? 'hk-eb-badge--keep' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  return `<span class="${classes}">${escapeHtml(hkExtraBedActionLabel(action))}</span>`;
+}
 
+function renderChangedRoomCardHtml(
+  room: HousekeepingBedDraft,
+  effectiveType: HkBedType,
+): string {
+  const changedAt = formatBedTypeChangedAt(room.bed_type_changed_at);
   return `
-    <div class="summary-row">
-      <span class="summary-chip summary-chip--twin">트윈 <strong>${twinCount}</strong></span>
-      <span class="summary-chip summary-chip--triple">트리플 <strong>${tripleCount}</strong></span>
-      <span class="summary-chip">오늘 변경 <strong>${changed.length}</strong>건</span>
-      ${ebAdd > 0 ? `<span class="summary-chip summary-chip--add">EB 넣음 <strong>${ebAdd}</strong></span>` : ''}
-      ${ebRemove > 0 ? `<span class="summary-chip summary-chip--remove">EB 뺌 <strong>${ebRemove}</strong></span>` : ''}
-    </div>
+    <article class="hk-room-card">
+      <div class="hk-room-card__head">
+        <span class="hk-room-card__number">${escapeHtml(room.room_number)}</span>
+        ${bedTypeBadgeHtml(effectiveType, 'lg')}
+      </div>
+      <div class="hk-room-card__body">
+        ${ebBadgeHtml(room.extra_bed_action, 'md')}
+        ${changedAt ? `<p class="hk-room-card__changed-at">변경 요청 ${escapeHtml(changedAt)}</p>` : ''}
+      </div>
+    </article>
   `;
 }
 
-function renderNotesHtml(report: HousekeepingReport | null): string {
-  const previousNotes = report?.previous_day_notes?.trim() ?? '';
-  const nextDayNotes = report?.next_day_notes?.trim() ?? '';
-  if (!previousNotes && !nextDayNotes) return '';
+function renderStatusNotesHtml(report: HousekeepingReport | null): string {
+  const notes = mapStatusNotesFromReport(report);
+  if (!hasAnyStatusNotes(notes)) return '';
+
+  const items = HK_STATUS_NOTE_FIELDS.filter((field) => notes[field.key].trim())
+    .map(
+      (field) => `
+      <article class="hk-status-notes__item">
+        <h4>${escapeHtml(field.label)}</h4>
+        <p>${escapeHtml(notes[field.key])}</p>
+      </article>
+    `,
+    )
+    .join('');
 
   return `
-    <div class="notes">
-      <div class="notes__item">
-        <span class="notes__label">지난 날 특이사항</span>
-        <p class="notes__text">${previousNotes ? escapeHtml(previousNotes) : '—'}</p>
+    <section class="hk-dash__section">
+      <div class="hk-dash__section-head">
+        <h3>객실 상태 · 전달</h3>
+        <p>H/U · Comp · VIP · O.O · 장기 숙박 · 정비 유의 · 퇴근 후 DELIVERY</p>
       </div>
-      <div class="notes__item">
-        <span class="notes__label">다음 날 특이사항</span>
-        <p class="notes__text">${nextDayNotes ? escapeHtml(nextDayNotes) : '—'}</p>
-      </div>
-    </div>
-  `;
-}
-
-function renderChangedBedRoomsHtml(bedRooms: HousekeepingBedDraft[], baseline: BedRoomBaseline): string {
-  const changed = getChangedBedRooms(bedRooms, baseline);
-
-  const body = changed.length
-    ? changed
-        .map((room) => {
-          const effectiveType = getEffectiveBedType(room, baseline);
-          const eb = extraBedPillHtml(room.extra_bed_action);
-          return `
-        <div class="room-card">
-          <div class="room-card__no">${escapeHtml(room.room_number)}</div>
-          ${bedTypePillHtml(effectiveType)}
-          ${eb || '<span class="pill pill--dash">EB 변경 없음</span>'}
-        </div>
-      `;
-        })
-        .join('')
-    : '<p class="empty">오늘 변경된 객실이 없습니다.</p>';
-
-  return `
-    <section class="section">
-      <div class="section__head">
-        <h2>오늘 변경 객실</h2>
-        <p>객실번호 · 트윈/트리플 · 엑스트라베드 작업</p>
-      </div>
-      <div class="changed-grid">${body}</div>
-    </section>
-  `;
-}
-
-function renderRoomMapHtml(bedRooms: HousekeepingBedDraft[], baseline: BedRoomBaseline): string {
-  const byRoom = new Map(bedRooms.map((room) => [room.room_number, room]));
-
-  const colHeaders = HK_BED_SUFFIXES.map(
-    (suffix) => `<div class="room-map__colhead">${suffix}호</div>`,
-  ).join('');
-
-  const rows = HK_FLOORS_DESC.map((floor) => {
-    const rowHead = `<div class="room-map__rowhead">${floor}층</div>`;
-    const cells = HK_BED_SUFFIXES.map((suffix) => {
-      const roomNumber = formatHkRoomNumber(floor, suffix);
-      if (!isHkBedRoomTarget(roomNumber)) {
-        return '<div class="room-map__cell room-map__cell--na">—</div>';
-      }
-
-      const room = byRoom.get(roomNumber);
-      if (!room) {
-        return '<div class="room-map__cell">—</div>';
-      }
-
-      const effectiveType = getEffectiveBedType(room, baseline);
-      const changedToday = isBedRoomChangedToday(room, baseline);
-      const typeClass =
-        effectiveType === 'twin'
-          ? ' room-map__cell--twin'
-          : effectiveType === 'triple'
-            ? ' room-map__cell--triple'
-            : '';
-      const changedClass = changedToday ? ' room-map__cell--changed' : '';
-      const typeLabel = effectiveType ? hkBedTypeLabel(effectiveType) : '—';
-      const ebLabel =
-        room.extra_bed_action && room.extra_bed_action !== 'keep'
-          ? hkExtraBedActionLabel(room.extra_bed_action).replace('엑스트라베드 ', 'EB ')
-          : '';
-
-      return `
-        <div class="room-map__cell${typeClass}${changedClass}">
-          <span class="room-map__no">${escapeHtml(roomNumber)}</span>
-          <span class="pill pill--${effectiveType || 'unset'}" style="font-size:9px;padding:2px 6px;">${escapeHtml(typeLabel)}</span>
-          ${ebLabel ? `<span style="font-size:8px;font-weight:700;color:#166534;">${escapeHtml(ebLabel)}</span>` : ''}
-        </div>
-      `;
-    }).join('');
-
-    return rowHead + cells;
-  }).join('');
-
-  return `
-    <section class="section">
-      <div class="section__head">
-        <h2>전체 객실 맵</h2>
-        <p>파란=트윈 · 노란=트리플 · 테두리=오늘 변경</p>
-      </div>
-      <div class="room-map">
-        <div class="room-map__corner"></div>
-        ${colHeaders}
-        ${rows}
-      </div>
+      <div class="hk-status-notes hk-status-notes--readonly">${items}</div>
     </section>
   `;
 }
@@ -621,44 +392,103 @@ function renderSpecialRoomsHtml(specialRooms: HousekeepingSpecialDraft[]): strin
   const rows = getFilledSpecialRooms(specialRooms);
   if (!rows.length) return '';
 
-  const body = rows
-    .map((room) => {
-      const tags = [
-        room.early_checkin.trim()
-          ? `<span class="tag tag--early">일찍 ${escapeHtml(room.early_checkin.trim())}</span>`
-          : '',
-        room.is_vip ? '<span class="tag tag--vip">VIP</span>' : '',
-        room.is_long_stay ? '<span class="tag tag--long">장박</span>' : '',
-      ]
-        .filter(Boolean)
-        .join('');
-
-      return `
-        <tr>
-          <td class="col-room">${escapeHtml(room.room_number || '—')}</td>
-          <td>${tags || '<span class="pill pill--dash">—</span>'}</td>
-          <td>${escapeHtml(room.notes || '—')}</td>
-        </tr>
-      `;
-    })
+  const cards = rows
+    .map(
+      (room) => `
+      <article class="hk-dash__special-card">
+        <strong>${escapeHtml(room.room_number || '객실 미입력')}</strong>
+        <div class="hk-dash__special-tags">
+          ${room.is_vip ? '<span class="hk-dash__tag hk-dash__tag--vip">VIP</span>' : ''}
+          ${room.is_long_stay ? '<span class="hk-dash__tag hk-dash__tag--long">장박</span>' : ''}
+          ${room.early_checkin ? `<span class="hk-dash__tag hk-dash__tag--early">일찍 ${escapeHtml(room.early_checkin)}</span>` : ''}
+        </div>
+        ${room.notes ? `<p>${escapeHtml(room.notes)}</p>` : ''}
+      </article>
+    `,
+    )
     .join('');
 
   return `
-    <section class="section">
-      <div class="section__head">
-        <h2>특이 객실</h2>
-        <p>${rows.length}건</p>
+    <section class="hk-dash__section">
+      <div class="hk-dash__section-head">
+        <h3>특이 객실</h3>
       </div>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th class="col-room">객실</th>
-            <th style="width:38%">구분</th>
-            <th>비고</th>
-          </tr>
-        </thead>
-        <tbody>${body}</tbody>
-      </table>
+      <div class="hk-dash__special-list">${cards}</div>
+    </section>
+  `;
+}
+
+function renderDailyNotesHtml(report: HousekeepingReport | null): string {
+  const previousNotes = report?.previous_day_notes?.trim() ?? '';
+  const nextDayNotes = report?.next_day_notes?.trim() ?? '';
+  if (!previousNotes && !nextDayNotes) return '';
+
+  return `
+    <section class="hk-dash__section">
+      <div class="hk-dash__section-head">
+        <h3>전달 메모</h3>
+      </div>
+      <div class="hk-dash__notes">
+        ${previousNotes ? `<article><h4>지난 날 특이사항</h4><p>${escapeHtml(previousNotes)}</p></article>` : ''}
+        ${nextDayNotes ? `<article><h4>다음 날 특이사항</h4><p>${escapeHtml(nextDayNotes)}</p></article>` : ''}
+      </div>
+    </section>
+  `;
+}
+
+function renderRoomMapHtml(bedRooms: HousekeepingBedDraft[], baseline: BedRoomBaseline): string {
+  const byRoom = new Map(bedRooms.map((room) => [room.room_number, room]));
+
+  const colHeaders = HK_BED_SUFFIXES.map(
+    (suffix) => `<div class="hk-dash__map-colhead">${suffix}호</div>`,
+  ).join('');
+
+  const rows = HK_FLOORS_DESC.map((floor) => {
+    const rowHead = `<div class="hk-dash__map-rowhead">${floor}층</div>`;
+    const cells = HK_BED_SUFFIXES.map((suffix) => {
+      const roomNumber = formatHkRoomNumber(floor, suffix);
+      if (!isHkBedRoomTarget(roomNumber)) {
+        return '<div class="hk-dash__map-cell hk-dash__map-cell--na">—</div>';
+      }
+
+      const room = byRoom.get(roomNumber);
+      if (!room) {
+        return '<div class="hk-dash__map-cell">—</div>';
+      }
+
+      const effectiveType = getEffectiveBedType(room, baseline);
+      const changedToday = isBedRoomChangedToday(room, baseline);
+      const typeClass =
+        effectiveType === 'twin'
+          ? ' hk-dash__map-cell--twin'
+          : effectiveType === 'triple'
+            ? ' hk-dash__map-cell--triple'
+            : '';
+
+      return `
+        <div class="hk-dash__map-cell${typeClass}${changedToday ? ' hk-dash__map-cell--changed' : ''}">
+          <span class="hk-dash__map-room">${escapeHtml(roomNumber)}</span>
+          ${mapTypeCompactHtml(effectiveType)}
+        </div>
+      `;
+    }).join('');
+
+    return rowHead + cells;
+  }).join('');
+
+  return `
+    <section class="hk-dash__section">
+      <div class="hk-dash__section-head">
+        <h3>전체 객실 맵</h3>
+        <p>4~13층 02·10·16호 · 파란=트윈 · 노란=트리플 · 테두리=오늘 변경</p>
+      </div>
+      <div class="hk-dash__map-wrap">
+        <div class="hk-dash__map">
+          <div class="hk-dash__map-corner"></div>
+          ${colHeaders}
+          ${rows}
+        </div>
+      </div>
     </section>
   `;
 }
@@ -670,43 +500,62 @@ export function buildHousekeepingPrintHtml(
   workDate: string,
   authorLabel: string,
   baseline: BedRoomBaseline = {},
+  stylesHref = '/handover.css',
 ): string {
-  const dateLabel = formatWorkDateLabel(workDate);
-  const now = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-  const changedCount = getChangedBedRooms(bedRooms, baseline).length;
-  const specialCount = getFilledSpecialRooms(specialRooms).length;
+  const workDateLabel = formatWorkDateLabel(workDate);
+  const changedRooms = getChangedBedRooms(bedRooms, baseline);
+  const twinCount = bedRooms.filter((room) => getEffectiveBedType(room, baseline) === 'twin').length;
+  const tripleCount = bedRooms.filter((room) => getEffectiveBedType(room, baseline) === 'triple').length;
+  const ebAddCount = bedRooms.filter((room) => room.extra_bed_action === 'add').length;
+  const ebRemoveCount = bedRooms.filter((room) => room.extra_bed_action === 'remove').length;
+
+  const changedSection = changedRooms.length
+    ? `<div class="hk-dash__changed-grid">${changedRooms
+        .map((room) => renderChangedRoomCardHtml(room, getEffectiveBedType(room, baseline)))
+        .join('')}</div>`
+    : '<p class="hk-dash__empty">오늘 변경된 객실이 없습니다.</p>';
 
   return `<!DOCTYPE html>
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>하우스키핑 리포트 ${workDate}</title>
-    <style>${PRINT_STYLES}</style>
+    <title>하우스키핑 전달 ${workDate}</title>
+    <link rel="stylesheet" href="${escapeHtml(stylesHref)}" />
+    <style>${PRINT_OVERRIDES}</style>
   </head>
   <body>
     <div class="preview-toolbar">
-      <span class="preview-toolbar__title">하우스키핑 리포트 · ${escapeHtml(dateLabel)}</span>
+      <span class="preview-toolbar__title">하우스키핑 전달 · ${escapeHtml(workDateLabel)} · A4 1장</span>
       <button type="button" class="preview-toolbar__btn" onclick="window.print()">인쇄</button>
     </div>
-    <div class="sheet">
-      <header class="sheet__header">
+    <div class="hk-dash hk-dash--print-a4">
+      <header class="hk-dash__hero">
         <div>
-          <h1 class="sheet__title">하우스키핑 리포트</h1>
-          <p class="sheet__subtitle">4~13층 02·10·16호 · 416·516·1302 제외</p>
+          <p class="hk-dash__eyebrow">하우스키핑 전달</p>
+          <h2 class="hk-dash__title">${escapeHtml(workDateLabel)}</h2>
         </div>
-        <div class="sheet__meta">
-          <strong>${escapeHtml(dateLabel)}</strong>
-          <div>작성 ${escapeHtml(authorLabel || '미입력')}</div>
-          <div>열림 ${escapeHtml(now)} · 변경 ${changedCount}건 · 특이 ${specialCount}건</div>
+        <div class="hk-dash__stats">
+          <span class="hk-dash__stat hk-dash__stat--twin">트윈 <strong>${twinCount}</strong></span>
+          <span class="hk-dash__stat hk-dash__stat--triple">트리플 <strong>${tripleCount}</strong></span>
+          <span class="hk-dash__stat">오늘 변경 <strong>${changedRooms.length}</strong></span>
+          ${ebAddCount > 0 ? `<span class="hk-dash__stat hk-dash__stat--add">EB 넣음 <strong>${ebAddCount}</strong></span>` : ''}
+          ${ebRemoveCount > 0 ? `<span class="hk-dash__stat hk-dash__stat--remove">EB 뺌 <strong>${ebRemoveCount}</strong></span>` : ''}
         </div>
       </header>
-      ${renderSummaryHtml(bedRooms, baseline)}
-      ${renderNotesHtml(report)}
-      ${renderChangedBedRoomsHtml(bedRooms, baseline)}
-      ${renderRoomMapHtml(bedRooms, baseline)}
+
+      <section class="hk-dash__section">
+        <div class="hk-dash__section-head">
+          <h3>오늘 변경 객실</h3>
+          <p>트윈/트리플 전환·엑스트라베드 작업이 있는 객실</p>
+        </div>
+        ${changedSection}
+      </section>
+
+      ${renderStatusNotesHtml(report)}
       ${renderSpecialRoomsHtml(specialRooms)}
-      <footer class="sheet__footer">hotel-handover · 하우스키핑 전달용</footer>
+      ${renderDailyNotesHtml(report)}
+      ${renderRoomMapHtml(bedRooms, baseline)}
     </div>
   </body>
 </html>`;
@@ -720,6 +569,8 @@ export function openHousekeepingPrintWindow(
   authorLabel: string,
   baseline: BedRoomBaseline = {},
 ): boolean {
+  const stylesHref =
+    typeof window !== 'undefined' ? `${window.location.origin}/handover.css` : '/handover.css';
   const html = buildHousekeepingPrintHtml(
     report,
     bedRooms,
@@ -727,11 +578,10 @@ export function openHousekeepingPrintWindow(
     workDate,
     authorLabel,
     baseline,
+    stylesHref,
   );
 
-  // noopener/noreferrer를 쓰면 브라우저가 window.open 반환값을 null로 만들어
-  // 창은 뜨는데 실패로 처리되는 경우가 있습니다. 내용을 써야 하므로 제외합니다.
-  const popup = window.open('about:blank', 'housekeeping-report', 'width=820,height=920');
+  const popup = window.open('about:blank', 'housekeeping-report', 'width=900,height=1200');
   if (popup) {
     popup.document.open();
     popup.document.write(html);
@@ -741,7 +591,7 @@ export function openHousekeepingPrintWindow(
   }
 
   const iframe = document.createElement('iframe');
-  iframe.setAttribute('title', '하우스키핑 리포트');
+  iframe.setAttribute('title', '하우스키핑 전달');
   iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
   document.body.appendChild(iframe);
 

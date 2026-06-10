@@ -13,6 +13,7 @@ export interface AmenityInventoryRow {
   hotel_id: string;
   amenity_id: number;
   quantity: number;
+  min_quantity: number;
   updated_at: string;
 }
 
@@ -31,6 +32,7 @@ export interface AmenityTransaction {
 
 export interface InventoryItem extends Amenity {
   quantity: number;
+  minQuantity: number;
   monthlyUsage: number;
   orderBoxes: number;
   remainingBoxes: number;

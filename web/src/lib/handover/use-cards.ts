@@ -166,6 +166,18 @@ export function useCards() {
         staff_name: staffName,
       });
       if (error) throw error;
+
+      const { data: card } = await supabase
+        .from('cards')
+        .select('category, first_response_at')
+        .eq('id', cardId)
+        .maybeSingle();
+      if (card?.category === '컴플레인' && !card.first_response_at) {
+        await supabase
+          .from('cards')
+          .update({ first_response_at: new Date().toISOString() })
+          .eq('id', cardId);
+      }
     },
     onSuccess: () => invalidateCardQueriesLocal(queryClient),
   });
@@ -190,7 +202,18 @@ export function useCards() {
         content,
       });
       if (error) throw error;
-      await supabase.from('cards').update({ updated_at: new Date().toISOString() }).eq('id', cardId);
+
+      const { data: card } = await supabase
+        .from('cards')
+        .select('category, first_response_at')
+        .eq('id', cardId)
+        .maybeSingle();
+      const now = new Date().toISOString();
+      const patch: { updated_at: string; first_response_at?: string } = { updated_at: now };
+      if (card?.category === '컴플레인' && !card.first_response_at) {
+        patch.first_response_at = now;
+      }
+      await supabase.from('cards').update(patch).eq('id', cardId);
     },
     onSuccess: () => invalidateCardQueriesLocal(queryClient),
   });
