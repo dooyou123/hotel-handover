@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
 import {
   HK_BED_SUFFIXES,
   HK_FLOORS_DESC,
@@ -11,23 +11,30 @@ import {
 import {
   getEffectiveBedType,
   isBedRoomChangedToday,
-  type BedRoomBaseline,
+  type BedTypeSource,
 } from '@/lib/housekeeping/baseline';
 import {
   hasAnyStatusNotes,
+  isOccupiedGuestStatus,
   type HousekeepingBedDraft,
   type HousekeepingSpecialDraft,
   type HkStatusNotes,
 } from '@/lib/housekeeping/types';
-import { HkBedTypeBadge, HkExtraBedBadge } from '@/components/housekeeping/hk-bed-type-badge';
+import {
+  HkBedTypeBadge,
+  HkBedTypeLetter,
+  HkExtraBedBadge,
+  HkGuestStatusBadge,
+} from '@/components/housekeeping/hk-bed-type-badge';
 import { HkChangedRoomCard } from '@/components/housekeeping/hk-changed-room-card';
+import { HkInHousePanel } from '@/components/housekeeping/hk-in-house-panel';
 import { HkStatusNotesFields } from '@/components/housekeeping/hk-status-notes-fields';
 
 type HkReportDashboardProps = {
   workDateLabel: string;
   bedRooms: HousekeepingBedDraft[];
   specialRooms: HousekeepingSpecialDraft[];
-  baseline: BedRoomBaseline;
+  bedTypeSource: BedTypeSource;
   previousDayNotes: string;
   nextDayNotes: string;
   statusNotes: HkStatusNotes;
@@ -37,6 +44,8 @@ type HkReportDashboardProps = {
     changedCount: number;
     ebAddCount: number;
     ebRemoveCount: number;
+    inHouseCount: number;
+    inHouseUnsetCount: number;
   };
   findBedRoomIndex: (floor: number, suffix: HkBedSuffix) => number;
 };
@@ -56,15 +65,17 @@ export function HkReportDashboard({
   workDateLabel,
   bedRooms,
   specialRooms,
-  baseline,
+  bedTypeSource,
   previousDayNotes,
   nextDayNotes,
   statusNotes,
   summary,
   findBedRoomIndex,
 }: HkReportDashboardProps) {
+  const [mapFilter, setMapFilter] = useState<'all' | 'occupied'>('all');
+
   const changedRooms = bedRooms
-    .filter((room) => isBedRoomChangedToday(room, baseline))
+    .filter((room) => isBedRoomChangedToday(room, bedTypeSource))
     .sort((a, b) => a.room_number.localeCompare(b.room_number, undefined, { numeric: true }));
 
   const specials = filledSpecialRooms(specialRooms);
@@ -77,6 +88,12 @@ export function HkReportDashboard({
           <h2 className="hk-dash__title">{workDateLabel}</h2>
         </div>
         <div className="hk-dash__stats">
+          <span className="hk-dash__stat hk-dash__stat--inhouse">
+            재실·도착 <strong>{summary.inHouseCount}</strong>
+            {summary.inHouseUnsetCount > 0 ? (
+              <em className="hk-dash__stat-warn">미설정 {summary.inHouseUnsetCount}</em>
+            ) : null}
+          </span>
           <span className="hk-dash__stat hk-dash__stat--twin">
             트윈 <strong>{summary.twinCount}</strong>
           </span>
@@ -99,6 +116,8 @@ export function HkReportDashboard({
         </div>
       </header>
 
+      <HkInHousePanel bedRooms={bedRooms} bedTypeSource={bedTypeSource} readOnly />
+
       <section className="hk-dash__section">
         <div className="hk-dash__section-head">
           <h3>오늘 변경 객실</h3>
@@ -110,7 +129,7 @@ export function HkReportDashboard({
               <HkChangedRoomCard
                 key={room.room_number}
                 room={room}
-                effectiveType={getEffectiveBedType(room, baseline)}
+                effectiveType={getEffectiveBedType(room, bedTypeSource)}
                 readOnly
               />
             ))}
@@ -121,17 +140,36 @@ export function HkReportDashboard({
       </section>
 
       <section className="hk-dash__section">
-        <div className="hk-dash__section-head">
-          <h3>전체 객실 맵</h3>
-          <p>4~13층 02·10·16호 — 색으로 트윈/트리플 구분</p>
-          <div className="hk-dash__legend hk-dash__legend--inline" aria-label="범례">
-            <span>
-              <HkBedTypeBadge type="twin" size="sm" showUnset={false} /> 트윈
-            </span>
-            <span>
-              <HkBedTypeBadge type="triple" size="sm" showUnset={false} /> 트리플
-            </span>
-            <span className="hk-dash__legend-changed">테두리 = 오늘 변경</span>
+        <div className="hk-dash__section-head hk-dash__section-head--split">
+          <div>
+            <h3>전체 객실 맵</h3>
+            <p>4~13층 02·10·16호 — 색·글자로 트윈/트리플 구분</p>
+            <div className="hk-dash__legend hk-dash__legend--inline" aria-label="범례">
+              <span>
+                <HkBedTypeBadge type="twin" size="sm" showUnset={false} /> 트윈
+              </span>
+              <span>
+                <HkBedTypeBadge type="triple" size="sm" showUnset={false} /> 트리플
+              </span>
+              <span className="hk-dash__legend-changed">테두리 = 오늘 변경</span>
+              <span className="hk-dash__legend-occupied">● = 재실·도착</span>
+            </div>
+          </div>
+          <div className="hk-dash__map-filters" role="group" aria-label="맵 필터">
+            <button
+              type="button"
+              className={`btn btn--ghost btn--small${mapFilter === 'all' ? ' is-active' : ''}`}
+              onClick={() => setMapFilter('all')}
+            >
+              전체
+            </button>
+            <button
+              type="button"
+              className={`btn btn--ghost btn--small${mapFilter === 'occupied' ? ' is-active' : ''}`}
+              onClick={() => setMapFilter('occupied')}
+            >
+              재실·도착만
+            </button>
           </div>
         </div>
         <div className="hk-dash__map-wrap">
@@ -167,8 +205,18 @@ export function HkReportDashboard({
                     );
                   }
 
-                  const effectiveType = getEffectiveBedType(room, baseline);
-                  const changedToday = isBedRoomChangedToday(room, baseline);
+                  const occupied = isOccupiedGuestStatus(room.guest_status);
+                  if (mapFilter === 'occupied' && !occupied) {
+                    return (
+                      <div key={cellKey} className="hk-dash__map-cell hk-dash__map-cell--dimmed">
+                        <span className="hk-dash__map-room">{room.room_number}</span>
+                      </div>
+                    );
+                  }
+
+                  const effectiveType = getEffectiveBedType(room, bedTypeSource);
+                  const changedToday = isBedRoomChangedToday(room, bedTypeSource);
+                  const isUnset = occupied && !effectiveType;
 
                   return (
                     <div
@@ -179,10 +227,15 @@ export function HkReportDashboard({
                           : effectiveType === 'triple'
                             ? ' hk-dash__map-cell--triple'
                             : ''
-                      }${changedToday ? ' hk-dash__map-cell--changed' : ''}`}
+                      }${changedToday ? ' hk-dash__map-cell--changed' : ''}${
+                        occupied ? ' hk-dash__map-cell--occupied' : ''
+                      }${isUnset ? ' hk-dash__map-cell--alert' : ''}`}
                     >
+                      {occupied ? <span className="hk-dash__map-occupied" aria-hidden /> : null}
                       <span className="hk-dash__map-room">{room.room_number}</span>
+                      <HkBedTypeLetter type={effectiveType} />
                       <HkBedTypeBadge type={effectiveType} size="sm" />
+                      {occupied ? <HkGuestStatusBadge status={room.guest_status} /> : null}
                       <HkExtraBedBadge action={room.extra_bed_action} />
                     </div>
                   );

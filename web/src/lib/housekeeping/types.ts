@@ -1,3 +1,4 @@
+import type { BedTypeSource } from '@/lib/housekeeping/baseline';
 import { buildDefaultBedRoomNumbers } from '@/lib/housekeeping/rooms';
 
 export const HK_BED_TYPES = [
@@ -13,8 +14,17 @@ export const HK_EXTRA_BED_ACTIONS = [
   { value: 'keep', label: '변경 없음' },
 ] as const;
 
+export const HK_GUEST_STATUSES = [
+  { value: '', label: '—' },
+  { value: 'stay', label: '재실' },
+  { value: 'arrival', label: '도착' },
+  { value: 'checkout', label: '퇴실' },
+  { value: 'vacant', label: '공실' },
+] as const;
+
 export type HkBedType = (typeof HK_BED_TYPES)[number]['value'];
 export type HkExtraBedAction = (typeof HK_EXTRA_BED_ACTIONS)[number]['value'];
+export type HkGuestStatus = (typeof HK_GUEST_STATUSES)[number]['value'];
 export type HkRowKind = 'bed' | 'special';
 
 export const HK_STATUS_NOTE_FIELDS = [
@@ -100,6 +110,7 @@ export type HousekeepingRoomRow = {
   room_number: string;
   row_kind: HkRowKind;
   room_type: HkBedType;
+  guest_status: HkGuestStatus;
   extra_bed_action: HkExtraBedAction;
   bed_type_changed_at: string | null;
   early_checkin: string;
@@ -113,6 +124,7 @@ export type HousekeepingBedDraft = {
   id?: string;
   room_number: string;
   room_type: HkBedType;
+  guest_status: HkGuestStatus;
   extra_bed_action: HkExtraBedAction;
   bed_type_changed_at?: string | null;
   sort_order: number;
@@ -144,6 +156,7 @@ export type SaveHousekeepingInput = {
   shift: string;
   bedRooms: HousekeepingBedDraft[];
   specialRooms: HousekeepingSpecialDraft[];
+  bedTypeContext?: BedTypeSource;
 };
 
 export function hkBedTypeLabel(value: string): string {
@@ -152,6 +165,15 @@ export function hkBedTypeLabel(value: string): string {
 
 export function hkExtraBedActionLabel(value: string): string {
   return HK_EXTRA_BED_ACTIONS.find((item) => item.value === value)?.label ?? (value || '—');
+}
+
+export function hkGuestStatusLabel(value: string): string {
+  return HK_GUEST_STATUSES.find((item) => item.value === value)?.label ?? (value || '—');
+}
+
+/** 재실·도착 — 침대 구성 확인이 필요한 객실 */
+export function isOccupiedGuestStatus(value: string): boolean {
+  return value === 'stay' || value === 'arrival';
 }
 
 /** 침대 종류 최종 변경 요청 시각 (HK 보기·인쇄용) */
@@ -186,6 +208,7 @@ export function buildDefaultBedRooms(saved: HousekeepingRoomRow[] = []): Houseke
       id: existing?.id,
       room_number: roomNumber,
       room_type: existing?.room_type ?? '',
+      guest_status: existing?.guest_status ?? '',
       extra_bed_action: existing?.extra_bed_action ?? '',
       bed_type_changed_at: existing?.bed_type_changed_at ?? undefined,
       sort_order: index,

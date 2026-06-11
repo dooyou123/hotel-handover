@@ -14,10 +14,7 @@ Next.js + Supabase Cloud · Vercel 배포.
 ### 1. Supabase
 
 1. [supabase.com](https://supabase.com) 프로젝트 생성
-2. SQL Editor에서 순서대로 실행:
-   - `supabase/migrations/001_initial_schema.sql`
-   - `supabase/migrations/002_storage.sql`
-   - `supabase/migrations/003_amenities.sql`
+2. SQL Editor에서 `supabase/migrations/` 파일을 **번호 순**으로 모두 실행 (001 → 최신)
 3. Auth → Email 활성화, **Allow new users to sign up** 끄기
 4. Auth → Users → 직원 계정 추가
 5. Auth → URL Configuration: Site URL + Redirect URLs (`https://*.vercel.app/**`)
@@ -52,7 +49,7 @@ npm run check:env
 npm run vercel:setup:prod
 ```
 
-상세: [`docs/rebuild/VERCEL-SETUP.md`](../docs/rebuild/VERCEL-SETUP.md)
+상세: [`docs/ops/VERCEL-SETUP.md`](../docs/ops/VERCEL-SETUP.md)
 
 ### 5. 관리자 권한 (필요 시)
 
@@ -82,6 +79,6 @@ on conflict (id) do update set role = 'manager', updated_at = now();
 
 | 문서 | 용도 |
 |------|------|
-| [`MANUAL.md`](../docs/rebuild/MANUAL.md) | 현장 매뉴얼 |
-| [`UAT-CHECKLIST.md`](../docs/rebuild/UAT-CHECKLIST.md) | UAT |
-| [`VERCEL-SETUP.md`](../docs/rebuild/VERCEL-SETUP.md) | Vercel 설정 |
+| [`MANUAL.md`](../docs/ops/MANUAL.md) | 현장 매뉴얼 |
+| [`UAT-CHECKLIST.md`](../docs/ops/UAT-CHECKLIST.md) | UAT |
+| [`VERCEL-SETUP.md`](../docs/ops/VERCEL-SETUP.md) | Vercel 설정 |

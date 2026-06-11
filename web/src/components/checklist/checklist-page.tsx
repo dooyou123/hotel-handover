@@ -11,7 +11,7 @@ import {
 } from '@/lib/checklist/use-checklist';
 import { useWorkSession } from '@/lib/handover/use-work-session';
 import { createClient } from '@/lib/supabase/client';
-import { DEFAULT_HOTEL_ID } from '@/lib/constants';
+import { DEFAULT_HOTEL_ID, formatShiftChecklistTitle } from '@/lib/constants';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 
 function formatWorkDate(value: string): string {
@@ -25,6 +25,19 @@ function formatTime(value: string | null): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function ChecklistLabel({ label }: { label: string }) {
+  const hintIndex = label.indexOf('\n[참고]');
+  if (hintIndex < 0) {
+    return <span className="checklist-item__label">{label}</span>;
+  }
+  return (
+    <span className="checklist-item__label">
+      <span className="checklist-item__text">{label.slice(0, hintIndex)}</span>
+      <span className="checklist-item__hint">{label.slice(hintIndex + 1)}</span>
+    </span>
+  );
 }
 
 function ChecklistColumn({
@@ -73,7 +86,7 @@ function ChecklistColumn({
             >
               <input type="checkbox" checked={item.completed} onChange={() => onToggle(item.id)} />
               <span className="checklist-item__body">
-                <span className="checklist-item__label">{item.label}</span>
+                <ChecklistLabel label={item.label} />
                 {item.completed ? (
                   <span className="checklist-item__meta">
                     {item.completed_by} · {formatTime(item.completed_at)}
@@ -177,10 +190,10 @@ export function ChecklistPageClient() {
     <section className="checklist-page">
       <div className="checklist-page__header">
         <div>
-          <h2>교대 체크리스트</h2>
+          <h2>Shift Check List</h2>
           <p>
-            <strong>공통</strong> 항목은 전 조가 확인하고, <strong>조 전용</strong> 항목은 해당 조만
-            체크합니다.
+            현재 조({formatShiftChecklistTitle(group)}) 항목을 순서대로 확인합니다. Excel 시트와 동일한
+            A·B·C조 체크리스트입니다.
           </p>
         </div>
         <Link href="/settings" className="btn btn--ghost">
@@ -209,25 +222,31 @@ export function ChecklistPageClient() {
           </p>
         </div>
       ) : (
-        <div className="checklist-sections checklist-sections--grid">
+        <div
+          className={`checklist-sections${
+            commonItems.length ? ' checklist-sections--grid' : ' checklist-sections--single'
+          }`}
+        >
+          {commonItems.length ? (
+            <ChecklistColumn
+              title="공통 확인"
+              done={commonDone}
+              total={commonItems.length}
+              items={commonItems}
+              emptyText="공통 항목이 없습니다. 설정에서 추가하세요."
+              onToggle={handleToggle}
+              onReset={() => void handleReset('common', '공통 확인')}
+              resetBusy={resettingScope === 'common'}
+            />
+          ) : null}
           <ChecklistColumn
-            title="공통 확인"
-            done={commonDone}
-            total={commonItems.length}
-            items={commonItems}
-            emptyText="공통 항목이 없습니다. 설정에서 추가하세요."
-            onToggle={handleToggle}
-            onReset={() => void handleReset('common', '공통 확인')}
-            resetBusy={resettingScope === 'common'}
-          />
-          <ChecklistColumn
-            title={`${group}조 전용`}
+            title={formatShiftChecklistTitle(group)}
             done={groupDone}
             total={groupItems.length}
             items={groupItems}
-            emptyText={`${group}조 전용 항목이 없습니다.`}
+            emptyText={`${formatShiftChecklistTitle(group)} 항목이 없습니다.`}
             onToggle={handleToggle}
-            onReset={() => void handleReset(group, `${group}조 전용`)}
+            onReset={() => void handleReset(group, formatShiftChecklistTitle(group))}
             resetBusy={resettingScope === group}
           />
         </div>

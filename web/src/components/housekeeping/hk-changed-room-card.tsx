@@ -1,10 +1,13 @@
 import { HkBedTypeBadge, HkExtraBedBadge } from '@/components/housekeeping/hk-bed-type-badge';
 import {
   formatBedTypeChangedAt,
+  HK_GUEST_STATUSES,
   type HousekeepingBedDraft,
   type HkBedType,
   type HkExtraBedAction,
+  type HkGuestStatus,
 } from '@/lib/housekeeping/types';
+import { HkGuestStatusBadge } from '@/components/housekeeping/hk-bed-type-badge';
 
 type HkChangedRoomCardProps = {
   room: HousekeepingBedDraft;
@@ -12,6 +15,7 @@ type HkChangedRoomCardProps = {
   readOnly?: boolean;
   onTypeChange?: (value: HkBedType) => void;
   onEbChange?: (value: HkExtraBedAction) => void;
+  onGuestStatusChange?: (value: HkGuestStatus) => void;
   onClear?: () => void;
 };
 
@@ -21,6 +25,7 @@ export function HkChangedRoomCard({
   readOnly = false,
   onTypeChange,
   onEbChange,
+  onGuestStatusChange,
   onClear,
 }: HkChangedRoomCardProps) {
   const changedAtLabel = formatBedTypeChangedAt(room.bed_type_changed_at);
@@ -29,7 +34,10 @@ export function HkChangedRoomCard({
     <article className="hk-room-card">
       <div className="hk-room-card__head">
         <span className="hk-room-card__number">{room.room_number}</span>
-        <HkBedTypeBadge type={effectiveType} size="lg" />
+        <div className="hk-room-card__head-badges">
+          <HkBedTypeBadge type={effectiveType} size="lg" />
+          <HkGuestStatusBadge status={room.guest_status} size="md" />
+        </div>
       </div>
 
       <div className="hk-room-card__body">
@@ -54,6 +62,20 @@ export function HkChangedRoomCard({
                 <option value="">변경 없음</option>
                 <option value="twin">→ 트윈</option>
                 <option value="triple">→ 트리플</option>
+              </select>
+            </label>
+            <label className="hk-room-card__field">
+              <span>투숙 상태</span>
+              <select
+                className="housekeeping-table__select"
+                value={room.guest_status}
+                onChange={(e) => onGuestStatusChange?.(e.target.value as HkGuestStatus)}
+              >
+                {HK_GUEST_STATUSES.map((item) => (
+                  <option key={item.value || 'none'} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="hk-room-card__field">

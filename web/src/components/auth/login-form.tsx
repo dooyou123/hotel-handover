@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { isSupabaseNetworkError } from '@/lib/supabase/env';
+import { isSupabaseNetworkError, supabaseNetworkErrorMessage } from '@/lib/supabase/env';
 
 type LoginFormProps = {
   redirectTo?: string;
@@ -18,16 +18,6 @@ function mapAuthError(message: string): string {
     return '이메일 인증이 필요합니다. 관리자에게 문의하세요.';
   }
   return message;
-}
-
-function networkErrorMessage(): string {
-  return [
-    'Supabase 서버에 연결하지 못했습니다.',
-    '· .env.local의 URL·anon key가 Dashboard와 같은지 확인',
-    '· npm run dev를 끄고 다시 실행 (env는 시작 시에만 반영)',
-    '· Supabase 프로젝트가 일시중지(paused) 상태가 아닌지 확인',
-    '· 광고/추적 차단 확장 프로그램 끄기',
-  ].join('\n');
 }
 
 export function LoginForm({ redirectTo = '/handover' }: LoginFormProps) {
@@ -62,7 +52,7 @@ export function LoginForm({ redirectTo = '/handover' }: LoginFormProps) {
         return;
       }
 
-      setError(networkErrorMessage());
+      setError(supabaseNetworkErrorMessage());
     } finally {
       setLoading(false);
     }

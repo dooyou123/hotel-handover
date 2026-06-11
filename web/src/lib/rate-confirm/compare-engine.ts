@@ -7,7 +7,12 @@ import {
   normalizeRate,
 } from '@/lib/rate-confirm/normalize';
 
-export type ReconcileError = 'MISSING_IN_PMS' | 'STATUS_MISMATCH' | 'DATE_MISMATCH' | 'RATE_MISMATCH';
+export type ReconcileError =
+  | 'MISSING_IN_PMS'
+  | 'STATUS_MISMATCH'
+  | 'DATE_MISMATCH'
+  | 'RATE_MISMATCH'
+  | 'ACCOUNT_MISMATCH';
 
 export type ColumnMapping = {
   ota: string;
@@ -57,6 +62,7 @@ export type ReconcileResult = {
     statusCount: number;
     dateCount: number;
     rateCount: number;
+    accountCount: number;
   };
 };
 
@@ -82,6 +88,23 @@ export function rowsToBookings(sheet: ParsedSheet, mapping: ColumnMapping): RawB
   return list;
 }
 
+function isChangeStatus(status: string): boolean {
+  const normalized = status.trim();
+  return normalized === '변경' || normalized.includes('변경');
+}
+
+/** 예약검색 RAW: 예약+변경 통지가 있으면 변경 1건만 사용. 다객실(예약만 여러 건)은 합산 유지 */
+export function consolidateTlNotificationRows(items: RawBooking[]): RawBooking[] {
+  if (items.length <= 1) return items;
+
+  const changeRows = items.filter((item) => isChangeStatus(item.status));
+  if (changeRows.length) {
+    return [changeRows[changeRows.length - 1]!];
+  }
+
+  return items;
+}
+
 function aggregateTlBookings(bookings: RawBooking[]): Map<string, RawBooking[]> {
   const cancelledOtas = new Set<string>();
   const grouped = new Map<string, RawBooking[]>();
@@ -101,6 +124,10 @@ function aggregateTlBookings(bookings: RawBooking[]): Map<string, RawBooking[]> 
     const list = grouped.get(item.ota) ?? [];
     list.push(item);
     grouped.set(item.ota, list);
+  }
+
+  for (const [ota, items] of grouped) {
+    grouped.set(ota, consolidateTlNotificationRows(items));
   }
 
   return grouped;
@@ -160,10 +187,11 @@ export function performReconciliation(
       if (!isDateEqual(tlSide.ciDate, pmsSide.ciDate)) {
         errors.push('DATE_MISMATCH');
       }
-      const rateDiff = tlSide.rate !== pmsSide.rate;
-      const accDiff = !isAccountEqual(tlSide.account, pmsSide.account);
-      if (rateDiff || accDiff) {
+      if (tlSide.rate !== pmsSide.rate) {
         errors.push('RATE_MISMATCH');
+      }
+      if (!isAccountEqual(tlSide.account, pmsSide.account)) {
+        errors.push('ACCOUNT_MISMATCH');
       }
     }
 
@@ -186,12 +214,14 @@ export function performReconciliation(
   let statusCount = 0;
   let dateCount = 0;
   let rateCount = 0;
+  let accountCount = 0;
 
   for (const record of errorRecords) {
     if (record.errors.includes('MISSING_IN_PMS')) missingCount += 1;
     if (record.errors.includes('STATUS_MISMATCH')) statusCount += 1;
     if (record.errors.includes('DATE_MISMATCH')) dateCount += 1;
     if (record.errors.includes('RATE_MISMATCH')) rateCount += 1;
+    if (record.errors.includes('ACCOUNT_MISMATCH')) accountCount += 1;
   }
 
   return {
@@ -205,6 +235,7 @@ export function performReconciliation(
       statusCount,
       dateCount,
       rateCount,
+      accountCount,
     },
   };
 }
@@ -213,5 +244,6 @@ export const ERROR_LABELS: Record<ReconcileError, string> = {
   MISSING_IN_PMS: 'PMS 누락',
   STATUS_MISMATCH: '상태 불일치',
   DATE_MISMATCH: '날짜 불일치',
-  RATE_MISMATCH: '객실료/어카운트 불일치',
+  RATE_MISMATCH: '객실료 불일치',
+  ACCOUNT_MISMATCH: 'OTA명 불일치',
 };

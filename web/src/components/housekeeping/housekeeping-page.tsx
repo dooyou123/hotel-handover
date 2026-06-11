@@ -8,8 +8,9 @@ import {
   filterBedRoomsToSave,
   getEffectiveBedType,
   isBedRoomChangedToday,
-  type BedRoomBaseline,
+  type BedTypeSource,
 } from '@/lib/housekeeping/baseline';
+import { fetchRoomBedState } from '@/lib/housekeeping/room-state';
 import { fetchHousekeepingReport, saveHousekeepingReport } from '@/lib/housekeeping/api';
 import { openHousekeepingPrintWindow } from '@/lib/housekeeping/print';
 import {
@@ -23,7 +24,9 @@ import {
   EMPTY_HK_STATUS_NOTES,
   HK_BED_TYPES,
   HK_EXTRA_BED_ACTIONS,
+  HK_GUEST_STATUSES,
   buildDefaultBedRooms,
+  isOccupiedGuestStatus,
   emptySpecialRoom,
   mapSpecialRoomsFromSaved,
   mapStatusNotesFromReport,
@@ -33,6 +36,7 @@ import {
   type HousekeepingSpecialDraft,
   type HkBedType,
   type HkExtraBedAction,
+  type HkGuestStatus,
   type HkStatusNotes,
   type SaveHousekeepingInput,
 } from '@/lib/housekeeping/types';
@@ -40,6 +44,7 @@ import { todayDateString } from '@/lib/handover/shift-summary';
 import { readWorkSession, useWorkSession } from '@/lib/handover/use-work-session';
 import { HkBedTypeBadge } from '@/components/housekeeping/hk-bed-type-badge';
 import { HkChangedRoomCard } from '@/components/housekeeping/hk-changed-room-card';
+import { HkInHousePanel } from '@/components/housekeeping/hk-in-house-panel';
 import { HkReportDashboard } from '@/components/housekeeping/hk-report-dashboard';
 import { HkStatusNotesFields } from '@/components/housekeeping/hk-status-notes-fields';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -135,10 +140,20 @@ export function HousekeepingPageClient() {
     queryFn: () => fetchHousekeepingReport(workDate),
   });
 
-  const { data: baseline = {} as BedRoomBaseline } = useQuery({
+  const { data: baseline = {} } = useQuery({
     queryKey: ['housekeeping-baseline', DEFAULT_HOTEL_ID, workDate],
     queryFn: () => fetchBedRoomBaseline(workDate),
   });
+
+  const { data: roomState = {} } = useQuery({
+    queryKey: ['housekeeping-room-bed-state', DEFAULT_HOTEL_ID],
+    queryFn: () => fetchRoomBedState(),
+  });
+
+  const bedTypeSource = useMemo<BedTypeSource>(
+    () => ({ baseline, roomState }),
+    [baseline, roomState],
+  );
 
   useEffect(() => {
     if (!data || dirty) return;
@@ -158,6 +173,7 @@ export function HousekeepingPageClient() {
     mutationFn: (input: SaveHousekeepingInput) => saveHousekeepingReport(input),
     onSuccess: (saved) => {
       queryClient.setQueryData(['housekeeping-report', DEFAULT_HOTEL_ID, workDate], saved);
+      void queryClient.invalidateQueries({ queryKey: ['housekeeping-room-bed-state', DEFAULT_HOTEL_ID] });
       setDirty(false);
       showToast('하우스키핑 리포트가 저장되었습니다.');
     },
@@ -178,10 +194,13 @@ export function HousekeepingPageClient() {
     () =>
       form.bedRooms
         .filter(
-          (room) => isBedRoomChangedToday(room, baseline) || draftRoomNumbers.has(room.room_number),
+          (room) =>
+            isBedRoomChangedToday(room, bedTypeSource) ||
+            draftRoomNumbers.has(room.room_number) ||
+            Boolean(room.guest_status),
         )
         .sort(sortBedRoomsByNumber),
-    [form.bedRooms, draftRoomNumbers, baseline],
+    [form.bedRooms, draftRoomNumbers, bedTypeSource],
   );
 
   const addableBedRooms = useMemo(() => {
@@ -190,17 +209,32 @@ export function HousekeepingPageClient() {
   }, [form.bedRooms, changedBedRooms]);
 
   const bedChangeSummary = useMemo(() => {
-    const changedCount = form.bedRooms.filter((room) => isBedRoomChangedToday(room, baseline)).length;
+    const changedCount = form.bedRooms.filter((room) =>
+      isBedRoomChangedToday(room, bedTypeSource),
+    ).length;
     const tripleCount = form.bedRooms.filter(
-      (room) => getEffectiveBedType(room, baseline) === 'triple',
+      (room) => getEffectiveBedType(room, bedTypeSource) === 'triple',
     ).length;
     const twinCount = form.bedRooms.filter(
-      (room) => getEffectiveBedType(room, baseline) === 'twin',
+      (room) => getEffectiveBedType(room, bedTypeSource) === 'twin',
     ).length;
     const ebAddCount = form.bedRooms.filter((room) => room.extra_bed_action === 'add').length;
     const ebRemoveCount = form.bedRooms.filter((room) => room.extra_bed_action === 'remove').length;
-    return { changedCount, tripleCount, twinCount, ebAddCount, ebRemoveCount };
-  }, [form.bedRooms, baseline]);
+    const inHouseRooms = form.bedRooms.filter((room) => isOccupiedGuestStatus(room.guest_status));
+    const inHouseCount = inHouseRooms.length;
+    const inHouseUnsetCount = inHouseRooms.filter(
+      (room) => !getEffectiveBedType(room, bedTypeSource),
+    ).length;
+    return {
+      changedCount,
+      tripleCount,
+      twinCount,
+      ebAddCount,
+      ebRemoveCount,
+      inHouseCount,
+      inHouseUnsetCount,
+    };
+  }, [form.bedRooms, bedTypeSource]);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -304,9 +338,10 @@ export function HousekeepingPageClient() {
       shift: session.shift || '',
       bedRooms: filterBedRoomsToSave(
         form.bedRooms.map((room, index) => ({ ...room, sort_order: index })),
-        baseline,
+        bedTypeSource,
       ),
       specialRooms: form.specialRooms.map((room, index) => ({ ...room, sort_order: index })),
+      bedTypeContext: bedTypeSource,
     });
   }
 
@@ -340,7 +375,7 @@ export function HousekeepingPageClient() {
       form.specialRooms,
       workDate,
       authorLabel,
-      baseline,
+      bedTypeSource,
     );
     if (!ok) showToast('보기 창을 열지 못했습니다. 팝업 차단을 확인해 주세요.');
   }
@@ -368,6 +403,7 @@ export function HousekeepingPageClient() {
           return {
             ...room,
             room_type: (previous.room_type as HkBedType) || '',
+            guest_status: (previous.guest_status as HkGuestStatus) || '',
             extra_bed_action: '' as HkExtraBedAction,
           };
         }),
@@ -465,7 +501,7 @@ export function HousekeepingPageClient() {
               workDateLabel={formatDateLabel(workDate)}
               bedRooms={form.bedRooms}
               specialRooms={form.specialRooms}
-              baseline={baseline}
+              bedTypeSource={bedTypeSource}
               previousDayNotes={form.previous_day_notes}
               nextDayNotes={form.next_day_notes}
               statusNotes={form.statusNotes}
@@ -551,7 +587,8 @@ export function HousekeepingPageClient() {
             <div>
               <h3>트윈 · 트리플 · 엑스트라베드</h3>
               <p>
-                변경 객실만 입력하세요. 트윈↔트리플 선택 시 엑스트라베드 넣음/뺌이 자동으로 채워집니다.
+                재실·도착 객실에 투숙 상태를 지정하면 침대 구성(트윈/트리플)을 한눈에 확인할 수 있습니다.
+                트윈↔트리플 변경 시 엑스트라베드 넣음/뺌이 자동으로 채워집니다.
               </p>
             </div>
             <label className="field field--checkbox housekeeping-bed-toggle">
@@ -565,6 +602,14 @@ export function HousekeepingPageClient() {
           </div>
 
           {!isLoading && !isFetching ? (
+            <>
+            <HkInHousePanel
+              bedRooms={form.bedRooms}
+              bedTypeSource={bedTypeSource}
+              onGuestStatusChange={(roomNumber, status) =>
+                updateBedRoomByNumber(roomNumber, { guest_status: status })
+              }
+            />
             <div className="housekeeping-bed-toolbar">
               <label className="field housekeeping-bed-add">
                 <span>객실 추가</span>
@@ -607,6 +652,7 @@ export function HousekeepingPageClient() {
                 ) : null}
               </div>
             </div>
+            </>
           ) : null}
 
           {isLoading || isFetching ? (
@@ -618,12 +664,15 @@ export function HousekeepingPageClient() {
                   <HkChangedRoomCard
                     key={room.room_number}
                     room={room}
-                    effectiveType={getEffectiveBedType(room, baseline)}
+                    effectiveType={getEffectiveBedType(room, bedTypeSource)}
                     onTypeChange={(value) =>
                       updateBedRoomByNumber(room.room_number, { room_type: value })
                     }
                     onEbChange={(value) =>
                       updateBedRoomByNumber(room.room_number, { extra_bed_action: value })
+                    }
+                    onGuestStatusChange={(value) =>
+                      updateBedRoomByNumber(room.room_number, { guest_status: value })
                     }
                     onClear={() => clearBedRoom(room.room_number)}
                   />
@@ -664,8 +713,8 @@ export function HousekeepingPageClient() {
                         const room = index >= 0 ? form.bedRooms[index] : null;
                         if (!room) return <td key={suffix}>—</td>;
 
-                        const effectiveType = getEffectiveBedType(room, baseline);
-                        const changedToday = isBedRoomChangedToday(room, baseline);
+                        const effectiveType = getEffectiveBedType(room, bedTypeSource);
+                        const changedToday = isBedRoomChangedToday(room, bedTypeSource);
 
                         return (
                           <td
@@ -680,6 +729,22 @@ export function HousekeepingPageClient() {
                           >
                             <span className="housekeeping-bed-cell__room">{room.room_number}</span>
                             <HkBedTypeBadge type={effectiveType} size="md" />
+                            <select
+                              className="housekeeping-table__select housekeeping-table__select--guest"
+                              value={room.guest_status}
+                              onChange={(e) =>
+                                updateBedRoom(floor, suffix, {
+                                  guest_status: e.target.value as HkGuestStatus,
+                                })
+                              }
+                              aria-label={`${room.room_number} 투숙 상태`}
+                            >
+                              {HK_GUEST_STATUSES.map((item) => (
+                                <option key={item.value || 'none'} value={item.value}>
+                                  {item.label}
+                                </option>
+                              ))}
+                            </select>
                             <select
                               className="housekeeping-table__select"
                               value={room.room_type}

@@ -26,11 +26,47 @@ export function normalizeAccount(acc: string): string {
   return acc.toLowerCase().replace(/\s+/g, '').replace(/[.-]/g, '');
 }
 
+/** TL OTA명 · PMS Account(FM채널명) 비교용 채널 키 */
+export function normalizeOtaChannel(acc: string): string {
+  if (!acc) return '';
+
+  let s = acc.toLowerCase();
+  s = s.replace(/株式会社/g, '');
+  s = s.replace(/^fm/, '');
+  s = s.replace(/\(.*?\)/g, '');
+  s = s.replace(/[^a-z0-9가-힣]/g, '');
+
+  if (s.includes('tripcom') || s.includes('ctrip') || s === 'tcom') {
+    return 'ctrip';
+  }
+  if (s.includes('booking')) return 'booking';
+  if (s.includes('expedia')) return 'expedia';
+  if (s.includes('agoda')) return 'agoda';
+  if (s.includes('tripla')) return 'tripla';
+  if (s.includes('rakuten')) return 'rakuten';
+  if (s.includes('didatravel') || s.includes('dida')) return 'didatravel';
+  if (s.includes('hotelbeds')) return 'hotelbeds';
+  if (s.includes('hikari')) return 'hikari';
+
+  return s;
+}
+
+function channelsMatch(acc1: string, acc2: string): boolean {
+  const c1 = normalizeOtaChannel(acc1);
+  const c2 = normalizeOtaChannel(acc2);
+  if (!c1 || !c2) return false;
+  if (c1 === c2) return true;
+  if (c1.includes(c2) || c2.includes(c1)) return true;
+  return false;
+}
+
 export function isAccountEqual(acc1: string, acc2: string): boolean {
   const a1 = normalizeAccount(acc1);
   const a2 = normalizeAccount(acc2);
   if (a1 === a2) return true;
   if (a1 && a2 && (a1.includes(a2) || a2.includes(a1))) return true;
+
+  if (channelsMatch(acc1, acc2)) return true;
 
   const isTrip = (acc: string) => {
     const a = acc.toLowerCase();

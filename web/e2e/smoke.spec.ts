@@ -77,8 +77,9 @@ test.describe('스테이징 UAT smoke (로그인 계정 필요)', () => {
     await expect(page.getByPlaceholder(/키워드 검색/)).toBeVisible();
   });
 
-  test('픽업·택시 페이지', async ({ page }) => {
+  test('택시 예약 페이지', async ({ page }) => {
     await page.goto('/transport');
-    await expect(page.getByRole('heading', { name: '픽업 · 택시 예약' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Taxi/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: '예약 목록' })).toBeVisible();
   });
 });

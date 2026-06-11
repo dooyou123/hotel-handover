@@ -1,5 +1,4 @@
 import type { ReconcileRecord } from '@/lib/rate-confirm/compare-engine';
-import { normalizeAccount, normalizeRate } from '@/lib/rate-confirm/normalize';
 
 function detailTypes(record: ReconcileRecord): string {
   const parts: string[] = [];
@@ -8,18 +7,8 @@ function detailTypes(record: ReconcileRecord): string {
   } else {
     if (record.errors.includes('STATUS_MISMATCH')) parts.push('상태 불일치');
     if (record.errors.includes('DATE_MISMATCH')) parts.push('날짜 불일치');
-    if (record.errors.includes('RATE_MISMATCH')) {
-      const tl = record.tl;
-      const pms = record.pms;
-      if (tl && pms) {
-        const rateDiff = normalizeRate(tl.rate) !== normalizeRate(pms.rate);
-        const accDiff = normalizeAccount(tl.account) !== normalizeAccount(pms.account);
-        if (rateDiff) parts.push('객실료 불일치');
-        if (accDiff) parts.push('어카운트 불일치');
-      } else {
-        parts.push('객실료/어카운트 불일치');
-      }
-    }
+    if (record.errors.includes('RATE_MISMATCH')) parts.push('객실료 불일치');
+    if (record.errors.includes('ACCOUNT_MISMATCH')) parts.push('OTA명 불일치');
   }
   return parts.join(', ');
 }
@@ -32,11 +21,11 @@ export function buildReconcileCsv(errors: ReconcileRecord[], matches: ReconcileR
     '고객명',
     'TL 상태',
     'TL 객실료',
-    'TL Account',
+    'TL OTA명',
     'TL 체크인',
     'PMS 상태',
     'PMS 객실료',
-    'PMS Account',
+    'PMS Account(OTA)',
     'PMS 체크인',
   ];
 

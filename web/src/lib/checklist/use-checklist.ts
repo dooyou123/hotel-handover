@@ -1,4 +1,4 @@
-import { SHIFTS } from '@/lib/constants';
+import { SHIFTS, formatShiftChecklistTitle } from '@/lib/constants';
 import { todayDateString } from '@/lib/handover/shift-summary';
 import type { ChecklistScope } from '@/lib/constants';
 
@@ -35,7 +35,11 @@ function buildSections(items: ChecklistItemView[], group: string): ChecklistSect
     sections.push({ scope: 'common', label: '공통 확인', items: common });
   }
   if (groupItems.length) {
-    sections.push({ scope: group as ChecklistScope, label: `${group}조 전용`, items: groupItems });
+    sections.push({
+      scope: group as ChecklistScope,
+      label: formatShiftChecklistTitle(group),
+      items: groupItems,
+    });
   }
 
   return sections;

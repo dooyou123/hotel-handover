@@ -1,4 +1,6 @@
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
+import type { BedTypeSource } from '@/lib/housekeeping/baseline';
+import { upsertRoomBedStateFromRooms } from '@/lib/housekeeping/room-state';
 import { createClient } from '@/lib/supabase/client';
 import type {
   HousekeepingBedDraft,
@@ -135,6 +137,7 @@ export async function saveHousekeepingReport(input: SaveHousekeepingInput): Prom
       room_number: room.room_number.trim(),
       row_kind: 'bed' as const,
       room_type: room.room_type || '',
+      guest_status: room.guest_status || '',
       extra_bed_action: room.extra_bed_action || '',
       bed_type_changed_at: resolveBedTypeChangedAt(room, existingBedByRoom.get(room.room_number.trim())),
       early_checkin: '',
@@ -143,7 +146,7 @@ export async function saveHousekeepingReport(input: SaveHousekeepingInput): Prom
       notes: '',
       sort_order: room.sort_order ?? index,
     }))
-    .filter((room) => room.room_type || room.extra_bed_action);
+    .filter((room) => room.room_type || room.extra_bed_action || room.guest_status);
 
   const specialRows = input.specialRooms
     .map((room, index) => ({
@@ -171,6 +174,14 @@ export async function saveHousekeepingReport(input: SaveHousekeepingInput): Prom
   if (allRows.length > 0) {
     const { error: insertError } = await supabase.from('housekeeping_report_rooms').insert(allRows);
     if (insertError) throw insertError;
+  }
+
+  if (input.bedTypeContext) {
+    await upsertRoomBedStateFromRooms(
+      input.bedRooms,
+      input.bedTypeContext.baseline,
+      input.bedTypeContext.roomState ?? {},
+    );
   }
 
   return fetchHousekeepingReport(input.work_date);

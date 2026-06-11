@@ -1,8 +1,14 @@
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
 import type { HousekeepingBedDraft, HkBedType } from '@/lib/housekeeping/types';
+import type { RoomBedState } from '@/lib/housekeeping/room-state';
 
 export type BedRoomBaseline = Record<string, HkBedType>;
+
+export type BedTypeSource = {
+  baseline: BedRoomBaseline;
+  roomState?: RoomBedState;
+};
 
 /** 오늘 이전 리포트에서 객실별 최근 트윈/트리플 설정을 가져옵니다. */
 export async function fetchBedRoomBaseline(beforeDate: string): Promise<BedRoomBaseline> {
@@ -35,24 +41,49 @@ export async function fetchBedRoomBaseline(beforeDate: string): Promise<BedRoomB
   return baseline;
 }
 
+export function normalizeBedTypeSource(source: BedRoomBaseline | BedTypeSource): BedTypeSource {
+  if (
+    typeof source === 'object' &&
+    source !== null &&
+    'baseline' in source &&
+    typeof (source as BedTypeSource).baseline === 'object'
+  ) {
+    const ctx = source as BedTypeSource;
+    return { baseline: ctx.baseline, roomState: ctx.roomState ?? {} };
+  }
+  return { baseline: source as BedRoomBaseline, roomState: {} };
+}
+
+/** 오늘 변경 → 영구 구성 → 과거 리포트 순으로 현재 침대 구성을 판단합니다. */
 export function getEffectiveBedType(
   room: Pick<HousekeepingBedDraft, 'room_number' | 'room_type'>,
-  baseline: BedRoomBaseline,
+  source: BedRoomBaseline | BedTypeSource,
 ): HkBedType {
-  return room.room_type || baseline[room.room_number] || '';
+  const { baseline, roomState = {} } = normalizeBedTypeSource(source);
+  return room.room_type || roomState[room.room_number] || baseline[room.room_number] || '';
+}
+
+export function getPersistedBedType(
+  room: Pick<HousekeepingBedDraft, 'room_number' | 'room_type'>,
+  source: BedRoomBaseline | BedTypeSource,
+): HkBedType {
+  const { baseline, roomState = {} } = normalizeBedTypeSource(source);
+  return roomState[room.room_number] || baseline[room.room_number] || '';
 }
 
 export function isBedRoomChangedToday(
   room: HousekeepingBedDraft,
-  baseline: BedRoomBaseline,
+  source: BedRoomBaseline | BedTypeSource,
 ): boolean {
-  const base = baseline[room.room_number] || '';
-  return Boolean(room.extra_bed_action || (room.room_type && room.room_type !== base));
+  const persisted = getPersistedBedType(room, source);
+  return Boolean(room.extra_bed_action || (room.room_type && room.room_type !== persisted));
 }
 
 export function filterBedRoomsToSave(
   rooms: HousekeepingBedDraft[],
-  baseline: BedRoomBaseline,
+  source: BedRoomBaseline | BedTypeSource,
 ): HousekeepingBedDraft[] {
-  return rooms.filter((room) => isBedRoomChangedToday(room, baseline));
+  return rooms.filter(
+    (room) => isBedRoomChangedToday(room, source) || Boolean(room.guest_status),
+  );
 }

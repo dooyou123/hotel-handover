@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { AppShellSwitcher } from '@/components/layout/app-shell-switcher';
+import { AppShellNova } from '@/components/layout/app-shell-nova';
 import { HeaderActionsProvider } from '@/components/layout/header-actions';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -15,7 +15,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <HeaderActionsProvider>
-      <AppShellSwitcher email={user.email ?? ''}>{children}</AppShellSwitcher>
+      <AppShellNova email={user.email ?? ''}>{children}</AppShellNova>
     </HeaderActionsProvider>
   );
 }

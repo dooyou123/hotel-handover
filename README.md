@@ -23,21 +23,21 @@ npm run check:env
 npm run vercel:setup:prod          # env 등록 + Production 배포
 ```
 
-상세: [`docs/rebuild/VERCEL-SETUP.md`](docs/rebuild/VERCEL-SETUP.md)
+상세: [`docs/ops/VERCEL-SETUP.md`](docs/ops/VERCEL-SETUP.md)
 
 ## 문서
 
 | 문서 | 용도 |
 |------|------|
 | [`web/README.md`](web/README.md) | 개발·스크립트·Supabase 설정 |
-| [`docs/rebuild/MANUAL.md`](docs/rebuild/MANUAL.md) | 현장 사용 매뉴얼 |
-| [`docs/rebuild/UAT-CHECKLIST.md`](docs/rebuild/UAT-CHECKLIST.md) | 기능 검증 체크리스트 |
-| [`docs/rebuild/VERCEL-SETUP.md`](docs/rebuild/VERCEL-SETUP.md) | Vercel·env·Auth URL |
+| [`docs/ops/MANUAL.md`](docs/ops/MANUAL.md) | 현장 사용 매뉴얼 |
+| [`docs/ops/UAT-CHECKLIST.md`](docs/ops/UAT-CHECKLIST.md) | 기능 검증 체크리스트 |
+| [`docs/ops/VERCEL-SETUP.md`](docs/ops/VERCEL-SETUP.md) | Vercel·env·Auth URL |
 
 ## 구조
 
 ```
 web/           Next.js 앱 (Vercel Root Directory = web)
 supabase/      SQL 마이그레이션
-docs/rebuild/  운영·배포 문서
+docs/ops/       운영·배포 문서
 ```

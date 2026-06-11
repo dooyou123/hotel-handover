@@ -77,7 +77,7 @@ export function OpsAlertsBar() {
         id,
         message: (
           <>
-            픽업·택시 <strong>{mins}분 후</strong> — {booking.room_number || '—'}호 {booking.guest_name || ''}{' '}
+            택시 픽업 <strong>{mins}분 후</strong> — {booking.room_number || '—'}호 {booking.guest_name || ''}{' '}
             {booking.destination ? `→ ${booking.destination}` : ''}
           </>
         ),

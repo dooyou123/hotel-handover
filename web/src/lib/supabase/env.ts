@@ -28,6 +28,36 @@ export function getSupabasePublicEnv() {
   return { url, anonKey };
 }
 
+function networkErrorPattern(): RegExp {
+  return /failed to fetch|networkerror|load failed|fetch resource/i;
+}
+
 export function isSupabaseNetworkError(error: unknown): boolean {
-  return error instanceof TypeError && /failed to fetch|networkerror|load failed/i.test(error.message);
+  if (error instanceof TypeError) {
+    return networkErrorPattern().test(error.message);
+  }
+  if (error && typeof error === 'object' && 'message' in error) {
+    return networkErrorPattern().test(String((error as { message: unknown }).message));
+  }
+  return false;
+}
+
+export function supabaseNetworkErrorMessage(): string {
+  return [
+    'Supabase 서버에 연결하지 못했습니다.',
+    '· http://localhost:3000 으로 접속 (IP 주소 대신)',
+    '· .env.local URL·anon key 확인 후 dev 서버 재시작',
+    '· Firefox: 향상된 추적 방지 끄기 또는 supabase.co 허용',
+    '· 광고·추적 차단 확장 프로그램·VPN 끄기',
+    '· Supabase Dashboard에서 프로젝트 일시중지(paused) 여부 확인',
+  ].join('\n');
+}
+
+export function formatSupabaseClientError(error: unknown): string {
+  if (isSupabaseNetworkError(error)) return supabaseNetworkErrorMessage();
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object' && 'message' in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return '요청에 실패했습니다.';
 }

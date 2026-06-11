@@ -38,6 +38,21 @@ export const WORK_GROUP_HOURS: Record<string, string> = {
   C: '22:00~07:00',
 };
 
+/** Shift Check List 시트명 (오전·오후·야간) */
+export const WORK_GROUP_SHIFT_NAMES: Record<string, string> = {
+  A: '오전조',
+  B: '오후조',
+  C: '야간조',
+};
+
+export function formatShiftChecklistTitle(group: string): string {
+  const name = WORK_GROUP_SHIFT_NAMES[group];
+  const hours = WORK_GROUP_HOURS[group];
+  if (name && hours) return `${group}조 (${name} ${hours})`;
+  if (name) return `${group}조 (${name})`;
+  return `${group}조`;
+}
+
 /** 컴플레인 SLA 목표 */
 export const COMPLAINT_SLA_FIRST_RESPONSE_MIN = 30;
 export const COMPLAINT_SLA_RESOLUTION_HOURS = 24;
@@ -77,7 +92,7 @@ export const APP_NAV = [
   { href: '/housekeeping', label: '하우스키핑', category: 'ops' as const },
   { href: '/amenity', label: '어메니티', category: 'ops' as const },
   { href: '/reviews', label: '리뷰', category: 'ops' as const },
-  { href: '/transport', label: '픽업·택시', category: 'ops' as const },
+  { href: '/transport', label: '택시 예약', category: 'ops' as const },
   { href: '/facility', label: '시설 현황', category: 'ops' as const },
   { href: '/rate-confirm', label: '객실료 컨펌', category: 'ops' as const },
   { href: '/sop', label: 'SOP·매뉴얼', category: 'ops' as const },

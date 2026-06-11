@@ -9,7 +9,7 @@ const KIND_LABELS: Record<RoomSearchHit['kind'], string> = {
   handover: '인수인계',
   facility: '시설·컴플레인',
   review: '리뷰',
-  transport: '픽업·택시',
+  transport: '택시 예약',
 };
 
 type RoomSearchModalProps = {
@@ -70,7 +70,7 @@ export function RoomSearchModal({ open, onClose }: RoomSearchModalProps) {
         <header className="room-search__header">
           <div>
             <h2 id="room-search-title">객실 통합 검색</h2>
-            <p className="room-search__desc">인수인계 · 시설 · 리뷰 · 픽업·택시</p>
+            <p className="room-search__desc">인수인계 · 시설 · 리뷰 · 택시 예약</p>
           </div>
           <button type="button" className="icon-btn room-search__close" onClick={onClose} aria-label="닫기">
             ✕

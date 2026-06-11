@@ -10,18 +10,18 @@ import {
   type ReconcileRecord,
 } from '@/lib/rate-confirm/compare-engine';
 import { downloadReconcileCsv } from '@/lib/rate-confirm/export-csv';
+import { getRecordRateMeta } from '@/lib/rate-confirm/record-meta';
 import {
-  isAccountEqual,
-  isDateEqual,
-  isStatusEqual,
-  normalizeRate,
-} from '@/lib/rate-confirm/normalize';
-import {
+  detectRateFileFormat,
   guessColumnMapping,
   parseRateFile,
   type ColumnMappingFields,
   type ParsedSheet,
 } from '@/lib/rate-confirm/parse';
+import {
+  ReconcileErrorsTable,
+  ReconcileMatchesTable,
+} from '@/components/rate-confirm/rate-confirm-table';
 
 const SAMPLE_BASE = '/samples/rate-confirm';
 
@@ -35,6 +35,7 @@ function tagClass(error: ReconcileError): string {
     STATUS_MISMATCH: 'status',
     DATE_MISMATCH: 'date',
     RATE_MISMATCH: 'rate',
+    ACCOUNT_MISMATCH: 'account',
   };
   return map[error];
 }
@@ -75,13 +76,13 @@ type RateCompareRowProps = {
 };
 
 function RateCompareRow({ tl, pms, missing }: RateCompareRowProps) {
-  const tlRate = tl ? normalizeRate(tl.rate) : null;
-  const pmsRate = pms ? normalizeRate(pms.rate) : null;
-  const mismatch =
-    !missing && tlRate != null && pmsRate != null && tlRate !== pmsRate;
-  const delta = mismatch && tlRate != null && pmsRate != null ? pmsRate - tlRate : null;
-  const pmsAdjust =
-    mismatch && tlRate != null && pmsRate != null ? tlRate - pmsRate : null;
+  const meta = getRecordRateMeta({
+    ota: '',
+    guestName: '',
+    errors: missing ? ['MISSING_IN_PMS'] : [],
+    tl,
+    pms,
+  });
 
   const tlValue = tl
     ? `${tl.rateDisplay}원${tl.count > 1 ? ` (${tl.breakdown.join(' + ')})` : ''}`
@@ -90,10 +91,10 @@ function RateCompareRow({ tl, pms, missing }: RateCompareRowProps) {
 
   return (
     <div
-      className={`rc-compare-row rc-compare-row--rate${mismatch ? ' rc-compare-row--bad' : ''}`}
+      className={`rc-compare-row rc-compare-row--rate rc-compare-row--compact${meta.rateMismatch ? ' rc-compare-row--bad' : ''}`}
     >
       <span className="rc-compare-row__label">객실료</span>
-      <div className="rc-compare-row__values">
+      <div className="rc-rate-inline">
         <span className="rc-compare-row__side">
           <em>TL</em>
           {tlValue || '—'}
@@ -105,52 +106,35 @@ function RateCompareRow({ tl, pms, missing }: RateCompareRowProps) {
           <em>PMS</em>
           {missing ? '미등록' : pmsValue || '—'}
         </span>
+        {meta.rateMismatch && meta.delta != null && meta.pmsAdjust != null ? (
+          <span className="rc-rate-inline__adjust" aria-label="객실료 차이 및 PMS 조정">
+            <span className="rc-rate-inline__delta">
+              차이{' '}
+              <strong className={meta.delta < 0 ? 'is-low' : 'is-high'}>
+                {meta.delta > 0 ? '+' : ''}
+                {meta.delta.toLocaleString()}원
+              </strong>
+            </span>
+            <span className="rc-rate-inline__action">
+              PMS 조정{' '}
+              <strong>
+                {meta.pmsAdjust > 0 ? '+' : ''}
+                {meta.pmsAdjust.toLocaleString()}원
+              </strong>
+            </span>
+          </span>
+        ) : null}
       </div>
-      {mismatch && delta != null && pmsAdjust != null ? (
-        <div className="rc-rate-adjust" aria-label="객실료 차이 및 PMS 조정">
-          <span className="rc-rate-adjust__caption">차이 (PMS − TL)</span>
-          <strong
-            className={`rc-rate-adjust__amount${delta > 0 ? ' is-pms-high' : ' is-pms-low'}`}
-          >
-            {delta > 0 ? '+' : ''}
-            {delta.toLocaleString()}원
-          </strong>
-          <p className="rc-rate-adjust__compare">
-            {delta < 0 ? (
-              <>
-                PMS가 TL보다 <strong>{Math.abs(delta).toLocaleString()}원</strong> 적음
-                <span className="rc-rate-adjust__hint">TL &gt; PMS</span>
-              </>
-            ) : (
-              <>
-                PMS가 TL보다 <strong>{delta.toLocaleString()}원</strong> 많음
-                <span className="rc-rate-adjust__hint">PMS &gt; TL</span>
-              </>
-            )}
-          </p>
-          <p className="rc-rate-adjust__action">
-            PMS 조정{' '}
-            <strong>
-              {pmsAdjust > 0 ? '+' : ''}
-              {pmsAdjust.toLocaleString()}원
-            </strong>
-            <span className="rc-rate-adjust__hint">TL 기준 맞춤</span>
-          </p>
-        </div>
-      ) : null}
     </div>
   );
 }
 
 function ReconcileErrorCard({ record }: { record: ReconcileRecord }) {
   const [copied, setCopied] = useState(false);
-  const missing = record.errors.includes('MISSING_IN_PMS');
+  const meta = getRecordRateMeta(record);
+  const { missing, statusDiff, dateDiff, accDiff, rateMismatch, delta } = meta;
   const tl = record.tl;
   const pms = record.pms;
-
-  const statusDiff = !missing && tl && pms && !isStatusEqual(tl.status, pms.status);
-  const dateDiff = !missing && tl && pms && !isDateEqual(tl.ciDate, pms.ciDate);
-  const accDiff = !missing && tl && pms && !isAccountEqual(tl.account, pms.account);
 
   async function copyOta() {
     await navigator.clipboard.writeText(record.ota);
@@ -167,6 +151,12 @@ function ReconcileErrorCard({ record }: { record: ReconcileRecord }) {
           </button>
           <strong className="rc-card__guest">{record.guestName}</strong>
         </div>
+        {rateMismatch && delta != null ? (
+          <span className={`rc-card__diff${delta < 0 ? ' is-low' : ' is-high'}`}>
+            {delta > 0 ? '+' : ''}
+            {delta.toLocaleString()}원
+          </span>
+        ) : null}
       </header>
 
       <div className="rc-card__tags">
@@ -196,7 +186,7 @@ function ReconcileErrorCard({ record }: { record: ReconcileRecord }) {
         />
         <RateCompareRow tl={tl} pms={pms} missing={missing} />
         <CompareRow
-          label="Account"
+          label="OTA명"
           tlValue={tl?.account ?? ''}
           pmsValue={pms?.account ?? ''}
           mismatch={!!accDiff}
@@ -268,6 +258,7 @@ export function RateConfirmPageClient() {
     ciDate: '',
   });
   const [search, setSearch] = useState('');
+  const [resultView, setResultView] = useState<'table' | 'cards'>('table');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -306,7 +297,7 @@ export function RateConfirmPageClient() {
         setError('파일에서 헤더를 읽지 못했습니다.');
         return;
       }
-      const mapping = guessColumnMapping(parsed.headers);
+      const mapping = guessColumnMapping(parsed.headers, target);
       if (target === 'tl') {
         setTlSheet(parsed);
         setTlMapping(mapping);
@@ -342,6 +333,13 @@ export function RateConfirmPageClient() {
     );
   }
 
+  function formatLabel(headers: string[]): string | null {
+    const format = detectRateFileFormat(headers);
+    if (format === 'tl_booking_search') return '예약검색 RAW 포맷 자동 인식';
+    if (format === 'pms_reservation_list') return 'PMS Reservation List 자동 인식';
+    return null;
+  }
+
   function renderMappingBlock(
     title: string,
     mapping: ColumnMappingFields,
@@ -350,17 +348,21 @@ export function RateConfirmPageClient() {
   ) {
     const set = (key: keyof ColumnMappingFields) => (v: string) =>
       setMapping({ ...mapping, [key]: v });
+    const detected = formatLabel(headers);
 
     return (
       <div className="rc-mapping-block">
-        <h4>{title}</h4>
+        <h4>
+          {title}
+          {detected ? <span className="rc-mapping-block__format">{detected}</span> : null}
+        </h4>
         <div className="rc-mapping-block__grid">
           {renderMappingSelect('예약번호 (OTA)', mapping.ota, set('ota'), headers)}
           {renderMappingSelect('고객명', mapping.guestName, set('guestName'), headers)}
           {renderMappingSelect('예약 상태', mapping.status, set('status'), headers)}
           {renderMappingSelect('체크인', mapping.ciDate, set('ciDate'), headers)}
           {renderMappingSelect('객실료', mapping.rate, set('rate'), headers)}
-          {renderMappingSelect('Account', mapping.account, set('account'), headers)}
+          {renderMappingSelect('OTA명 / Account', mapping.account, set('account'), headers)}
         </div>
       </div>
     );
@@ -481,6 +483,9 @@ export function RateConfirmPageClient() {
               {result.summary.rateCount > 0 ? (
                 <span className="rc-pill rc-pill--rate">객실료 {result.summary.rateCount}</span>
               ) : null}
+              {result.summary.accountCount > 0 ? (
+                <span className="rc-pill rc-pill--account">OTA명 {result.summary.accountCount}</span>
+              ) : null}
             </div>
           ) : (
             <p className="rc-banner rc-banner--ok">모든 예약이 일치합니다.</p>
@@ -494,6 +499,22 @@ export function RateConfirmPageClient() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
+            <div className="rc-view-toggle" role="group" aria-label="결과 보기 방식">
+              <button
+                type="button"
+                className={`rc-view-toggle__btn${resultView === 'table' ? ' is-active' : ''}`}
+                onClick={() => setResultView('table')}
+              >
+                테이블
+              </button>
+              <button
+                type="button"
+                className={`rc-view-toggle__btn${resultView === 'cards' ? ' is-active' : ''}`}
+                onClick={() => setResultView('cards')}
+              >
+                카드
+              </button>
+            </div>
             <span className="rc-toolbar__count">
               불일치 {filteredErrors.length} · 일치 {filteredMatches.length}
             </span>
@@ -502,34 +523,42 @@ export function RateConfirmPageClient() {
           {filteredErrors.length > 0 ? (
             <section className="rc-section">
               <h3 className="rc-section__title">수정 필요 ({filteredErrors.length})</h3>
-              <div className="rc-card-list">
-                {filteredErrors.map((record) => (
-                  <ReconcileErrorCard key={record.ota} record={record} />
-                ))}
-              </div>
+              {resultView === 'table' ? (
+                <ReconcileErrorsTable records={filteredErrors} />
+              ) : (
+                <div className="rc-card-list">
+                  {filteredErrors.map((record) => (
+                    <ReconcileErrorCard key={record.ota} record={record} />
+                  ))}
+                </div>
+              )}
             </section>
           ) : result.summary.errorCount > 0 ? (
             <p className="rc-empty">검색 결과가 없습니다.</p>
           ) : null}
 
           {filteredMatches.length > 0 ? (
-            <details className="rc-matches">
+            <details className="rc-matches" open={resultView === 'table'}>
               <summary>일치 예약 ({filteredMatches.length})</summary>
-              <ul className="rc-matches__list">
-                {filteredMatches.map((record) => (
-                  <li key={record.ota}>
-                    <button
-                      type="button"
-                      className="rc-card__ota rc-card__ota--muted"
-                      onClick={() => void navigator.clipboard.writeText(record.ota)}
-                    >
-                      {record.ota}
-                    </button>
-                    <span>{record.guestName}</span>
-                    <span className="rc-matches__rate">{record.tl?.rateDisplay}원</span>
-                  </li>
-                ))}
-              </ul>
+              {resultView === 'table' ? (
+                <ReconcileMatchesTable records={filteredMatches} />
+              ) : (
+                <ul className="rc-matches__list">
+                  {filteredMatches.map((record) => (
+                    <li key={record.ota}>
+                      <button
+                        type="button"
+                        className="rc-card__ota rc-card__ota--muted"
+                        onClick={() => void navigator.clipboard.writeText(record.ota)}
+                      >
+                        {record.ota}
+                      </button>
+                      <span>{record.guestName}</span>
+                      <span className="rc-matches__rate">{record.tl?.rateDisplay}원</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </details>
           ) : null}
         </div>

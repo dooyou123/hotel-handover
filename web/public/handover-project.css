@@ -1416,6 +1416,15 @@ html[data-ui='project'] .today-dashboard__row--urgent {
   background: #fff5f5;
 }
 
+html[data-ui='project'] .today-dashboard__row--muted {
+  opacity: 0.72;
+}
+
+html[data-ui='project'] .handover-today-sidebar__panel--taxi {
+  border-color: rgba(37, 99, 235, 0.25);
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.06), transparent);
+}
+
 html[data-ui='project'] .today-dashboard__main {
   flex: 1;
   display: flex;
