@@ -77,7 +77,7 @@ export function HandoverTodayDashboard({
               {unacked.map((card) => (
                 <li key={card.id} className="today-dashboard__row today-dashboard__row--urgent">
                   <button type="button" className="today-dashboard__main" onClick={() => onOpenCard(card)}>
-                    <span className="today-dashboard__room">{card.room || '—'}</span>
+                    <span className="today-dashboard__room card-room-badge">{card.room || '—'}</span>
                     <span className="today-dashboard__title">{card.title}</span>
                   </button>
                   <button type="button" className="today-dashboard__action" onClick={() => onAcknowledge(card.id)}>
@@ -200,7 +200,7 @@ export function HandoverTodayDashboard({
               .map((card) => (
                 <li key={card.id} className="today-dashboard__row">
                   <button type="button" className="today-dashboard__main" onClick={() => onOpenCard(card)}>
-                    <span className="today-dashboard__room">{card.room || '—'}</span>
+                    <span className="today-dashboard__room card-room-badge">{card.room || '—'}</span>
                     <span className="today-dashboard__title">{card.title}</span>
                     {formatAssigneeLabel(card) ? (
                       <span className="today-dashboard__meta">담당 {formatAssigneeLabel(card)}</span>

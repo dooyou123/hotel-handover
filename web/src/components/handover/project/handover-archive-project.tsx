@@ -155,11 +155,6 @@ export function HandoverArchiveProject({
                           <span className="project-list-row__status project-list-row__status--archive">
                             보관
                           </span>
-                          {card.room ? (
-                            <span className="project-list-row__room" title={card.room}>
-                              <SearchHighlight text={card.room} query={searchQuery} />
-                            </span>
-                          ) : null}
                           <span className="project-list-row__meta">
                             <span className="project-list-row__badge">
                               {PRIORITY_LABELS[card.priority]}
@@ -169,6 +164,11 @@ export function HandoverArchiveProject({
                         </div>
 
                         <span className="project-list-row__title" title={card.title}>
+                          {card.room ? (
+                            <span className="project-list-row__room card-room-badge" title={`객실 ${card.room}`}>
+                              <SearchHighlight text={card.room} query={searchQuery} />
+                            </span>
+                          ) : null}
                           <SearchHighlight text={card.title} query={searchQuery} />
                         </span>
 

@@ -95,7 +95,12 @@ export function CardCommentItem({
           <p className="card-comment__content">{comment.content}</p>
           <div className="card-comment__foot">
             <p className="card-comment__meta">
-              {comment.shift} · {comment.staff_name} · {formatTime(comment.created_at)}
+              <span className="card-comment__meta-author">
+                {comment.shift} · {comment.staff_name}
+              </span>
+              <time className="card-comment__meta-time" dateTime={comment.created_at}>
+                {formatTime(comment.created_at)}
+              </time>
               {edited ? <span className="card-comment__edited">수정됨</span> : null}
             </p>
             {canManage ? (

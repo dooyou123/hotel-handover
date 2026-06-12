@@ -80,7 +80,9 @@ function BriefCardItem({
     <>
       <div className="brief-item__top">
         <span className="brief-item__status">{cardStatusLabel(card)}</span>
-        {card.room ? <span className="brief-item__room">{card.room}</span> : null}
+        {card.room ? (
+          <span className="brief-item__room card-room-badge">{card.room}</span>
+        ) : null}
         {unacked && onAcknowledge ? (
           <button
             type="button"

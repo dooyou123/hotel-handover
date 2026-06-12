@@ -242,7 +242,9 @@ export function HandoverMobilePanel({
                             setOpen(false);
                           }}
                         >
-                          <span className="handover-mobile__item-room">{card.room || '—'}</span>
+                          <span className="handover-mobile__item-room card-room-badge">
+                            {card.room || '—'}
+                          </span>
                           <span className="handover-mobile__item-title">{card.title}</span>
                         </button>
                         <button

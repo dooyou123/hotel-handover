@@ -1,5 +1,6 @@
 'use client';
 
+import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { PRIORITY_LABELS } from '@/lib/handover/constants';
 import {
   formatAssigneeLabel,
@@ -45,6 +46,7 @@ export function HandoverListRowProject({
   onResume,
   onAssignChange,
 }: HandoverListRowProjectProps) {
+  const { confirm } = useConfirmDialog();
   const isUrgent = isUrgentPriorityCard(card);
   const isUnacked = isUrgent && card.card_acknowledgments.length === 0;
   const archived = isArchivedCard(card);
@@ -96,11 +98,6 @@ export function HandoverListRowProject({
             <span className={`project-list-row__status project-list-row__status--${statusClass}`}>
               {status}
             </span>
-            {card.room ? (
-              <span className="project-list-row__room" title={card.room}>
-                <SearchHighlight text={card.room} query={searchQuery} />
-              </span>
-            ) : null}
             <span className="project-list-row__meta">
               <span
                 className={`project-list-row__badge${isUrgent ? ' project-list-row__badge--urgent' : ''}`}
@@ -116,6 +113,11 @@ export function HandoverListRowProject({
           </div>
 
           <span className="project-list-row__title" title={card.title}>
+            {card.room ? (
+              <span className="project-list-row__room card-room-badge" title={`객실 ${card.room}`}>
+                <SearchHighlight text={card.room} query={searchQuery} />
+              </span>
+            ) : null}
             {position ? (
               <span className="project-list-row__position" aria-label={`${position.index}번째, 남은 ${position.total}건`}>
                 {position.index}/{position.total}
@@ -132,12 +134,15 @@ export function HandoverListRowProject({
 
           <span className="project-list-row__foot">
             <span className="project-list-row__people">
-              <span>{author}</span>
+              <span className="project-list-row__person">
+                <span className="project-list-row__person-label">작성</span>
+                <span className="project-list-row__person-value">{author}</span>
+              </span>
               {assignee ? (
-                <>
-                  <span className="project-list-row__foot-sep">·</span>
-                  <span>담당 {assignee}</span>
-                </>
+                <span className="project-list-row__person">
+                  <span className="project-list-row__person-label">담당</span>
+                  <span className="project-list-row__person-value">{assignee}</span>
+                </span>
               ) : null}
             </span>
             {updatedAt.label ? (
@@ -168,13 +173,39 @@ export function HandoverListRowProject({
             확인
           </button>
         ) : null}
+        {canComplete ? (
+          <button
+            type="button"
+            className="project-list-row__done project-list-row__done--primary"
+            onClick={async (event) => {
+              event.stopPropagation();
+              const ok = await confirm({
+                title: '완료 처리',
+                message: '이 카드를 완료 처리할까요?',
+                detail: card.title,
+                confirmLabel: '완료',
+                tone: 'warning',
+              });
+              if (ok) onMarkDone();
+            }}
+          >
+            완료
+          </button>
+        ) : null}
         {canHold ? (
           <button
             type="button"
-            className="project-list-row__hold"
-            onClick={(event) => {
+            className="project-list-row__hold project-list-row__hold--outline"
+            onClick={async (event) => {
               event.stopPropagation();
-              onHold();
+              const ok = await confirm({
+                title: '보류 처리',
+                message: '이 카드를 보류함으로 옮길까요?',
+                detail: card.title,
+                confirmLabel: '보류',
+                tone: 'warning',
+              });
+              if (ok) onHold();
             }}
           >
             보류
@@ -190,18 +221,6 @@ export function HandoverListRowProject({
             }}
           >
             재개
-          </button>
-        ) : null}
-        {canComplete ? (
-          <button
-            type="button"
-            className="project-list-row__done"
-            onClick={(event) => {
-              event.stopPropagation();
-              onMarkDone();
-            }}
-          >
-            완료
           </button>
         ) : null}
         {canAssign && staffNames.length ? (
