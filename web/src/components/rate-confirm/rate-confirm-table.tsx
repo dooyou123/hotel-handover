@@ -1,7 +1,8 @@
 'use client';
 
-import { Fragment, useState } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import { ERROR_LABELS, type ReconcileError, type ReconcileRecord } from '@/lib/rate-confirm/compare-engine';
+import { RESOLUTION_STATUS_LABELS, type RateConfirmItem } from '@/lib/rate-confirm/history-types';
 import { getRecordRateMeta } from '@/lib/rate-confirm/record-meta';
 
 function tagClass(error: ReconcileError): string {
@@ -45,12 +46,20 @@ function ErrorTags({ errors }: { errors: ReconcileError[] }) {
 
 type ReconcileErrorsTableProps = {
   records: ReconcileRecord[];
+  itemsByOta?: Map<string, RateConfirmItem>;
+  renderResolution?: (item: RateConfirmItem) => ReactNode;
 };
 
-export function ReconcileErrorsTable({ records }: ReconcileErrorsTableProps) {
+export function ReconcileErrorsTable({
+  records,
+  itemsByOta,
+  renderResolution,
+}: ReconcileErrorsTableProps) {
   const [expandedOta, setExpandedOta] = useState<string | null>(null);
 
   if (!records.length) return null;
+
+  const hasResolution = Boolean(itemsByOta && renderResolution);
 
   return (
     <div className="rc-table-wrap">
@@ -72,6 +81,7 @@ export function ReconcileErrorsTable({ records }: ReconcileErrorsTableProps) {
             <th scope="col" className="rc-table__num">
               PMS 조정
             </th>
+            {hasResolution ? <th scope="col">처리</th> : null}
             <th scope="col" className="rc-table__action-col" aria-label="상세" />
           </tr>
         </thead>
@@ -81,11 +91,14 @@ export function ReconcileErrorsTable({ records }: ReconcileErrorsTableProps) {
             const expanded = expandedOta === record.ota;
             const tl = record.tl;
             const pms = record.pms;
+            const item = itemsByOta?.get(record.ota);
 
             return (
               <Fragment key={record.ota}>
                 <tr
-                  className={`rc-table__row${meta.rateMismatch ? ' rc-table__row--rate-bad' : ''}`}
+                  className={`rc-table__row${meta.rateMismatch ? ' rc-table__row--rate-bad' : ''}${
+                    item?.resolution_status === 'resolved' ? ' rc-table__row--resolved' : ''
+                  }`}
                 >
                   <td>
                     <CopyOtaButton ota={record.ota} />
@@ -136,6 +149,17 @@ export function ReconcileErrorsTable({ records }: ReconcileErrorsTableProps) {
                       '—'
                     )}
                   </td>
+                  {hasResolution && item ? (
+                    <td>
+                      <span
+                        className={`rc-resolution__badge rc-resolution__badge--${item.resolution_status}`}
+                      >
+                        {RESOLUTION_STATUS_LABELS[item.resolution_status]}
+                      </span>
+                    </td>
+                  ) : hasResolution ? (
+                    <td>—</td>
+                  ) : null}
                   <td className="rc-table__action-col">
                     <button
                       type="button"
@@ -143,13 +167,13 @@ export function ReconcileErrorsTable({ records }: ReconcileErrorsTableProps) {
                       aria-expanded={expanded}
                       onClick={() => setExpandedOta(expanded ? null : record.ota)}
                     >
-                      {expanded ? '닫기' : '상세'}
+                      {expanded ? '닫기' : hasResolution ? '처리' : '상세'}
                     </button>
                   </td>
                 </tr>
                 {expanded ? (
                   <tr className="rc-table__detail-row">
-                    <td colSpan={8}>
+                    <td colSpan={hasResolution ? 9 : 8}>
                       <dl className="rc-table__detail">
                         <div>
                           <dt>상태</dt>
@@ -173,6 +197,7 @@ export function ReconcileErrorsTable({ records }: ReconcileErrorsTableProps) {
                           </dd>
                         </div>
                       </dl>
+                      {item && renderResolution ? renderResolution(item) : null}
                     </td>
                   </tr>
                 ) : null}

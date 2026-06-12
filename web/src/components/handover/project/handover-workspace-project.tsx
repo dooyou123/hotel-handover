@@ -8,6 +8,7 @@ import type { Todo } from '@/lib/todos/types';
 import { RoomView } from '@/components/handover/room-view';
 import { HandoverArchiveProject } from './handover-archive-project';
 import { HandoverAsideProject } from './handover-aside-project';
+import { HandoverMobilePanel } from './handover-mobile-panel';
 import { HandoverListProject } from './handover-list-project';
 import { HandoverShiftBriefProject } from './handover-shift-brief-project';
 import { HandoverToolbarProject } from './handover-toolbar-project';
@@ -213,6 +214,28 @@ export function HandoverWorkspaceProject({
           onToggleTodo={onToggleTodo}
         />
       </div>
+
+      <HandoverMobilePanel
+        summaryData={summaryData}
+        cards={cards}
+        todos={todos}
+        events={events}
+        alerts={alerts}
+        quickFilter={quickFilter}
+        onQuickFilterChange={onQuickFilterChange}
+        onShiftStart={onShiftStart}
+        onShiftEnd={onShiftEnd}
+        onOpenShiftBrief={onOpenShiftBrief}
+        onShiftHistory={onShiftHistory}
+        onActivity={onActivity}
+        onAlertClick={onAlertClick}
+        onOpenCard={onOpenCard}
+        onOpenTodo={onOpenTodo}
+        onOpenEvent={onOpenEvent}
+        onAcknowledge={onAcknowledge}
+        onToggleTodo={onToggleTodo}
+        onShowUnacked={onShowUnacked}
+      />
     </div>
   );
 }

@@ -699,6 +699,25 @@ test('cardFormSnapshotsEqual detects unsaved edits', () => {
   );
 });
 
+test('sessionProgressLabel summarizes rate confirm item status', () => {
+  const { sessionProgressLabel } = require('@/lib/rate-confirm/session-payload') as typeof import('@/lib/rate-confirm/session-payload');
+  assert.equal(sessionProgressLabel([]), '불일치 없음');
+  assert.equal(
+    sessionProgressLabel([
+      { resolution_status: 'pending' },
+      { resolution_status: 'resolved' },
+    ]),
+    '처리 1/2 · 미처리 1',
+  );
+  assert.equal(
+    sessionProgressLabel([
+      { resolution_status: 'resolved' },
+      { resolution_status: 'skipped' },
+    ]),
+    '전체 처리 (2/2)',
+  );
+});
+
 test('isDoneTodoHiddenFromList hides done todos older than 7 days', () => {
   const {
     DONE_TODO_HIDE_AFTER_DAYS,

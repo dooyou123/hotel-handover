@@ -11,6 +11,13 @@ import {
 } from '@/lib/rate-confirm/compare-engine';
 import { downloadReconcileCsv } from '@/lib/rate-confirm/export-csv';
 import { getRecordRateMeta } from '@/lib/rate-confirm/record-meta';
+import { sessionProgressLabel } from '@/lib/rate-confirm/session-payload';
+import {
+  useRateConfirmSessionDetail,
+  useRateConfirmSessions,
+} from '@/lib/rate-confirm/use-rate-confirm-history';
+import type { RateConfirmItem } from '@/lib/rate-confirm/history-types';
+import { useWorkSession } from '@/lib/handover/use-work-session';
 import {
   detectRateFileFormat,
   guessColumnMapping,
@@ -18,6 +25,9 @@ import {
   type ColumnMappingFields,
   type ParsedSheet,
 } from '@/lib/rate-confirm/parse';
+import { RateConfirmHistoryPanel } from '@/components/rate-confirm/rate-confirm-history-panel';
+import { RateConfirmResolutionForm } from '@/components/rate-confirm/rate-confirm-resolution-form';
+import { RateConfirmSaveDialog } from '@/components/rate-confirm/rate-confirm-save-dialog';
 import {
   ReconcileErrorsTable,
   ReconcileMatchesTable,
@@ -238,7 +248,19 @@ function UploadZone({ id, title, hint, sheet, onFile }: UploadZoneProps) {
   );
 }
 
+type PageTab = 'reconcile' | 'history';
+
 export function RateConfirmPageClient() {
+  const { session, authorLabel, requireSession } = useWorkSession();
+  const { createSession } = useRateConfirmSessions();
+  const [pageTab, setPageTab] = useState<PageTab>('reconcile');
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [saveNotes, setSaveNotes] = useState('');
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const { detailQuery: activeSessionQuery, saveResolution } = useRateConfirmSessionDetail(
+    activeSessionId,
+  );
   const [tlSheet, setTlSheet] = useState<ParsedSheet | null>(null);
   const [pmsSheet, setPmsSheet] = useState<ParsedSheet | null>(null);
   const [tlMapping, setTlMapping] = useState<ColumnMappingFields>({
@@ -288,7 +310,51 @@ export function RateConfirmPageClient() {
 
   const step = !tlSheet || !pmsSheet ? 1 : result ? 3 : 2;
 
+  const itemsByOta = useMemo(() => {
+    const map = new Map<string, RateConfirmItem>();
+    for (const item of activeSessionQuery.data?.items ?? []) {
+      map.set(item.ota, item);
+    }
+    return map;
+  }, [activeSessionQuery.data?.items]);
+
+  function showToast(message: string) {
+    setToast(message);
+    window.setTimeout(() => setToast(null), 2600);
+  }
+
+  function resetSavedSession() {
+    setActiveSessionId(null);
+  }
+
+  async function handleSaveSession() {
+    if (!result || !tlSheet || !pmsSheet) return;
+    if (!requireSession('기록 저장')) return;
+    if (activeSessionId) {
+      showToast('이미 저장된 대조입니다. 이력 탭에서 확인하세요.');
+      return;
+    }
+
+    try {
+      const detail = await createSession.mutateAsync({
+        author: authorLabel,
+        workGroup: session.group,
+        tlFileName: tlSheet.fileName,
+        pmsFileName: pmsSheet.fileName,
+        notes: saveNotes.trim(),
+        result,
+      });
+      setActiveSessionId(detail.id);
+      setSaveDialogOpen(false);
+      setSaveNotes('');
+      showToast('대조 결과를 저장했습니다. 불일치 건마다 처리 기록을 남겨 주세요.');
+    } catch (caught) {
+      showToast(caught instanceof Error ? caught.message : '저장에 실패했습니다.');
+    }
+  }
+
   async function loadFile(file: File, target: 'tl' | 'pms') {
+    resetSavedSession();
     setLoading(true);
     setError(null);
     try {
@@ -375,21 +441,61 @@ export function RateConfirmPageClient() {
           <p className="rc-page__eyebrow">예약 대조</p>
           <h2>객실료 컨펌</h2>
           <p className="rc-page__lead">
-            TL-Lincoln RAW와 PMS export를 <strong>예약번호(OTA)</strong>로 맞춥니다. 다중 객실은
-            합산하고 TL 취소 건은 제외합니다.
+            TL-Lincoln RAW와 PMS export를 <strong>예약번호(OTA)</strong>로 맞춥니다. 대조 후{' '}
+            <strong>기록 저장</strong>하면 불일치 건별 처리 내역을 남길 수 있습니다.
           </p>
         </div>
-        {result ? (
-          <button
-            type="button"
-            className="btn btn--outline btn--small"
-            onClick={() => downloadReconcileCsv(result.errors, result.matches)}
-          >
-            CSV 내보내기
-          </button>
+        {result && pageTab === 'reconcile' ? (
+          <div className="rc-page__hero-actions">
+            <button
+              type="button"
+              className="btn btn--primary btn--small"
+              disabled={createSession.isPending || Boolean(activeSessionId)}
+              onClick={() => setSaveDialogOpen(true)}
+            >
+              {activeSessionId ? '저장됨' : createSession.isPending ? '저장 중…' : '기록 저장'}
+            </button>
+            <button
+              type="button"
+              className="btn btn--outline btn--small"
+              onClick={() => downloadReconcileCsv(result.errors, result.matches)}
+            >
+              CSV보내기
+            </button>
+          </div>
         ) : null}
       </header>
 
+      <div className="rc-page__tabs" role="tablist" aria-label="객실료 컨펌">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={pageTab === 'reconcile'}
+          className={`rc-page__tab${pageTab === 'reconcile' ? ' is-active' : ''}`}
+          onClick={() => setPageTab('reconcile')}
+        >
+          새 대조
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={pageTab === 'history'}
+          className={`rc-page__tab${pageTab === 'history' ? ' is-active' : ''}`}
+          onClick={() => setPageTab('history')}
+        >
+          이력
+        </button>
+      </div>
+
+      {pageTab === 'history' ? (
+        <RateConfirmHistoryPanel
+          activeSessionId={activeSessionId}
+          onOpenSession={(id) => setActiveSessionId(id)}
+        />
+      ) : null}
+
+      {pageTab === 'reconcile' ? (
+        <>
       <ol className="rc-steps" aria-label="진행 단계">
         <li className={step >= 1 ? 'is-active' : ''}>① 파일 업로드</li>
         <li className={step >= 2 ? 'is-active' : ''}>② 열 확인</li>
@@ -446,6 +552,20 @@ export function RateConfirmPageClient() {
         <div className="rc-empty">
           <p>양쪽 파일을 모두 업로드하면 자동으로 대조합니다.</p>
         </div>
+      ) : null}
+
+      {result && activeSessionId && activeSessionQuery.data ? (
+        <p className="rc-banner rc-banner--saved">
+          저장됨 · {sessionProgressLabel(activeSessionQuery.data.items)}
+          {' · '}
+          <button type="button" className="rc-banner__link" onClick={() => setPageTab('history')}>
+            이력에서 보기
+          </button>
+        </p>
+      ) : result ? (
+        <p className="rc-banner">
+          대조가 끝났습니다. <strong>기록 저장</strong> 후 각 불일치 건의 PMS 수정 내용을 남겨 주세요.
+        </p>
       ) : null}
 
       {result ? (
@@ -524,7 +644,31 @@ export function RateConfirmPageClient() {
             <section className="rc-section">
               <h3 className="rc-section__title">수정 필요 ({filteredErrors.length})</h3>
               {resultView === 'table' ? (
-                <ReconcileErrorsTable records={filteredErrors} />
+                <ReconcileErrorsTable
+                  records={filteredErrors}
+                  itemsByOta={activeSessionId ? itemsByOta : undefined}
+                  renderResolution={
+                    activeSessionId
+                      ? (item) => (
+                          <RateConfirmResolutionForm
+                            item={item}
+                            disabled={!session.name}
+                            onSave={async (input) => {
+                              if (!requireSession('처리 기록') || !activeSessionId) return;
+                              await saveResolution.mutateAsync({
+                                itemId: item.id,
+                                sessionId: activeSessionId,
+                                input,
+                                author: authorLabel,
+                                workGroup: session.group,
+                              });
+                              showToast('처리 기록을 저장했습니다.');
+                            }}
+                          />
+                        )
+                      : undefined
+                  }
+                />
               ) : (
                 <div className="rc-card-list">
                   {filteredErrors.map((record) => (
@@ -565,6 +709,22 @@ export function RateConfirmPageClient() {
       ) : tlSheet && pmsSheet ? (
         <p className="rc-status">예약번호·객실료 열을 선택하면 대조가 시작됩니다.</p>
       ) : null}
+        </>
+      ) : null}
+
+      <RateConfirmSaveDialog
+        open={saveDialogOpen}
+        saving={createSession.isPending}
+        notes={saveNotes}
+        tlFileName={tlSheet?.fileName}
+        pmsFileName={pmsSheet?.fileName}
+        result={result}
+        onNotesChange={setSaveNotes}
+        onClose={() => setSaveDialogOpen(false)}
+        onSave={() => void handleSaveSession()}
+      />
+
+      {toast ? <div className="toast">{toast}</div> : null}
     </section>
   );
 }
