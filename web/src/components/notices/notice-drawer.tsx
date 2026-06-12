@@ -6,6 +6,7 @@ import { formatTime } from '@/lib/handover/card-utils';
 import { noticeListTitle, noticeTypeLabel } from '@/lib/handover/notice-utils';
 import { formatExpiryLabel } from '@/lib/handover/shift-summary';
 import type { Notice, NoticeInput, NoticeType } from '@/lib/handover/types';
+import { NoticeReadStatus } from '@/components/notices/notice-read-status';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 
 export type NoticeDrawerMode = 'read' | 'edit' | 'create';
@@ -23,6 +24,8 @@ type NoticeDrawerProps = {
   onDelete: (id: string) => Promise<void>;
   onTogglePin?: (notice: Notice) => Promise<void>;
   onCreateHandover?: (notice: Notice) => void;
+  activeStaffNames?: string[];
+  currentStaffName?: string;
 };
 
 export function NoticeDrawer({
@@ -38,6 +41,8 @@ export function NoticeDrawer({
   onDelete,
   onTogglePin,
   onCreateHandover,
+  activeStaffNames = [],
+  currentStaffName = '',
 }: NoticeDrawerProps) {
   const [form, setForm] = useState<NoticeInput>({
     type: defaultType,
@@ -158,6 +163,11 @@ export function NoticeDrawer({
         </time>
       </div>
       <div className="notice-drawer__body">{notice.content}</div>
+      <NoticeReadStatus
+        notice={notice}
+        activeStaffNames={activeStaffNames}
+        currentStaffName={currentStaffName}
+      />
     </>
   ) : null;
 

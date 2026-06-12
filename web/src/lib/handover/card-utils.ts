@@ -59,6 +59,19 @@ export function isCardOverdue(card: Card): boolean {
   return new Date(card.due_at).getTime() < Date.now();
 }
 
+const DEFAULT_DUE_SOON_MS = 3_600_000;
+
+export function isCardDueSoon(card: Card, withinMs = DEFAULT_DUE_SOON_MS): boolean {
+  if (!card.due_at || card.column_id === 'done' || isHoldCard(card)) return false;
+  const due = new Date(card.due_at).getTime();
+  const now = Date.now();
+  return due >= now && due - now <= withinMs;
+}
+
+export function isCardDueActive(card: Card): boolean {
+  return Boolean(card.due_at && card.column_id !== 'done' && !isHoldCard(card));
+}
+
 export function getStaleLevel(card: Card): '' | 'mid' | 'high' {
   if (card.column_id === 'done' || isHoldCard(card)) return '';
   const date = new Date(card.updated_at || card.created_at);
@@ -186,6 +199,12 @@ export function filterCards(
     }
     if (options.quickFilter === 'roomclean') {
       return matchesRoomCleanFilter(card);
+    }
+    if (options.quickFilter === 'due-overdue') {
+      return isCardOverdue(card);
+    }
+    if (options.quickFilter === 'due-soon') {
+      return isCardDueSoon(card);
     }
     if (options.quickFilter !== 'all' && options.quickFilter) {
       return card.category === options.quickFilter;

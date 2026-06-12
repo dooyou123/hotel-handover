@@ -15,6 +15,7 @@ import {
   type ScheduleEntryInput,
 } from '@/lib/schedule/use-schedule';
 import { createClient } from '@/lib/supabase/client';
+import { getKoreanHoliday, getKoreanHolidaysInMonth } from '@/lib/calendar/korean-holidays';
 import { LeaveRequestPanel } from './leave-request-panel';
 import { ScheduleEntryModal } from './schedule-entry-modal';
 
@@ -53,6 +54,8 @@ export function SchedulePageClient() {
       .then(({ data }) => setStaffNames((data ?? []).map((row) => row.name)));
   }, []);
 
+  const monthHolidays = useMemo(() => getKoreanHolidaysInMonth(month), [month]);
+
   const tableRows = useMemo(() => {
     const byDate = new Map<string, Record<(typeof WORK_GROUPS)[number], string[]>>();
     entries.forEach((entry) => {
@@ -63,8 +66,18 @@ export function SchedulePageClient() {
       const group = normalizeScheduleGroup(entry.shift);
       if (group) row[group].push(entry.staff_name);
     });
+    monthHolidays.forEach((_name, workDate) => {
+      if (!byDate.has(workDate)) {
+        byDate.set(workDate, emptyGroupSchedule());
+      }
+    });
     return [...byDate.entries()].sort(([a], [b]) => a.localeCompare(b));
-  }, [entries]);
+  }, [entries, monthHolidays]);
+
+  const monthHolidayList = useMemo(
+    () => [...monthHolidays.entries()].sort(([a], [b]) => a.localeCompare(b)),
+    [monthHolidays],
+  );
 
   function showToast(msg: string) {
     setToast(msg);
@@ -207,11 +220,34 @@ export function SchedulePageClient() {
               </p>
             </article>
 
+            {monthHolidayList.length > 0 ? (
+              <article className="schedule-panel schedule-panel--holidays">
+                <div className="schedule-panel__header">
+                  <h3>이달 공휴일</h3>
+                  <p>법정공휴일·명절이 자동으로 표시됩니다.</p>
+                </div>
+                <ul className="schedule-holiday-list">
+                  {monthHolidayList.map(([date, name]) => (
+                    <li key={date} className="schedule-holiday-list__item">
+                      <span className="schedule-holiday-list__date">{formatDateLabel(date)}</span>
+                      <span className="schedule-holiday-list__name">{name}</span>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            ) : null}
+
             <article className="schedule-panel schedule-panel--table">
               <div className="schedule-panel__header schedule-panel__header--split">
                 <div>
                   <h3>{month} 근무표</h3>
-                  <p>{entries.length ? `${entries.length}건` : '등록된 근무가 없습니다.'}</p>
+                  <p>
+                    {entries.length
+                      ? `${entries.length}건 · 공휴일 ${monthHolidayList.length}일`
+                      : monthHolidayList.length
+                        ? `등록된 근무 없음 · 공휴일 ${monthHolidayList.length}일`
+                        : '등록된 근무가 없습니다.'}
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -227,9 +263,9 @@ export function SchedulePageClient() {
 
               {rosterLoading ? (
                 <p className="empty-state">불러오는 중…</p>
-              ) : !tableRows.length ? (
+              ) : !tableRows.length && !monthHolidayList.length ? (
                 <p className="empty-state">표시할 근무표가 없습니다.</p>
-              ) : (
+              ) : tableRows.length ? (
                 <div className="schedule-table-wrap">
                   <table className="schedule-table">
                     <thead>
@@ -241,20 +277,30 @@ export function SchedulePageClient() {
                       </tr>
                     </thead>
                     <tbody>
-                      {tableRows.map(([workDate, groups]) => (
-                        <tr key={workDate}>
-                          <td>{formatDateLabel(workDate)}</td>
+                      {tableRows.map(([workDate, groups]) => {
+                        const holiday = getKoreanHoliday(workDate);
+                        return (
+                        <tr key={workDate} className={holiday ? 'schedule-table__row--holiday' : undefined}>
+                          <td>
+                            <span className="schedule-table__date">{formatDateLabel(workDate)}</span>
+                            {holiday ? (
+                              <span className="schedule-table__holiday" title={holiday}>
+                                {holiday}
+                              </span>
+                            ) : null}
+                          </td>
                           {WORK_GROUPS.map((group) => (
                             <td key={group} className={groups[group].length ? undefined : 'schedule-table__empty'}>
                               {groups[group].length ? groups[group].join(', ') : '-'}
                             </td>
                           ))}
                         </tr>
-                      ))}
+                      );
+                      })}
                     </tbody>
                   </table>
                 </div>
-              )}
+              ) : null}
             </article>
 
             {entries.length > 0 ? (

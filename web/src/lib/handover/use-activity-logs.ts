@@ -10,6 +10,7 @@ import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
 
 export type ActivityLogFilters = {
   entityType: string;
+  entityId?: string | null;
   action: string;
   query: string;
 };
@@ -87,6 +88,9 @@ async function fetchActivityLogs(limit: number, filters: ActivityLogFilters): Pr
 
   if (filters.entityType !== 'all') {
     query = query.eq('entity_type', filters.entityType);
+  }
+  if (filters.entityId) {
+    query = query.eq('entity_id', filters.entityId);
   }
   if (filters.action !== 'all') {
     query = query.eq('action', filters.action);

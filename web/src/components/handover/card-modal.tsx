@@ -26,6 +26,9 @@ import { useCardTemplates, type CardTemplate } from '@/lib/settings/use-settings
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { CardCommentComposer } from './card-comment-composer';
 import { CardCommentItem } from './card-comment-item';
+import type { SimilarHistoryHit } from '@/lib/handover/similar-history';
+import { CardSimilarHistory } from './card-similar-history';
+import { CardActivityTimeline } from './card-activity-timeline';
 import { RoutineTemplateBar } from './routine-template-bar';
 import { TemplateBar } from './template-bar';
 
@@ -145,6 +148,16 @@ export function CardModal({
       title: template.title || prev.title,
       next_action: template.next_action,
       details: template.details,
+    }));
+  }
+
+  function applySimilarHistory(hit: SimilarHistoryHit) {
+    if (!hit.detail) return;
+    setForm((prev) => ({
+      ...prev,
+      details: prev.details.trim()
+        ? `${prev.details.trim()}\n\n【참고 · ${hit.subtitle}】\n${hit.detail}`
+        : `【참고 · ${hit.subtitle}】\n${hit.detail}`,
     }));
   }
 
@@ -640,6 +653,7 @@ export function CardModal({
       <section className="drawer-section">
         <h3 className="drawer-section__title">상태</h3>
         {statusFields}
+        <CardSimilarHistory room={form.room} excludeCardId={card?.id} onApply={applySimilarHistory} />
       </section>
       <section className="drawer-section drawer-section--primary">
         <h3 className="drawer-section__title">내용</h3>
@@ -652,6 +666,7 @@ export function CardModal({
       {commentBlock}
       {attachmentBlock}
       {linkBlock}
+      {card ? <CardActivityTimeline cardId={card.id} /> : null}
       {error ? <p className="amenity-alert drawer-section__error">{error}</p> : null}
     </>
   );
@@ -672,6 +687,7 @@ export function CardModal({
       <section className="drawer-section">
         <h3 className="drawer-section__title">상태</h3>
         {statusFields}
+        <CardSimilarHistory room={form.room} onApply={applySimilarHistory} />
       </section>
       <section className="drawer-section drawer-section--primary">
         <h3 className="drawer-section__title">내용</h3>

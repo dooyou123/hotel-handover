@@ -1,7 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isCommentEdited, splitTextBySearchQuery } from '@/lib/handover/card-utils';
+import { isCardDueSoon, isCardOverdue, isCommentEdited, splitTextBySearchQuery } from '@/lib/handover/card-utils';
+import {
+  getTickerActionLabel,
+  getTickerItemHref,
+  isTickerItemClickable,
+} from '@/lib/handover/ticker-nav';
+import {
+  findScheduledGroupForStaff,
+  getSessionScheduleMismatch,
+} from '@/lib/schedule/session-schedule-match';
+import { pinnedNotices, unreadPinnedCount } from '@/lib/notices/reads';
+import { xpLevelProgress, xpToLevel } from '@/lib/staff/xp';
+import { buildTodayAlerts } from '@/lib/today/alerts';
 import type { CardComment } from '@/lib/handover/types';
+import { buildAmenityOrderLines, buildAmenityOrderText } from '@/lib/amenity/order-sheet';
+import { getKoreanHoliday, getKoreanHolidaysInMonth } from '@/lib/calendar/korean-holidays';
 import { monthDateRange } from '@/lib/schedule/month-range';
 import { buildSummaryText, getExportFilename, hasSummaryContent } from '@/lib/handover/daily-summary';
 import { buildShiftSummaryData } from '@/lib/handover/shift-summary';
@@ -23,6 +37,53 @@ import {
 test('monthDateRange uses last day of month', () => {
   assert.deepEqual(monthDateRange('2026-06'), { start: '2026-06-01', end: '2026-06-30' });
   assert.deepEqual(monthDateRange('2026-02'), { start: '2026-02-01', end: '2026-02-28' });
+});
+
+test('getKoreanHoliday returns fixed and lunar holidays', () => {
+  assert.equal(getKoreanHoliday('2026-06-06'), '현충일');
+  assert.equal(getKoreanHoliday('2026-02-17'), '설날');
+  assert.equal(getKoreanHoliday('2026-09-25'), '추석');
+  assert.equal(getKoreanHoliday('2026-06-07'), null);
+});
+
+test('getKoreanHolidaysInMonth lists holidays in month', () => {
+  const holidays = getKoreanHolidaysInMonth('2026-02');
+  assert.equal(holidays.get('2026-02-17'), '설날');
+  assert.equal(holidays.size, 3);
+});
+
+test('buildAmenityOrderLines includes only items needing reorder', () => {
+  const lines = buildAmenityOrderLines([
+    {
+      id: 1,
+      hotel_id: 'h',
+      name: '샴푸',
+      box_size: 50,
+      unit_size: 10,
+      sort_order: 0,
+      quantity: 20,
+      minQuantity: 10,
+      monthlyUsage: 80,
+      remainingBoxes: 2,
+      orderBoxes: 2,
+    },
+    {
+      id: 2,
+      hotel_id: 'h',
+      name: '비누',
+      box_size: 40,
+      unit_size: 8,
+      sort_order: 1,
+      quantity: 200,
+      minQuantity: 10,
+      monthlyUsage: 30,
+      remainingBoxes: 25,
+      orderBoxes: 0,
+    },
+  ]);
+  assert.equal(lines.length, 1);
+  assert.equal(lines[0]?.name, '샴푸');
+  assert.match(buildAmenityOrderText(lines), /샴푸/);
 });
 
 test('getExportFilename includes date prefix', () => {
@@ -743,4 +804,110 @@ test('isDoneTodoHiddenFromList hides done todos older than 7 days', () => {
   );
   assert.equal(isPastHotelEvent({ event_date: '2026-06-07' }, todayDateString(now)), true);
   assert.equal(isPastHotelEvent({ event_date: '2026-06-08' }, todayDateString(now)), false);
+});
+
+test('card due soon and overdue helpers', () => {
+  const now = Date.now();
+  const base = {
+    column_id: 'progress' as const,
+    due_at: null,
+    hotel_id: 'h',
+    priority: 'today' as const,
+    category: '기타',
+    room: '',
+    title: 't',
+    details: '',
+    resolution: '',
+    next_action: '',
+    author: '',
+    assignee_shift: '',
+    assignee_name: '',
+    sort_order: 0,
+    archived_at: null,
+    linked_todo_id: null,
+    created_at: '',
+    updated_at: '',
+    card_acknowledgments: [],
+    card_comments: [],
+    card_attachments: [],
+    id: 'c1',
+  };
+
+  assert.equal(isCardOverdue({ ...base, due_at: new Date(now - 60_000).toISOString() }), true);
+  assert.equal(isCardDueSoon({ ...base, due_at: new Date(now + 30 * 60_000).toISOString() }), true);
+  assert.equal(isCardDueSoon({ ...base, due_at: new Date(now + 2 * 3600_000).toISOString() }), false);
+  assert.equal(isCardOverdue({ ...base, column_id: 'done', due_at: new Date(now - 60_000).toISOString() }), false);
+});
+
+test('ticker navigation hrefs', () => {
+  assert.equal(getTickerItemHref('idle'), null);
+  assert.equal(getTickerItemHref('notice-abc'), '/notices?id=abc');
+  assert.equal(getTickerItemHref('unacked-card-1'), '/handover?card=card-1');
+  assert.equal(getTickerItemHref('due-soon-x'), '/handover?card=x');
+  assert.equal(isTickerItemClickable('urgent-1'), true);
+  assert.equal(getTickerActionLabel('unacked-1'), '확인하기');
+  assert.equal(getTickerActionLabel('notice-1'), '읽기');
+  assert.equal(getTickerActionLabel('urgent-1'), '열기');
+});
+
+test('xp level progress', () => {
+  assert.equal(xpToLevel(0), 1);
+  assert.equal(xpToLevel(99), 1);
+  assert.equal(xpToLevel(100), 2);
+  const p = xpLevelProgress(150);
+  assert.equal(p.level, 2);
+  assert.equal(p.inLevel, 50);
+});
+
+test('buildTodayAlerts includes card due alerts', () => {
+  const now = Date.now();
+  const card = {
+    id: '1',
+    column_id: 'progress' as const,
+    due_at: new Date(now - 1000).toISOString(),
+    hotel_id: 'h',
+    priority: 'today' as const,
+    category: '기타',
+    room: '',
+    title: 'late',
+    details: '',
+    resolution: '',
+    next_action: '',
+    author: '',
+    assignee_shift: '',
+    assignee_name: '',
+    sort_order: 0,
+    archived_at: null,
+    linked_todo_id: null,
+    created_at: '',
+    updated_at: '',
+    card_acknowledgments: [],
+    card_comments: [],
+    card_attachments: [],
+  };
+  const alerts = buildTodayAlerts({ unackedUrgent: [], cards: [card], todos: [], events: [] });
+  assert.ok(alerts.some((a) => a.id === 'due-overdue-cards'));
+});
+
+test('session schedule mismatch detection', () => {
+  const schedule = {
+    work_date: '2026-06-12',
+    groups: { A: ['Kim'], B: [], C: [], D: [], E: [] },
+  };
+  assert.equal(findScheduledGroupForStaff(schedule as never, 'Kim'), 'A');
+  assert.equal(
+    getSessionScheduleMismatch({ shift: 'B', group: 'B', name: 'Kim' }, schedule as never)?.scheduledGroup,
+    'A',
+  );
+  assert.equal(getSessionScheduleMismatch({ shift: 'A', group: 'A', name: 'Kim' }, schedule as never), null);
+});
+
+test('unread pinned notice count', () => {
+  const notices = [
+    { id: 'n1', is_pinned: true } as { id: string; is_pinned: boolean },
+    { id: 'n2', is_pinned: false } as { id: string; is_pinned: boolean },
+  ];
+  const reads = [{ notice_id: 'n1', staff_name: 'Kim' } as { notice_id: string; staff_name: string }];
+  assert.equal(unreadPinnedCount(pinnedNotices(notices as never), reads as never, 'Kim'), 0);
+  assert.equal(unreadPinnedCount(pinnedNotices(notices as never), reads as never, 'Lee'), 1);
 });

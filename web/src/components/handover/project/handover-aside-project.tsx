@@ -119,7 +119,7 @@ export function HandoverAsideProject({
           />
         </section>
 
-        <AsideMonthCalendar onOpenEvent={onOpenEvent} />
+        <AsideMonthCalendar todos={todos} onOpenEvent={onOpenEvent} onOpenTodo={onOpenTodo} />
 
         <section className="aside-card aside-card--personal-tasks">
           <PersonalTasksPanel variant="aside" />

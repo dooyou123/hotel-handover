@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { AmenityOrderSheet } from '@/components/amenity/amenity-order-sheet';
 import { AmenityInventoryGrid } from '@/components/amenity/inventory-grid';
 import { AmenityTransactionPanel } from '@/components/amenity/transaction-panel';
 import { AmenityTransactionHistory } from '@/components/amenity/transaction-history';
@@ -67,6 +68,8 @@ export function AmenityPageClient() {
       {!hasSession ? (
         <p className="amenity-page__hint">「지금 근무」 설정 후 입출고 가능</p>
       ) : null}
+
+      <AmenityOrderSheet items={items} onToast={showToast} />
 
       <div className="amenity-page__workspace">
         <AmenityInventoryGrid

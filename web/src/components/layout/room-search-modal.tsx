@@ -2,14 +2,18 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { searchByRoom, type RoomSearchHit } from '@/lib/room-search/api';
+import { searchGlobal, type GlobalSearchHit } from '@/lib/room-search/api';
 import { formatRoomSearchAt } from '@/lib/room-search/format';
 
-const KIND_LABELS: Record<RoomSearchHit['kind'], string> = {
+const KIND_LABELS: Record<GlobalSearchHit['kind'], string> = {
   handover: '인수인계',
   facility: '시설·컴플레인',
   review: '리뷰',
   transport: '택시 예약',
+  notice: '게시판',
+  todo: '업무 일정',
+  contact: '연락처',
+  guest_notice: '고객 안내',
 };
 
 type RoomSearchModalProps = {
@@ -19,7 +23,7 @@ type RoomSearchModalProps = {
 
 export function RoomSearchModal({ open, onClose }: RoomSearchModalProps) {
   const [query, setQuery] = useState('');
-  const [hits, setHits] = useState<RoomSearchHit[]>([]);
+  const [hits, setHits] = useState<GlobalSearchHit[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -41,15 +45,15 @@ export function RoomSearchModal({ open, onClose }: RoomSearchModalProps) {
 
   useEffect(() => {
     if (!open) return;
-    const room = query.trim();
-    if (room.length < 2) {
+    const term = query.trim();
+    if (term.length < 2) {
       setHits([]);
       return;
     }
 
     const timer = window.setTimeout(() => {
       setLoading(true);
-      searchByRoom(room)
+      searchGlobal(term)
         .then(setHits)
         .catch(() => setHits([]))
         .finally(() => setLoading(false));
@@ -66,11 +70,19 @@ export function RoomSearchModal({ open, onClose }: RoomSearchModalProps) {
 
   return (
     <div className="modal-overlay modal-overlay--room-search" onClick={onClose}>
-      <div className="modal modal--room-search" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="room-search-title">
+      <div
+        className="modal modal--room-search"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="room-search-title"
+      >
         <header className="room-search__header">
           <div>
-            <h2 id="room-search-title">객실 통합 검색</h2>
-            <p className="room-search__desc">인수인계 · 시설 · 리뷰 · 택시 예약</p>
+            <h2 id="room-search-title">통합 검색</h2>
+            <p className="room-search__desc">
+              인수인계 · 게시판 · 할일 · 리뷰 · 택시 · 연락처 · 고객 안내
+            </p>
           </div>
           <button type="button" className="icon-btn room-search__close" onClick={onClose} aria-label="닫기">
             ✕
@@ -84,7 +96,7 @@ export function RoomSearchModal({ open, onClose }: RoomSearchModalProps) {
           <input
             className="room-search__input"
             type="search"
-            placeholder="객실번호 입력 (예: 1502)"
+            placeholder="객실, 이름, 제목, 내용, 연락처…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoFocus
@@ -103,15 +115,15 @@ export function RoomSearchModal({ open, onClose }: RoomSearchModalProps) {
 
           {showHint ? (
             <div className="room-search__state room-search__state--hint">
-              <p>객실번호 2자 이상 입력</p>
-              <small>예: 802, 1502</small>
+              <p>2자 이상 입력</p>
+              <small>예: 1502, 키오스크, 홍길동, 세프로</small>
             </div>
           ) : null}
 
           {showEmpty ? (
             <div className="room-search__state room-search__state--empty">
               <p>「{trimmed}」 검색 결과 없음</p>
-              <small>진행 중 인수인계·리뷰·당일 픽업만 표시됩니다.</small>
+              <small>제목·내용·객실·이름·연락처 등 전체 데이터에서 찾습니다.</small>
             </div>
           ) : null}
 

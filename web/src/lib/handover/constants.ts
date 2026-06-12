@@ -63,6 +63,8 @@ export const CATEGORY_OPTIONS = [
 export const QUICK_FILTERS = [
   { id: 'all', label: '전체' },
   { id: 'unacked', label: '미확인 긴급' },
+  { id: 'due-overdue', label: '마감 지남' },
+  { id: 'due-soon', label: '1시간 내 마감' },
   { id: 'mine', label: '내 담당' },
   { id: 'roomclean', label: '룸클린' },
   { id: '시설', label: '시설' },

@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase/client';
 import { DEFAULT_HOTEL_ID, formatShiftChecklistTitle } from '@/lib/constants';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { NightRegisterPanel } from '@/components/checklist/night-register-panel';
+import { ChecklistProgressBar } from '@/components/checklist/checklist-progress-bar';
 
 function formatWorkDate(value: string): string {
   const date = new Date(`${value}T00:00:00`);
@@ -63,7 +64,12 @@ function ChecklistColumn({
   return (
     <section className="checklist-section">
       <div className="checklist-section__header">
-        <h3>{title}</h3>
+        <div className="checklist-section__title">
+          <h3>{title}</h3>
+          {total > 0 ? (
+            <ChecklistProgressBar done={done} total={total} label={`${title} 완료`} compact />
+          ) : null}
+        </div>
         <div className="checklist-section__actions">
           {onReset && done > 0 ? (
             <button
@@ -204,6 +210,12 @@ export function ChecklistPageClient() {
       </div>
 
       <p className="checklist-page__meta">{metaText}</p>
+
+      {items.length > 0 ? (
+        <div className="checklist-page__progress">
+          <ChecklistProgressBar done={completed} total={items.length} label="오늘 체크리스트 완료도" />
+        </div>
+      ) : null}
 
       {isLoading ? (
         <p className="empty-state">불러오는 중…</p>

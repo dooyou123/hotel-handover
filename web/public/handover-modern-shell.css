@@ -553,3 +553,307 @@ html[data-ui='project'] .settings-appearance__option.is-active {
     flex-shrink: 0;
   }
 }
+
+/* 세션 vs 근무표 불일치 */
+html[data-ui='project'] .session-schedule-mismatch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 1.35rem;
+  border-bottom: 1px solid #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+html[data-ui='project'] .session-schedule-mismatch__text {
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+html[data-ui='project'] .session-schedule-mismatch__action {
+  flex-shrink: 0;
+  padding: 0.32rem 0.7rem;
+  border: 1px solid #f59e0b;
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: #b45309;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+html[data-ui='project'] .session-schedule-mismatch__action:hover {
+  background: #fef3c7;
+}
+
+/* 업무 알림 리본 */
+html[data-ui='project'] .app-ticker--ribbons {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+html[data-ui='project'] .app-ticker__ribbon {
+  display: flex;
+  align-items: stretch;
+  min-height: 2.35rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+html[data-ui='project'] .app-ticker__ribbon:last-of-type {
+  border-bottom: none;
+}
+
+html[data-ui='project'] .app-ticker__ribbon--urgent {
+  border-left: 3px solid #dc2626;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+html[data-ui='project'] .app-ticker__ribbon--warn {
+  border-left: 3px solid #d97706;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+html[data-ui='project'] .app-ticker__ribbon--info {
+  border-left: 3px solid #2563eb;
+  background: #eff6ff;
+  color: #1e40af;
+}
+
+html[data-ui='project'] .app-ticker__ribbon-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.65rem 0.45rem 1.1rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+html[data-ui='project'] .app-ticker__ribbon-main:hover {
+  filter: brightness(0.98);
+}
+
+html[data-ui='project'] .app-ticker__ribbon-icon {
+  flex-shrink: 0;
+  font-size: 0.82rem;
+  line-height: 1;
+}
+
+html[data-ui='project'] .app-ticker__ribbon-label {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+html[data-ui='project'] .app-ticker__ribbon-sep {
+  flex-shrink: 0;
+  opacity: 0.55;
+  font-weight: 700;
+}
+
+html[data-ui='project'] .app-ticker__ribbon-body {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+html[data-ui='project'] .app-ticker__ribbon-action {
+  flex-shrink: 0;
+  align-self: center;
+  margin-right: 1rem;
+  padding: 0.28rem 0.7rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid currentColor;
+  background: rgba(255, 255, 255, 0.55);
+  color: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+html[data-ui='project'] .app-ticker__ribbon-action:hover {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+html[data-ui='project'] .app-ticker__more {
+  display: block;
+  width: 100%;
+  padding: 0.4rem 1.1rem;
+  border: none;
+  border-top: 1px dashed var(--border);
+  background: color-mix(in srgb, var(--surface) 96%, var(--primary) 4%);
+  color: var(--primary);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+}
+
+html[data-ui='project'] .app-ticker__more:hover {
+  background: color-mix(in srgb, var(--surface) 92%, var(--primary) 8%);
+}
+
+/* 직원 XP 배지 */
+html[data-ui='project'] .staff-xp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  min-width: 4.5rem;
+}
+
+html[data-ui='project'] .staff-xp-badge__level {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--primary);
+  white-space: nowrap;
+}
+
+html[data-ui='project'] .staff-xp-badge__bar {
+  display: block;
+  width: 2.5rem;
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border) 80%, transparent);
+  overflow: hidden;
+}
+
+html[data-ui='project'] .staff-xp-badge__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+}
+
+/* 카드 활동 타임라인 */
+html[data-ui='project'] .card-activity-timeline__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+html[data-ui='project'] .card-activity-timeline__item {
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 96%, var(--border));
+}
+
+html[data-ui='project'] .card-activity-timeline__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+html[data-ui='project'] .card-activity-timeline__badge {
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  background: var(--border);
+  color: var(--text-muted);
+}
+
+html[data-ui='project'] .card-activity-timeline__badge--move {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+html[data-ui='project'] .card-activity-timeline__badge--comment {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+html[data-ui='project'] .card-activity-timeline__badge--create {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+html[data-ui='project'] .card-activity-timeline__time {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+html[data-ui='project'] .card-activity-timeline__text {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+html[data-ui='project'] .card-activity-timeline__actor {
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+html[data-ui='project'] .card-activity-timeline__empty {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+/* 게시판 필독 확인 */
+html[data-ui='project'] .notice-read-banner {
+  margin: 0 0 0.85rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid rgba(180, 83, 9, 0.25);
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 0.88rem;
+}
+
+html[data-ui='project'] .notice-read-status {
+  margin-top: 1rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 94%, var(--primary) 6%);
+  font-size: 0.84rem;
+}
+
+html[data-ui='project'] .notice-read-status__title {
+  margin: 0 0 0.35rem;
+  font-weight: 700;
+}
+
+html[data-ui='project'] .notice-read-status__mine {
+  font-weight: 600;
+  color: var(--primary);
+}
+
+html[data-ui='project'] .notice-read-status__unread {
+  margin: 0;
+  color: #b91c1c;
+}
+
+html[data-ui='project'] .notice-read-status__done {
+  margin: 0;
+  color: var(--primary);
+}

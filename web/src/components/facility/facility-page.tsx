@@ -1,6 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { DEFAULT_HOTEL_ID } from '@/lib/constants';
+import { invalidateCardQueries } from '@/lib/supabase/handover-realtime';
+import { cardSummaryLabel, logActivity } from '@/lib/handover/activity';
 import { ComplaintSlaBadge } from '@/components/handover/complaint-sla-badge';
 import { formatTime } from '@/lib/handover/card-utils';
 import {
@@ -10,15 +14,25 @@ import {
   mergeFacilityCardSources,
 } from '@/lib/facility/facility-stats';
 import { useArchivedCards, useCards } from '@/lib/handover/use-cards';
+import { useWorkSession } from '@/lib/handover/use-work-session';
+import type { Card } from '@/lib/handover/types';
+import { createClient } from '@/lib/supabase/client';
+import { FacilityResolveModal } from './facility-resolve-modal';
 
 export function FacilityPageClient() {
-  const { cards } = useCards();
+  const queryClient = useQueryClient();
+  const { cards, updateCard } = useCards();
   const { data: archivedCards = [] } = useArchivedCards();
+  const { session, requireSession } = useWorkSession();
   const facilityCards = useMemo(
     () => mergeFacilityCardSources(cards, archivedCards),
     [cards, archivedCards],
   );
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
+  const [resolveCard, setResolveCard] = useState<Card | null>(null);
+  const [resolveOpen, setResolveOpen] = useState(false);
+  const [resolving, setResolving] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
   const openIssues = useMemo(() => getOpenFacilityIssues(facilityCards), [facilityCards]);
   const summaries = useMemo(() => buildFacilitySummaries(facilityCards), [facilityCards]);
@@ -29,6 +43,65 @@ export function FacilityPageClient() {
 
   const frequentRooms = summaries.filter((s) => s.totalCount >= 2).slice(0, 12);
 
+  function showToast(message: string) {
+    setToast(message);
+    window.setTimeout(() => setToast(null), 2500);
+  }
+
+  function audit() {
+    return { shift: session.shift, staffName: session.name };
+  }
+
+  function openResolve(card: Card) {
+    if (!requireSession('시설 이슈 해결')) return;
+    setResolveCard(card);
+    setResolveOpen(true);
+  }
+
+  async function handleResolve(input: { resolution: string; leaveOnHandoverDone: boolean }) {
+    if (!resolveCard) return;
+    setResolving(true);
+    try {
+      const resolution = `[시설 해결] ${input.resolution}`;
+      await updateCard.mutateAsync({
+        id: resolveCard.id,
+        input: { column_id: 'done', resolution },
+      });
+
+      if (!input.leaveOnHandoverDone) {
+        const supabase = createClient();
+        const { error } = await supabase
+          .from('cards')
+          .update({ archived_at: new Date().toISOString() })
+          .eq('id', resolveCard.id)
+          .eq('hotel_id', DEFAULT_HOTEL_ID);
+        if (error) throw error;
+      }
+
+      await logActivity({
+        entityType: 'card',
+        entityId: resolveCard.id,
+        action: 'move',
+        audit: audit(),
+        summary: `시설 해결: ${cardSummaryLabel(resolveCard.room, resolveCard.title)}`,
+        details: {
+          from: resolveCard.column_id,
+          to: 'done',
+          leaveOnHandoverDone: input.leaveOnHandoverDone,
+        },
+      });
+
+      invalidateCardQueries(queryClient);
+      showToast(
+        input.leaveOnHandoverDone
+          ? '해결 완료 — 인수인계 완료 칸에 남겼습니다.'
+          : '해결 완료 — 보관함으로 옮겼습니다.',
+      );
+    } finally {
+      setResolving(false);
+    }
+  }
+
   return (
     <section className="facility-page">
       <header className="facility-page__header">
@@ -37,8 +110,12 @@ export function FacilityPageClient() {
           <p>시설·컴플레인 인수인계 카드 기준 — 최근 6개월, 보관함 포함 객실별 이력</p>
         </div>
         <div className="facility-page__stats">
-          <span>미해결 <strong>{openIssues.length}</strong></span>
-          <span>객실 <strong>{summaries.length}</strong></span>
+          <span>
+            미해결 <strong>{openIssues.length}</strong>
+          </span>
+          <span>
+            객실 <strong>{summaries.length}</strong>
+          </span>
         </div>
       </header>
 
@@ -51,18 +128,29 @@ export function FacilityPageClient() {
             <ul className="facility-issue-list">
               {openIssues.map(({ card, issueKind }) => (
                 <li key={card.id}>
-                  <button
-                    type="button"
-                    className="facility-issue-item"
-                    onClick={() => setSelectedRoom(card.room.trim() || '(객실 미지정)')}
-                  >
-                    <span className={`facility-issue-item__kind facility-issue-item__kind--${issueKind === '컴플레인' ? 'complaint' : 'facility'}`}>
-                      {issueKind}
-                    </span>
-                    <strong>{card.room || '—'}</strong>
-                    <span>{card.title}</span>
-                    <ComplaintSlaBadge card={card} />
-                  </button>
+                  <div className="facility-issue-item-wrap">
+                    <button
+                      type="button"
+                      className="facility-issue-item"
+                      onClick={() => setSelectedRoom(card.room.trim() || '(객실 미지정)')}
+                    >
+                      <span
+                        className={`facility-issue-item__kind facility-issue-item__kind--${issueKind === '컴플레인' ? 'complaint' : 'facility'}`}
+                      >
+                        {issueKind}
+                      </span>
+                      <strong>{card.room || '—'}</strong>
+                      <span>{card.title}</span>
+                      <ComplaintSlaBadge card={card} />
+                    </button>
+                    <button
+                      type="button"
+                      className="facility-issue-item__resolve"
+                      onClick={() => openResolve(card)}
+                    >
+                      해결
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -88,7 +176,9 @@ export function FacilityPageClient() {
                   {summary.openCount > 0 ? (
                     <span className="facility-room-card__open">미해결 {summary.openCount}</span>
                   ) : null}
-                  <small>시설 {summary.facilityCount} · 컴플레인 {summary.complaintCount}</small>
+                  <small>
+                    시설 {summary.facilityCount} · 컴플레인 {summary.complaintCount}
+                  </small>
                 </button>
               ))}
             </div>
@@ -111,7 +201,9 @@ export function FacilityPageClient() {
               {roomIssues.map(({ card, issueKind }) => (
                 <li key={card.id} className="facility-history__item">
                   <div className="facility-history__top">
-                    <span className={`facility-issue-item__kind facility-issue-item__kind--${issueKind === '컴플레인' ? 'complaint' : 'facility'}`}>
+                    <span
+                      className={`facility-issue-item__kind facility-issue-item__kind--${issueKind === '컴플레인' ? 'complaint' : 'facility'}`}
+                    >
                       {issueKind}
                     </span>
                     <span>
@@ -126,6 +218,11 @@ export function FacilityPageClient() {
                               : '긴급'}
                     </span>
                     <time>{formatTime(card.updated_at || card.created_at)}</time>
+                    {card.column_id !== 'done' && !card.archived_at ? (
+                      <button type="button" className="facility-history__resolve" onClick={() => openResolve(card)}>
+                        해결
+                      </button>
+                    ) : null}
                   </div>
                   <strong>{card.title}</strong>
                   {card.details ? <p>{card.details}</p> : null}
@@ -155,8 +252,14 @@ export function FacilityPageClient() {
               </thead>
               <tbody>
                 {summaries.map((row) => (
-                  <tr key={row.room} onClick={() => setSelectedRoom(row.room)} className="facility-summary-table__row">
-                    <td><strong>{row.room}</strong></td>
+                  <tr
+                    key={row.room}
+                    onClick={() => setSelectedRoom(row.room)}
+                    className="facility-summary-table__row"
+                  >
+                    <td>
+                      <strong>{row.room}</strong>
+                    </td>
                     <td>{row.totalCount}</td>
                     <td>{row.openCount || '—'}</td>
                     <td>{row.facilityCount}</td>
@@ -169,6 +272,16 @@ export function FacilityPageClient() {
           </div>
         </article>
       ) : null}
+
+      <FacilityResolveModal
+        open={resolveOpen}
+        card={resolveCard}
+        saving={resolving}
+        onClose={() => setResolveOpen(false)}
+        onSubmit={handleResolve}
+      />
+
+      {toast ? <div className="toast toast--project">{toast}</div> : null}
     </section>
   );
 }

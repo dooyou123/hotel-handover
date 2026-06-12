@@ -1,8 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
+import { DEFAULT_HOTEL_ID } from '@/lib/constants';
+import { createClient } from '@/lib/supabase/client';
 import { logActivity } from '@/lib/handover/activity';
+import { markNoticeRead, pinnedNotices as getPinnedNotices, unreadPinnedCount } from '@/lib/notices/reads';
+import { useInvalidateNoticeReads, useNoticeReads } from '@/lib/notices/use-notice-reads';
+import { awardStaffXp } from '@/lib/staff/award-xp';
 import { formatTime } from '@/lib/handover/card-utils';
 import { noticeListTitle, noticeTypeShort } from '@/lib/handover/notice-utils';
 import { formatExpiryLabel } from '@/lib/handover/shift-summary';
@@ -27,6 +33,8 @@ import { NoticeDrawer, type NoticeDrawerMode } from './notice-drawer';
 export function NoticesPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
+  const invalidateNoticeReads = useInvalidateNoticeReads();
   const { notices, isLoading, createNotice, updateNotice, deleteNotice, togglePin } = useNotices();
   const { data: isManager = false } = useIsManager();
   const { session, requireSession, authorLabel } = useWorkSession();
@@ -43,8 +51,24 @@ export function NoticesPageClient() {
   const [activeNotice, setActiveNotice] = useState<Notice | null>(null);
   const [defaultType, setDefaultType] = useState<NoticeType>('announcement');
   const [toast, setToast] = useState<string | null>(null);
+  const [staffNames, setStaffNames] = useState<string[]>([]);
+  const recordedReadRef = useRef(new Set<string>());
 
   const channel = getNoticeChannel(channelId);
+  const allPinned = useMemo(() => getPinnedNotices(notices), [notices]);
+  const pinnedIds = useMemo(() => allPinned.map((n) => n.id), [allPinned]);
+  const { data: noticeReads = [] } = useNoticeReads(pinnedIds);
+  const myUnreadPinned = unreadPinnedCount(allPinned, noticeReads, session.name);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase
+      .from('staff')
+      .select('name')
+      .eq('is_active', true)
+      .order('sort_order')
+      .then(({ data }) => setStaffNames((data ?? []).map((row) => row.name)));
+  }, []);
 
   const filtered = useMemo(
     () =>
@@ -98,12 +122,36 @@ export function NoticesPageClient() {
     syncUrl(next);
   }
 
+  async function recordNoticeRead(notice: Notice) {
+    const name = session.name.trim();
+    if (!notice.is_pinned || !name) return;
+
+    const sessionKey = `${notice.id}:${name}`;
+    if (recordedReadRef.current.has(sessionKey)) return;
+
+    const alreadyRead = noticeReads.some((r) => r.notice_id === notice.id && r.staff_name === name);
+    await markNoticeRead(notice.id, name, session.shift);
+    recordedReadRef.current.add(sessionKey);
+    invalidateNoticeReads();
+
+    if (!alreadyRead) {
+      const xp = await awardStaffXp(name, 'read_pinned_notice');
+      if (xp?.leveledUp) showToast(`레벨 업! Lv.${xp.level} 달성`);
+      void queryClient.invalidateQueries({ queryKey: ['staff-xp', DEFAULT_HOTEL_ID] });
+    }
+  }
+
   function openRead(notice: Notice) {
     setActiveNotice(notice);
     setDrawerMode('read');
     setDrawerOpen(true);
     syncUrl(channelId, notice.id);
   }
+
+  useEffect(() => {
+    if (!drawerOpen || drawerMode !== 'read' || !activeNotice) return;
+    void recordNoticeRead(activeNotice);
+  }, [drawerOpen, drawerMode, activeNotice?.id, session.name]);
 
   function openCompose(type: NoticeType = channel.type ?? 'announcement') {
     if (!requireSession('글쓰기')) return;
@@ -213,6 +261,12 @@ export function NoticesPageClient() {
             + 글쓰기
           </button>
         </header>
+
+        {myUnreadPinned > 0 ? (
+          <div className="notice-read-banner" role="status">
+            📌 필독 공지 <strong>{myUnreadPinned}건</strong>을 아직 확인하지 않았습니다. 글을 열면 확인으로 기록됩니다.
+          </div>
+        ) : null}
 
         <div className="project-board__toolbar">
           <div className="project-board__channels" role="tablist" aria-label="분류">
@@ -453,6 +507,8 @@ export function NoticesPageClient() {
         onDelete={handleDelete}
         onTogglePin={handleTogglePin}
         onCreateHandover={handleCreateHandover}
+        activeStaffNames={staffNames}
+        currentStaffName={session.name}
       />
 
       {toast ? <div className="toast toast--project">{toast}</div> : null}

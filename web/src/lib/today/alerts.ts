@@ -1,3 +1,4 @@
+import { isCardDueSoon, isCardOverdue } from '@/lib/handover/card-utils';
 import { isToday } from '@/lib/handover/shift-summary';
 import type { Card } from '@/lib/handover/types';
 import type { HotelEvent } from '@/lib/events/types';
@@ -24,6 +25,7 @@ export function isTodoDueToday(todo: Todo): boolean {
 
 export function buildTodayAlerts(input: {
   unackedUrgent: Card[];
+  cards?: Card[];
   todos: Todo[];
   events: HotelEvent[];
 }): TodayAlertItem[] {
@@ -31,6 +33,9 @@ export function buildTodayAlerts(input: {
   const overdueTodos = input.todos.filter(isTodoOverdue);
   const dueTodayTodos = input.todos.filter((t) => isTodoDueToday(t) && !isTodoOverdue(t));
   const todayVipEvents = input.events.filter((e) => isToday(`${e.event_date}T12:00:00`) && e.category === 'VIP');
+  const activeCards = input.cards ?? [];
+  const overdueCards = activeCards.filter(isCardOverdue);
+  const dueSoonCards = activeCards.filter((c) => isCardDueSoon(c) && !isCardOverdue(c));
 
   if (input.unackedUrgent.length) {
     alerts.push({
@@ -38,6 +43,22 @@ export function buildTodayAlerts(input: {
       label: '미확인 긴급',
       detail: `${input.unackedUrgent.length}건`,
       tone: 'urgent',
+    });
+  }
+  if (overdueCards.length) {
+    alerts.push({
+      id: 'due-overdue-cards',
+      label: '마감 지난 인계',
+      detail: `${overdueCards.length}건`,
+      tone: 'urgent',
+    });
+  }
+  if (dueSoonCards.length) {
+    alerts.push({
+      id: 'due-soon-cards',
+      label: '1시간 내 마감',
+      detail: `${dueSoonCards.length}건`,
+      tone: 'warn',
     });
   }
   if (overdueTodos.length) {

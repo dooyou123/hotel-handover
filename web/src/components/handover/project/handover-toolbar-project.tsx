@@ -131,7 +131,9 @@ export function HandoverToolbarProject(props: HandoverToolbarProjectProps) {
               className={[
                 'project-handover-toolbar__filter',
                 quickFilter === filter.id ? 'is-active' : '',
-                filter.id === 'unacked' ? 'project-handover-toolbar__filter--warn' : '',
+                filter.id === 'unacked' || filter.id === 'due-overdue' || filter.id === 'due-soon'
+                  ? 'project-handover-toolbar__filter--warn'
+                  : '',
               ]
                 .filter(Boolean)
                 .join(' ')}

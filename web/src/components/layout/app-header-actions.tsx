@@ -19,9 +19,9 @@ export function AppHeaderActions() {
             type="button"
             className="btn btn--ghost btn--small header__room-search"
             onClick={() => setRoomSearchOpen(true)}
-            aria-label="객실 검색"
+            aria-label="통합 검색"
           >
-            🔍 객실
+            🔍 검색
           </button>
           <FeedbackButton />
         </div>

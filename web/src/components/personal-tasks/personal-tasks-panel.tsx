@@ -1,10 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { PromotePersonalTaskModal } from '@/components/personal-tasks/promote-personal-task-modal';
+import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { useWorkSession } from '@/lib/handover/use-work-session';
-import { usePersonalTasks } from '@/lib/personal-tasks/use-personal-tasks';
 import type { PersonalTask } from '@/lib/personal-tasks/types';
+import { usePersonalTasks } from '@/lib/personal-tasks/use-personal-tasks';
+import { createClient } from '@/lib/supabase/client';
+import { promotePersonalTaskToTeamTodo } from '@/lib/todos/promote-personal-task';
 
 type PersonalTasksPanelProps = {
   variant?: 'aside' | 'page';
@@ -24,12 +29,26 @@ function isOverdue(task: PersonalTask): boolean {
 }
 
 export function PersonalTasksPanel({ variant = 'page', onToast }: PersonalTasksPanelProps) {
-  const { session, requireSession } = useWorkSession();
+  const queryClient = useQueryClient();
+  const { session, requireSession, authorLabel } = useWorkSession();
   const staffName = session.name;
   const { tasks, isLoading, schemaMissing, createTask, toggleTask, deleteTask } = usePersonalTasks(staffName);
   const [draft, setDraft] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [showDone, setShowDone] = useState(false);
+  const [promoteTask, setPromoteTask] = useState<PersonalTask | null>(null);
+  const [promoteBusy, setPromoteBusy] = useState(false);
+  const [staffNames, setStaffNames] = useState<string[]>([]);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase
+      .from('staff')
+      .select('name')
+      .eq('is_active', true)
+      .order('sort_order')
+      .then(({ data }) => setStaffNames((data ?? []).map((row) => row.name)));
+  }, []);
 
   const openTasks = tasks.filter((task) => task.status === 'open');
   const doneTasks = tasks.filter((task) => task.status === 'done');
@@ -123,6 +142,18 @@ export function PersonalTasksPanel({ variant = 'page', onToast }: PersonalTasksP
                   <time className="personal-tasks__due">{formatDue(task.due_date)}</time>
                 ) : null}
               </div>
+              {task.status === 'open' ? (
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--small"
+                  onClick={() => {
+                    if (!requireSession('팀 업무 공유')) return;
+                    setPromoteTask(task);
+                  }}
+                >
+                  팀 공유
+                </button>
+              ) : null}
               {!compact ? (
                 <button
                   type="button"
@@ -149,6 +180,36 @@ export function PersonalTasksPanel({ variant = 'page', onToast }: PersonalTasksP
           완료 항목 포함 ({doneTasks.length})
         </label>
       ) : null}
+
+      <PromotePersonalTaskModal
+        open={Boolean(promoteTask)}
+        task={promoteTask}
+        author={authorLabel || staffName}
+        defaultShift={session.group}
+        defaultName={staffName}
+        staffNames={staffNames}
+        busy={promoteBusy}
+        onClose={() => setPromoteTask(null)}
+        onSubmit={async (input) => {
+          if (!promoteTask) return;
+          setPromoteBusy(true);
+          try {
+            await promotePersonalTaskToTeamTodo(promoteTask, {
+              author: authorLabel || staffName,
+              ...input,
+            });
+            await queryClient.invalidateQueries({ queryKey: ['todos', DEFAULT_HOTEL_ID] });
+            await queryClient.invalidateQueries({ queryKey: ['personal-tasks'] });
+            setPromoteTask(null);
+            onToast?.('팀 업무 일정에 등록했습니다.');
+          } catch (caught) {
+            onToast?.(caught instanceof Error ? caught.message : '팀 공유에 실패했습니다.');
+            throw caught;
+          } finally {
+            setPromoteBusy(false);
+          }
+        }}
+      />
     </section>
   );
 }

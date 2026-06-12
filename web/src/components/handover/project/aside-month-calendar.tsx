@@ -1,9 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { todayDateString } from '@/lib/handover/shift-summary';
 import type { HotelEvent } from '@/lib/events/types';
 import { useMonthEvents } from '@/lib/events/use-events';
+import type { Todo } from '@/lib/todos/types';
+import { formatEventTimeRange } from '@/lib/work-items/merge';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'] as const;
 
@@ -18,22 +20,46 @@ function formatMonthLabel(month: string): string {
   return `${year}년 ${mon}월`;
 }
 
+function formatSelectedDateLabel(date: string): string {
+  const parsed = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return parsed.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
+}
+
 type AsideMonthCalendarProps = {
+  todos?: Todo[];
   onOpenEvent?: (event: HotelEvent) => void;
+  onOpenTodo?: (todo: Todo) => void;
 };
 
-export function AsideMonthCalendar({ onOpenEvent }: AsideMonthCalendarProps) {
+export function AsideMonthCalendar({ todos = [], onOpenEvent, onOpenTodo }: AsideMonthCalendarProps) {
   const today = todayDateString();
   const todayMonth = today.slice(0, 7);
   const [month, setMonth] = useState(() => todayMonth);
+  const [selectedDate, setSelectedDate] = useState(today);
   const { events } = useMonthEvents(month);
-  const { events: todayMonthEvents } = useMonthEvents(month === todayMonth ? '' : todayMonth);
 
-  const eventDates = useMemo(() => {
-    const set = new Set<string>();
-    events.forEach((event) => set.add(event.event_date));
-    return set;
-  }, [events]);
+  const dayCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    events.forEach((event) => {
+      counts.set(event.event_date, (counts.get(event.event_date) ?? 0) + 1);
+    });
+    todos.forEach((todo) => {
+      if (!todo.due_date || !todo.due_date.startsWith(month)) return;
+      counts.set(todo.due_date, (counts.get(todo.due_date) ?? 0) + 1);
+    });
+    return counts;
+  }, [events, todos, month]);
+
+  const selectedEvents = useMemo(
+    () => events.filter((event) => event.event_date === selectedDate),
+    [events, selectedDate],
+  );
+
+  const selectedTodos = useMemo(
+    () => todos.filter((todo) => todo.due_date === selectedDate),
+    [todos, selectedDate],
+  );
 
   const cells = useMemo(() => {
     const [year, mon] = month.split('-').map(Number);
@@ -52,9 +78,15 @@ export function AsideMonthCalendar({ onOpenEvent }: AsideMonthCalendarProps) {
     return items;
   }, [month]);
 
-  const todayEvents = (month === todayMonth ? events : todayMonthEvents).filter(
-    (event) => event.event_date === today,
-  );
+  useEffect(() => {
+    setSelectedDate((current) => {
+      if (current.startsWith(month)) return current;
+      if (today.startsWith(month)) return today;
+      return `${month}-01`;
+    });
+  }, [month, today]);
+
+  const selectedCount = selectedEvents.length + selectedTodos.length;
 
   return (
     <section className="aside-card aside-card--calendar">
@@ -77,42 +109,78 @@ export function AsideMonthCalendar({ onOpenEvent }: AsideMonthCalendarProps) {
         ))}
       </div>
 
-      <div className="aside-month-cal__grid">
+      <div className="aside-month-cal__grid" role="grid" aria-label={`${formatMonthLabel(month)} 달력`}>
         {cells.map((cell) => {
+          if (!cell.date || cell.day == null) {
+            return <span key={cell.key} className="aside-month-cal__day is-empty" aria-hidden />;
+          }
+
           const isToday = cell.date === today;
-          const hasEvent = cell.date ? eventDates.has(cell.date) : false;
+          const isSelected = cell.date === selectedDate;
+          const count = dayCounts.get(cell.date) ?? 0;
+          const hasItems = count > 0;
+
           return (
-            <span
+            <button
               key={cell.key}
+              type="button"
+              role="gridcell"
+              aria-label={`${cell.day}일${hasItems ? ` · 일정 ${count}건` : ''}${isToday ? ' · 오늘' : ''}`}
+              aria-pressed={isSelected}
               className={[
                 'aside-month-cal__day',
-                cell.day ? '' : 'is-empty',
                 isToday ? 'is-today' : '',
-                hasEvent ? 'has-event' : '',
+                isSelected ? 'is-selected' : '',
+                hasItems ? 'has-event' : '',
               ]
                 .filter(Boolean)
                 .join(' ')}
+              onClick={() => setSelectedDate(cell.date!)}
             >
-              {cell.day ?? ''}
-            </span>
+              <span className="aside-month-cal__day-num">{cell.day}</span>
+              {hasItems ? <span className="aside-month-cal__day-badge">{count}</span> : null}
+            </button>
           );
         })}
       </div>
 
-      {todayEvents.length ? (
-        <ul className="aside-month-cal__today-list">
-          {todayEvents.slice(0, 3).map((event) => (
-            <li key={event.id}>
-              <button type="button" className="aside-month-cal__today-item" onClick={() => onOpenEvent?.(event)}>
-                <span>{event.title}</span>
-                {event.start_time ? <time>{event.start_time.slice(0, 5)}</time> : null}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="aside-month-cal__empty">오늘 등록된 업무 일정이 없습니다.</p>
-      )}
+      <div className="aside-month-cal__detail">
+        <h4 className="aside-month-cal__detail-title">
+          {formatSelectedDateLabel(selectedDate)}
+          {selectedCount ? <span className="aside-month-cal__detail-count">{selectedCount}건</span> : null}
+        </h4>
+
+        {selectedCount ? (
+          <ul className="aside-month-cal__day-list">
+            {selectedEvents.map((event) => (
+              <li key={`event-${event.id}`}>
+                <button type="button" className="aside-month-cal__day-item" onClick={() => onOpenEvent?.(event)}>
+                  <span className="aside-month-cal__day-item-kind aside-month-cal__day-item-kind--event">
+                    {event.category || '일정'}
+                  </span>
+                  <span className="aside-month-cal__day-item-body">
+                    <strong>{event.title}</strong>
+                    <time>{formatEventTimeRange(event.start_time, event.end_time)}</time>
+                  </span>
+                </button>
+              </li>
+            ))}
+            {selectedTodos.map((todo) => (
+              <li key={`todo-${todo.id}`}>
+                <button type="button" className="aside-month-cal__day-item" onClick={() => onOpenTodo?.(todo)}>
+                  <span className="aside-month-cal__day-item-kind aside-month-cal__day-item-kind--todo">할일</span>
+                  <span className="aside-month-cal__day-item-body">
+                    <strong>{todo.title}</strong>
+                    <span>{todo.status === 'done' ? '완료' : '미완료'}</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="aside-month-cal__empty">선택한 날짜에 등록된 일정이 없습니다.</p>
+        )}
+      </div>
     </section>
   );
 }

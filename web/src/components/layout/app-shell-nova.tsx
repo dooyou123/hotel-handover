@@ -5,7 +5,9 @@ import { TodayStaffBar } from '@/components/schedule/today-staff-bar';
 import { TodayTaxiBar } from '@/components/transport/today-taxi-bar';
 import { NavRouteGuard } from '@/components/layout/nav-route-guard';
 import { OpsBootstrap } from '@/components/layout/ops-bootstrap';
+import { AppTicker } from '@/components/layout/app-ticker';
 import { SessionBar } from '@/components/layout/session-bar';
+import { SessionScheduleMismatchBanner } from '@/components/schedule/session-schedule-mismatch-banner';
 
 type AppShellNovaProps = {
   email: string;
@@ -43,6 +45,8 @@ export function AppShellNova({ email, children }: AppShellNovaProps) {
               <AppHeaderActions />
             </div>
           </header>
+          <SessionScheduleMismatchBanner />
+          <AppTicker />
           <TodayTaxiBar />
         </div>
         <main className="nova-content">

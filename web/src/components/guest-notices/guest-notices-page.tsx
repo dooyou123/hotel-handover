@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { GuestNoticeFrontMode } from '@/components/guest-notices/guest-notice-front-mode';
 import { useWorkSession } from '@/lib/handover/use-work-session';
 import { printGuestNotice } from '@/lib/guest-notices/print';
 import {
@@ -333,6 +335,10 @@ function GuestNoticeDrawer({
 }
 
 export function GuestNoticesPageClient() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const frontMode = searchParams.get('mode') === 'front';
+  const frontNoticeId = searchParams.get('id');
   const { requireSession, authorLabel, session } = useWorkSession();
   const { notices, isLoading, error, saveNotice, deleteNotice, logAction } = useGuestNotices();
   const [statusFilter, setStatusFilter] = useState<'all' | GuestNoticeStatus>('published');
@@ -371,19 +377,40 @@ export function GuestNoticesPageClient() {
     setDrawerOpen(true);
   }
 
-  async function handleLog(noticeId: string, action: 'viewed' | 'printed' | 'confirmed') {
-    if (!session.name) return;
-    try {
-      await logAction.mutateAsync({
-        noticeId,
-        action,
-        staffName: session.name,
-        workGroup: session.group,
-      });
-      if (action === 'confirmed') showToast('확인 기록을 남겼습니다.');
-    } catch {
-      /* non-blocking */
-    }
+  const handleLog = useCallback(
+    async (noticeId: string, action: 'viewed' | 'printed' | 'confirmed') => {
+      if (!session.name) return;
+      try {
+        await logAction.mutateAsync({
+          noticeId,
+          action,
+          staffName: session.name,
+          workGroup: session.group,
+        });
+        if (action === 'confirmed') showToast('확인 기록을 남겼습니다.');
+      } catch {
+        /* non-blocking */
+      }
+    },
+    [logAction, session.group, session.name],
+  );
+
+  if (frontMode) {
+    return (
+      <>
+        {isLoading ? (
+          <p className="empty-state">불러오는 중…</p>
+        ) : (
+          <GuestNoticeFrontMode
+            notices={notices}
+            initialNoticeId={frontNoticeId}
+            onExit={() => router.push('/guest-notices')}
+            onLog={handleLog}
+          />
+        )}
+        {toast ? <div className="toast">{toast}</div> : null}
+      </>
+    );
   }
 
   return (
@@ -394,9 +421,14 @@ export function GuestNoticesPageClient() {
             <h2>고객 안내</h2>
             <p>고객 안내문·공사 공지를 작성하고, 출력·확인 기록을 남깁니다.</p>
           </div>
-          <button type="button" className="btn btn--primary" onClick={openCreate}>
-            + 안내문 작성
-          </button>
+          <div className="guest-notices-page__header-actions">
+            <button type="button" className="btn btn--ghost" onClick={() => router.push('/guest-notices?mode=front')}>
+              프런트 모드
+            </button>
+            <button type="button" className="btn btn--primary" onClick={openCreate}>
+              + 안내문 작성
+            </button>
+          </div>
         </div>
 
         <div className="guest-notices-toolbar">
