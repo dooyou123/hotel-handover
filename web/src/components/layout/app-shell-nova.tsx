@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { AppNav } from '@/components/layout/app-nav';
 import { AppHeaderActions } from '@/components/layout/app-header-actions';
 import { TodayStaffBar } from '@/components/schedule/today-staff-bar';
+import { TodayTaxiBar } from '@/components/transport/today-taxi-bar';
 import { NavRouteGuard } from '@/components/layout/nav-route-guard';
 import { OpsBootstrap } from '@/components/layout/ops-bootstrap';
 import { SessionBar } from '@/components/layout/session-bar';
@@ -26,9 +27,6 @@ export function AppShellNova({ email, children }: AppShellNovaProps) {
         </div>
         <AppNav variant="nova" />
         <div className="nova-sidebar__foot">
-          <Link href="/sop" className="nova-sidebar__foot-link">
-            SOP
-          </Link>
           <Link href="/help" className="nova-sidebar__foot-link">
             도움말
           </Link>
@@ -37,13 +35,16 @@ export function AppShellNova({ email, children }: AppShellNovaProps) {
 
       <div className="nova-main">
         <NavRouteGuard />
-        <header className="nova-topbar">
-          <TodayStaffBar variant="compact" />
-          <div className="nova-topbar__end">
-            <SessionBar email={email} />
-            <AppHeaderActions />
-          </div>
-        </header>
+        <div className="nova-topbar-stack">
+          <header className="nova-topbar">
+            <TodayStaffBar variant="compact" />
+            <div className="nova-topbar__end">
+              <SessionBar email={email} />
+              <AppHeaderActions />
+            </div>
+          </header>
+          <TodayTaxiBar />
+        </div>
         <main className="nova-content">
           <OpsBootstrap>{children}</OpsBootstrap>
         </main>

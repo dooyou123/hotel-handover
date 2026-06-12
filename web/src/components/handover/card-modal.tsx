@@ -1,22 +1,40 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { CARD_COLUMN_OPTIONS, CATEGORY_OPTIONS, COLUMN_LABELS, PRIORITY_LABELS } from '@/lib/handover/constants';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  CARD_COLUMN_OPTIONS,
+  CATEGORY_OPTIONS,
+  COLUMN_LABELS,
+  HANDOVER_COLUMNS,
+  PRIORITY_HINTS,
+  PRIORITY_LABELS,
+} from '@/lib/handover/constants';
+import {
+  cardFormSnapshotsEqual,
+  clearCardCreateDraft,
+  hasCardDraftContent,
+  loadCardCreateDraft,
+  saveCardCreateDraft,
+  type CardFormSnapshot,
+} from '@/lib/handover/card-draft';
 import { parseDueAt, toDateInputValue, toTimeInputValue } from '@/lib/handover/card-utils';
 import { WORK_GROUPS, formatWorkGroupLabel } from '@/lib/constants';
 import type { Card, CardAttachment, CardInput, ColumnId, Priority } from '@/lib/handover/types';
 import type { Todo } from '@/lib/todos/types';
-import { formatTime } from '@/lib/handover/card-utils';
 import { useCardTemplates, type CardTemplate } from '@/lib/settings/use-settings';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
-import { SopSuggestions } from '@/components/sop/sop-suggestions';
+import { CardCommentComposer } from './card-comment-composer';
+import { CardCommentItem } from './card-comment-item';
 import { RoutineTemplateBar } from './routine-template-bar';
 import { TemplateBar } from './template-bar';
+
+type CardModalView = 'full' | 'comments';
 
 type CardModalProps = {
   open: boolean;
   card: Card | null;
+  view?: CardModalView;
   createDraft?: CardInput | null;
   linkedTodo?: Todo | null;
   authorLabel: string;
@@ -28,15 +46,18 @@ type CardModalProps = {
   onSave: (input: CardInput, id?: string, options?: { pendingFiles?: File[] }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onAddComment?: (cardId: string, content: string) => Promise<void>;
+  onUpdateComment?: (cardId: string, commentId: string, content: string) => Promise<void>;
+  onDeleteComment?: (cardId: string, commentId: string) => Promise<void>;
   onUploadAttachment?: (cardId: string, file: File) => Promise<void>;
   onDeleteAttachment?: (attachment: CardAttachment) => Promise<void>;
   onCreateTodo?: () => void | Promise<void>;
+  onSwitchToFull?: () => void;
   requireSession?: (action: string) => boolean;
 };
 
 const emptyForm = (): CardInput => ({
   column_id: 'progress',
-  priority: 'urgent',
+  priority: 'today',
   category: '기타',
   room: '',
   title: '',
@@ -52,6 +73,7 @@ const emptyForm = (): CardInput => ({
 export function CardModal({
   open,
   card,
+  view = 'full',
   createDraft,
   linkedTodo,
   authorLabel,
@@ -63,23 +85,56 @@ export function CardModal({
   onSave,
   onDelete,
   onAddComment,
+  onUpdateComment,
+  onDeleteComment,
   onUploadAttachment,
   onDeleteAttachment,
   onCreateTodo,
+  onSwitchToFull,
   requireSession,
 }: CardModalProps) {
   const [form, setForm] = useState<CardInput>(emptyForm);
   const [dueDate, setDueDate] = useState('');
   const [dueTime, setDueTime] = useState('');
-  const [commentInput, setCommentInput] = useState('');
   const [commentLoading, setCommentLoading] = useState(false);
   const [attachmentLoading, setAttachmentLoading] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [pendingPreviewUrls, setPendingPreviewUrls] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const initialSnapshotRef = useRef<CardFormSnapshot | null>(null);
+  const overlayPointerDownRef = useRef(false);
   const { data: templates = [] } = useCardTemplates();
   const { confirm } = useConfirmDialog();
+
+  const isDirty = useCallback(() => {
+    if (!initialSnapshotRef.current) return false;
+    return !cardFormSnapshotsEqual(initialSnapshotRef.current, { form, dueDate, dueTime });
+  }, [form, dueDate, dueTime]);
+
+  const requestClose = useCallback(async () => {
+    if (isDirty()) {
+      const ok = await confirm({
+        title: '작성 중인 내용',
+        message: '저장하지 않고 닫으면 입력한 내용이 사라집니다.',
+        detail: '브라우저에 임시 저장된 새 글은 다음에 「인수인계 추가」를 열면 다시 불러올 수 있습니다.',
+        tone: 'warning',
+        confirmLabel: '닫기',
+        cancelLabel: '계속 작성',
+      });
+      if (!ok) return;
+      if (!card && hasCardDraftContent(form)) {
+        saveCardCreateDraft({
+          form,
+          dueDate,
+          dueTime,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    }
+    onClose();
+  }, [isDirty, confirm, onClose, card, form, dueDate, dueTime]);
 
   function applyTemplate(template: CardTemplate) {
     setForm((prev) => ({
@@ -96,11 +151,11 @@ export function CardModal({
   useEffect(() => {
     if (!open) return;
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') void requestClose();
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open, onClose]);
+  }, [open, requestClose]);
 
   useEffect(() => {
     if (!open) return;
@@ -113,8 +168,14 @@ export function CardModal({
 
   useEffect(() => {
     if (!open) return;
+    setDraftRestored(false);
+
+    let nextForm: CardInput;
+    let nextDueDate = '';
+    let nextDueTime = '';
+
     if (card) {
-      setForm({
+      nextForm = {
         column_id: card.column_id,
         priority: card.priority,
         category: card.category,
@@ -127,22 +188,47 @@ export function CardModal({
         assignee_shift: card.assignee_shift,
         assignee_name: card.assignee_name,
         due_at: card.due_at,
-      });
-      setDueDate(card.due_at ? toDateInputValue(card.due_at) : '');
-      setDueTime(card.due_at ? toTimeInputValue(card.due_at) : '');
-    } else {
-      const base = createDraft ?? emptyForm();
-      setForm({
+      };
+      nextDueDate = card.due_at ? toDateInputValue(card.due_at) : '';
+      nextDueTime = card.due_at ? toTimeInputValue(card.due_at) : '';
+    } else if (createDraft) {
+      const base = createDraft;
+      nextForm = {
         ...base,
         author: base.author || authorLabel,
         assignee_shift: base.assignee_shift || defaultShift,
         assignee_name: base.assignee_name || defaultName,
-      });
-      setDueDate(base.due_at ? toDateInputValue(base.due_at) : '');
-      setDueTime(base.due_at ? toTimeInputValue(base.due_at) : '');
+      };
+      nextDueDate = base.due_at ? toDateInputValue(base.due_at) : '';
+      nextDueTime = base.due_at ? toTimeInputValue(base.due_at) : '';
+    } else {
+      const stored = loadCardCreateDraft();
+      if (stored && hasCardDraftContent(stored.form)) {
+        nextForm = {
+          ...stored.form,
+          author: stored.form.author || authorLabel,
+          assignee_shift: stored.form.assignee_shift || defaultShift,
+          assignee_name: stored.form.assignee_name || defaultName,
+        };
+        nextDueDate = stored.dueDate;
+        nextDueTime = stored.dueTime;
+        setDraftRestored(true);
+      } else {
+        const base = emptyForm();
+        nextForm = {
+          ...base,
+          author: authorLabel,
+          assignee_shift: defaultShift,
+          assignee_name: defaultName,
+        };
+      }
     }
+
+    setForm(nextForm);
+    setDueDate(nextDueDate);
+    setDueTime(nextDueTime);
+    initialSnapshotRef.current = { form: nextForm, dueDate: nextDueDate, dueTime: nextDueTime };
     setError(null);
-    setCommentInput('');
     setPendingFiles([]);
     setPendingPreviewUrls((urls) => {
       urls.forEach((url) => URL.revokeObjectURL(url));
@@ -150,24 +236,21 @@ export function CardModal({
     });
   }, [open, card, createDraft, authorLabel, defaultShift, defaultName]);
 
-  if (!open) return null;
+  useEffect(() => {
+    if (!open || card) return;
+    if (!hasCardDraftContent(form)) return;
+    const timer = window.setTimeout(() => {
+      saveCardCreateDraft({
+        form,
+        dueDate,
+        dueTime,
+        updatedAt: new Date().toISOString(),
+      });
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [open, card, form, dueDate, dueTime]);
 
-  async function submitComment() {
-    if (!card || !onAddComment) return;
-    if (requireSession && !requireSession('댓글')) return;
-    const content = commentInput.trim();
-    if (!content) return;
-    setCommentLoading(true);
-    setError(null);
-    try {
-      await onAddComment(card.id, content);
-      setCommentInput('');
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '댓글 등록에 실패했습니다.');
-    } finally {
-      setCommentLoading(false);
-    }
-  }
+  if (!open) return null;
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -204,6 +287,7 @@ export function CardModal({
         card?.id,
         card ? undefined : { pendingFiles },
       );
+      if (!card) clearCardCreateDraft();
       onClose();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '저장에 실패했습니다.');
@@ -282,7 +366,8 @@ export function CardModal({
     addPendingFile(file);
   }
 
-  const panelTitle = card ? '인수인계 수정' : '새 인수인계';
+  const commentsOnly = view === 'comments' && !!card;
+  const panelTitle = commentsOnly ? '댓글' : card ? '인수인계 수정' : '새 인수인계';
 
   const statusFields = (
     <div className="form-grid form-grid--compact">
@@ -291,6 +376,7 @@ export function CardModal({
         <select
           value={form.priority}
           onChange={(event) => setForm({ ...form, priority: event.target.value as Priority })}
+          aria-describedby="card-priority-hint"
         >
           {Object.entries(PRIORITY_LABELS).map(([value, label]) => (
             <option key={value} value={value}>
@@ -298,19 +384,26 @@ export function CardModal({
             </option>
           ))}
         </select>
+        <span id="card-priority-hint" className="field-hint">
+          {PRIORITY_HINTS[form.priority]}
+        </span>
       </label>
       <label className="field">
         <span>칸</span>
         <select
           value={form.column_id}
           onChange={(event) => setForm({ ...form, column_id: event.target.value as ColumnId })}
+          aria-describedby="card-column-hint"
         >
-                {CARD_COLUMN_OPTIONS.map((column) => (
+          {CARD_COLUMN_OPTIONS.map((column) => (
             <option key={column.id} value={column.id}>
               {column.title}
             </option>
           ))}
         </select>
+        <span id="card-column-hint" className="field-hint">
+          {HANDOVER_COLUMNS.find((column) => column.id === form.column_id)?.hint}
+        </span>
       </label>
       <label className="field">
         <span>카테고리</span>
@@ -354,7 +447,6 @@ export function CardModal({
           placeholder="상황·배경을 구체적으로 적어 주세요"
         />
       </label>
-      <SopSuggestions title={form.title} details={form.details} category={form.category} />
       {form.column_id === 'done' ? (
         <label className="field">
           <span>처리 결과 *</span>
@@ -431,34 +523,44 @@ export function CardModal({
           {[...card.card_comments]
             .sort((a, b) => a.created_at.localeCompare(b.created_at))
             .map((comment) => (
-              <div key={comment.id} className="card-comment">
-                <p className="card-comment__content">{comment.content}</p>
-                <p className="card-comment__meta">
-                  {comment.shift} · {comment.staff_name} · {formatTime(comment.created_at)}
-                </p>
-              </div>
+              <CardCommentItem
+                key={comment.id}
+                comment={comment}
+                canManage={isManager || comment.staff_name === defaultName}
+                disabled={commentLoading}
+                onUpdate={async (content) => {
+                  if (!onUpdateComment) return;
+                  await onUpdateComment(card.id, comment.id, content);
+                }}
+                onDelete={async () => {
+                  if (!onDeleteComment) return;
+                  await onDeleteComment(card.id, comment.id);
+                }}
+              />
             ))}
         </div>
-      ) : (
-        <p className="card-extra__empty">아직 댓글이 없습니다.</p>
-      )}
-      <div className="card-comment-form">
-        <input
-          value={commentInput}
-          onChange={(event) => setCommentInput(event.target.value)}
-          placeholder="예: 23:40 엔지니어링 도착"
+      ) : null}
+      {onAddComment ? (
+        <CardCommentComposer
+          staffName={defaultName}
+          placeholder="댓글을 입력하세요…"
           disabled={commentLoading}
-          onKeyDown={async (event) => {
-            if (event.key === 'Enter') {
-              event.preventDefault();
-              await submitComment();
+          onSubmit={async (content) => {
+            if (!card) return;
+            if (requireSession && !requireSession('댓글')) return;
+            setCommentLoading(true);
+            setError(null);
+            try {
+              await onAddComment(card.id, content);
+            } catch (caught) {
+              setError(caught instanceof Error ? caught.message : '댓글 등록에 실패했습니다.');
+              throw caught;
+            } finally {
+              setCommentLoading(false);
             }
           }}
         />
-        <button type="button" disabled={commentLoading} onClick={submitComment} className="btn btn--ghost btn--small">
-          등록
-        </button>
-      </div>
+      ) : null}
     </section>
   ) : null;
 
@@ -594,7 +696,7 @@ export function CardModal({
         ) : null}
       </div>
       <div className="modal__footer-right">
-        <button type="button" onClick={onClose} className="btn btn--ghost">
+        <button type="button" onClick={() => void requestClose()} className="btn btn--ghost">
           취소
         </button>
         <button type="submit" disabled={saving} className="btn btn--primary">
@@ -604,48 +706,109 @@ export function CardModal({
     </div>
   );
 
+  const commentsFooter = (
+    <div className="modal__footer">
+      <div className="modal__footer-left">
+        {onSwitchToFull ? (
+          <button type="button" onClick={onSwitchToFull} className="btn btn--ghost btn--small">
+            인수인계 전체
+          </button>
+        ) : null}
+      </div>
+      <div className="modal__footer-right">
+        <button type="button" onClick={() => void requestClose()} className="btn btn--primary">
+          닫기
+        </button>
+      </div>
+    </div>
+  );
+
+  const panelBody = commentsOnly ? (
+    <>
+      {commentBlock}
+      {error ? <p className="amenity-alert drawer-section__error">{error}</p> : null}
+    </>
+  ) : card ? (
+    drawerFormFields
+  ) : (
+    createDrawerFields
+  );
+
+  const panelHeader = (
+    <div className="drawer-panel__header modal__header">
+      <div className="drawer-panel__heading">
+        {card ? (
+          <>
+            {!commentsOnly ? (
+              <div className="drawer-panel__chips">
+                <span className="drawer-chip">{PRIORITY_LABELS[form.priority]}</span>
+                <span className="drawer-chip">{COLUMN_LABELS[form.column_id]}</span>
+                {form.room ? <span className="drawer-chip drawer-chip--room">객실 {form.room}</span> : null}
+              </div>
+            ) : null}
+            <h2 id="card-panel-title" className="drawer-panel__title">
+              {form.title.trim() || '제목 없음'}
+            </h2>
+            <p className="drawer-panel__mode">{panelTitle}</p>
+          </>
+        ) : (
+          <>
+            <h2 id="card-panel-title" className="drawer-panel__title">
+              {panelTitle}
+            </h2>
+            <p className="drawer-panel__mode">
+              {createDraft ? '게시판 글에서 불러왔습니다' : '인수인계 항목을 등록합니다'}
+            </p>
+          </>
+        )}
+      </div>
+      <button type="button" className="icon-btn" onClick={() => void requestClose()} aria-label="닫기">
+        ✕
+      </button>
+    </div>
+  );
+
   return (
-    <div className="drawer-overlay" onClick={onClose}>
+    <div
+      className="drawer-overlay"
+      onPointerDown={(event) => {
+        if (event.target === event.currentTarget) overlayPointerDownRef.current = true;
+      }}
+      onPointerUp={(event) => {
+        if (event.target === event.currentTarget && overlayPointerDownRef.current) {
+          void requestClose();
+        }
+        overlayPointerDownRef.current = false;
+      }}
+    >
       <aside
-        className="drawer-panel drawer-panel--card"
+        className={`drawer-panel drawer-panel--card${commentsOnly ? ' drawer-panel--comments' : ''}`}
+        onPointerDown={() => {
+          overlayPointerDownRef.current = false;
+        }}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="card-panel-title"
       >
-        <form noValidate onSubmit={handleSubmit} className="drawer-panel__form">
-          <div className="drawer-panel__header modal__header">
-            <div className="drawer-panel__heading">
-              {card ? (
-                <>
-                  <div className="drawer-panel__chips">
-                    <span className="drawer-chip">{PRIORITY_LABELS[form.priority]}</span>
-                    <span className="drawer-chip">{COLUMN_LABELS[form.column_id]}</span>
-                    {form.room ? <span className="drawer-chip drawer-chip--room">객실 {form.room}</span> : null}
-                  </div>
-                  <h2 id="card-panel-title" className="drawer-panel__title">
-                    {form.title.trim() || '제목 없음'}
-                  </h2>
-                  <p className="drawer-panel__mode">{panelTitle}</p>
-                </>
-              ) : (
-                <>
-                  <h2 id="card-panel-title" className="drawer-panel__title">
-                    {panelTitle}
-                  </h2>
-                  <p className="drawer-panel__mode">
-                    {createDraft ? '게시판 글에서 불러왔습니다' : '인수인계 항목을 등록합니다'}
-                  </p>
-                </>
-              )}
-            </div>
-            <button type="button" className="icon-btn" onClick={onClose} aria-label="닫기">
-              ✕
-            </button>
+        {commentsOnly ? (
+          <div className="drawer-panel__form">
+            {panelHeader}
+            <div className="drawer-panel__body">{panelBody}</div>
+            {commentsFooter}
           </div>
-          <div className="drawer-panel__body">{card ? drawerFormFields : createDrawerFields}</div>
-          {formFooter}
-        </form>
+        ) : (
+          <form noValidate onSubmit={handleSubmit} className="drawer-panel__form">
+            {panelHeader}
+            {draftRestored ? (
+              <p className="card-draft-notice" role="status">
+                이전에 작성하던 내용을 불러왔습니다. 저장하면 임시 저장본이 지워집니다.
+              </p>
+            ) : null}
+            <div className="drawer-panel__body">{panelBody}</div>
+            {formFooter}
+          </form>
+        )}
       </aside>
     </div>
   );

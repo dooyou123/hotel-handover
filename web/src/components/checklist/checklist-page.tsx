@@ -13,6 +13,7 @@ import { useWorkSession } from '@/lib/handover/use-work-session';
 import { createClient } from '@/lib/supabase/client';
 import { DEFAULT_HOTEL_ID, formatShiftChecklistTitle } from '@/lib/constants';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
+import { NightRegisterPanel } from '@/components/checklist/night-register-panel';
 
 function formatWorkDate(value: string): string {
   const date = new Date(`${value}T00:00:00`);
@@ -104,8 +105,9 @@ function ChecklistColumn({
 }
 
 export function ChecklistPageClient() {
-  const { session, requireSession } = useWorkSession();
+  const { session, requireSession, authorLabel } = useWorkSession();
   const { confirm } = useConfirmDialog();
+  const [toast, setToast] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { group } = session;
   const shift = session.shift || group;
@@ -192,8 +194,8 @@ export function ChecklistPageClient() {
         <div>
           <h2>Shift Check List</h2>
           <p>
-            현재 조({formatShiftChecklistTitle(group)}) 항목을 순서대로 확인합니다. Excel 시트와 동일한
-            A·B·C조 체크리스트입니다.
+            현재 조({formatShiftChecklistTitle(group)}) 항목을 순서대로 확인합니다. Excel Shift Check List와
+            동일한 A·B·C조 체크리스트{group === 'C' ? ' · C조는 하단 야간 마감·레지스터 메모를 함께 기록합니다' : ''}입니다.
           </p>
         </div>
         <Link href="/settings" className="btn btn--ghost">
@@ -251,6 +253,20 @@ export function ChecklistPageClient() {
           />
         </div>
       )}
+
+      {group === 'C' && data?.work_date ? (
+        <NightRegisterPanel
+          workDate={data.work_date}
+          authorLabel={authorLabel}
+          requireSession={requireSession}
+          onSaved={(message) => {
+            setToast(message);
+            window.setTimeout(() => setToast(null), 2500);
+          }}
+        />
+      ) : null}
+
+      {toast ? <div className="toast">{toast}</div> : null}
     </section>
   );
 }

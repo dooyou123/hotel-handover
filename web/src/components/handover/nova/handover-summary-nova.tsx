@@ -24,15 +24,16 @@ export function HandoverSummaryNova({
   activeFilter,
   onFilterSelect,
 }: HandoverSummaryNovaProps) {
-  const doneCount = totalCount - data.urgentActive.length - data.progressActive.length;
-
   const tiles: Tile[] = [
     { id: 'urgent', label: '긴급', count: data.urgentActive.length, tone: 'urgent' },
     ...(data.unackedUrgent.length > 0
       ? [{ id: 'unacked', label: '미확인 긴급', count: data.unackedUrgent.length, tone: 'warn' as const, filter: 'unacked' as const }]
       : []),
     { id: 'progress', label: '진행중', count: data.progressActive.length, tone: 'progress' },
-    { id: 'done', label: '완료', count: doneCount, tone: 'done' },
+    ...(data.holdActive.length > 0
+      ? [{ id: 'hold', label: '보류', count: data.holdActive.length, tone: 'progress' as const }]
+      : []),
+    { id: 'done', label: '완료', count: data.boardDoneCount, tone: 'done' },
     { id: 'all', label: '전체', count: totalCount, tone: 'all', filter: 'all' },
   ];
 

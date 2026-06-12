@@ -10,8 +10,14 @@ export const HANDOVER_COLUMNS: {
   {
     id: 'progress',
     title: '🟡 진행중',
-    hint: '긴급 우선순위가 맨 위 · 처리 중 업무',
+    hint: '지금 처리 중이거나 곧 손봐야 하는 업무',
     columnClass: 'column--progress',
+  },
+  {
+    id: 'hold',
+    title: '⏸ 보류',
+    hint: '아직 안 끝났지만 지금은 대기 — HK·손님 회신·외부 업체 등',
+    columnClass: 'column--hold',
   },
   {
     id: 'done',
@@ -27,12 +33,19 @@ export const CARD_COLUMN_OPTIONS = HANDOVER_COLUMNS;
 export const PRIORITY_LABELS: Record<Priority, string> = {
   urgent: '🔴 긴급',
   today: '🟡 오늘',
-  info: '⚪ 참고',
+  info: '⚪ 참고 요망',
+};
+
+export const PRIORITY_HINTS: Record<Priority, string> = {
+  urgent: '지금 당장 확인·처리. 교대 인수 시 ✓ 긴급 확인이 필요합니다.',
+  today: '오늘 안에 처리하면 되는 일.',
+  info: '당장 처리할 필요는 없지만, 다음 교대가 참고하면 좋은 내용입니다.',
 };
 
 export const COLUMN_LABELS: Record<ColumnId, string> = {
   urgent: '🔴 긴급',
   progress: '🟡 진행중',
+  hold: '⏸ 보류',
   done: '✅ 완료',
 };
 

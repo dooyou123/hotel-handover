@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { todayDateString } from '@/lib/handover/shift-summary';
 import { useWorkSession } from '@/lib/handover/use-work-session';
 import { dashboardPeriodRange } from '@/lib/taxi/dashboard';
-import { isPickupImminent, pickupDateTime } from '@/lib/taxi/format';
+import { pickupDateTime } from '@/lib/taxi/format';
 import { fetchTaxiWhatsAppRecipient } from '@/lib/taxi/settings';
 import { buildWhatsAppMessage, openWhatsApp } from '@/lib/taxi/whatsapp';
 import type { TransportBooking, TransportBookingInput, TransportStatus } from '@/lib/transport/types';
@@ -35,14 +35,6 @@ function addDays(date: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-const CHANGELOG = [
-  '대시보드 — 기간 프리셋, 오늘·다가오는 픽업, 월별 수입·시간대·직원별 통계',
-  '서울역 목적지 제거 — 인천·김포 공항 위주',
-  '직원 이름(createdBy / updatedBy) 기록',
-  'WhatsApp 메시지 형식 개선 (쉼표·줄바꿈, 취소 시 [예약 취소])',
-  'hotel-handover 통합 — Supabase 실시간 동기화',
-];
-
 export function TransportPageClient() {
   const { authorLabel, requireSession } = useWorkSession();
   const { confirm } = useConfirmDialog();
@@ -57,7 +49,6 @@ export function TransportPageClient() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<TransportBooking | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [notifiedIds, setNotifiedIds] = useState<Set<string>>(() => new Set());
 
   const { bookings, isLoading, error: fetchError, createBooking, updateBooking, deleteBooking } =
     useTransportBookings({
@@ -106,26 +97,6 @@ export function TransportPageClient() {
     }
     return counts;
   }, [bookings]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !('Notification' in window)) return;
-    if (Notification.permission === 'default') {
-      void Notification.requestPermission();
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || Notification.permission !== 'granted') return;
-    for (const booking of bookings) {
-      if (!isPickupImminent(booking)) continue;
-      if (notifiedIds.has(booking.id)) continue;
-      const guest = booking.booker_name || booking.guest_name;
-      new Notification('택시 픽업 임박', {
-        body: `${booking.room_number}호 ${guest} — ${booking.destination} (${booking.pickup_time.slice(0, 5)})`,
-      });
-      setNotifiedIds((prev) => new Set(prev).add(booking.id));
-    }
-  }, [bookings, notifiedIds]);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -227,7 +198,7 @@ export function TransportPageClient() {
       <section className="taxi-page">
         <header className="taxi-page__header">
           <div>
-            <h2 className="taxi-page__title">🚕 Sotetsu Fresa Inn Myeongdong — Taxi</h2>
+            <h2 className="taxi-page__title">🚕 Taxi</h2>
             <p>택시 예약 장부 · 실시간 동기화 · WhatsApp · 다국어 확인증</p>
           </div>
           <div className="taxi-page__header-actions">
@@ -417,14 +388,6 @@ export function TransportPageClient() {
           )
         )}
 
-        <footer className="taxi-page__changelog">
-          <h3>업데이트 내역</h3>
-          <ul>
-            {CHANGELOG.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </footer>
       </section>
 
       <TaxiReservationForm

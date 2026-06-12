@@ -7,7 +7,15 @@ import {
   getTodayLabel,
   type ShiftSummaryData,
 } from '@/lib/handover/shift-summary';
-import type { ActivityLog, Card, Notice } from '@/lib/handover/types';
+import type { ActivityLog, Card, Notice, ShiftHandover } from '@/lib/handover/types';
+import { TODO_PRIORITY_LABELS, type Todo } from '@/lib/todos/types';
+import { transportStatusLabel, type TransportBooking } from '@/lib/transport/types';
+
+export type BriefHandoverExtras = {
+  todayTodos?: Todo[];
+  pendingTaxi?: TransportBooking[];
+  todayShiftLogs?: ShiftHandover[];
+};
 
 function escapeHtml(value: string): string {
   return value
@@ -65,15 +73,57 @@ function renderSummaryActivityText(log: ActivityLog): string {
   return `- [${ACTION_LABELS[log.action] || log.action}] ${log.summary}\n  ${actor} · ${formatTime(log.created_at)}${detail ? ` · ${detail}` : ''}`;
 }
 
+function renderSummaryTodoText(todo: Todo): string {
+  const due = todo.due_date
+    ? new Date(`${todo.due_date}T00:00:00`).toLocaleDateString('ko-KR', {
+        month: 'numeric',
+        day: 'numeric',
+        weekday: 'short',
+      })
+    : '마감 없음';
+  return [
+    `- ${todo.title}`,
+    `  ${TODO_PRIORITY_LABELS[todo.priority]} · ${due}${todo.linked_card_id ? ' · 인수인계 연동' : ''}`,
+  ].join('\n');
+}
+
+function renderSummaryShiftHandoverText(record: ShiftHandover): string {
+  const type = record.handover_type === 'start' ? '교대 시작' : '교대 종료';
+  return [
+    `- [${type}] ${record.shift} · ${record.staff_name || '—'}`,
+    `  미확인 긴급 ${record.unacked_urgent} · 긴급 ${record.urgent_count} · 진행 ${record.progress_count} · ${formatTime(record.handover_at)}`,
+    record.notes.trim() ? `  메모: ${record.notes.trim()}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+function renderSummaryTaxiText(booking: TransportBooking): string {
+  const guest = booking.booker_name || booking.guest_name;
+  return [
+    `- ${booking.pickup_time.slice(0, 5)} ${booking.destination || '목적지 미입력'}`,
+    `  ${transportStatusLabel(booking.status)}${booking.room_number ? ` · ${booking.room_number}호` : ''}${guest ? ` · ${guest}` : ''}`,
+  ].join('\n');
+}
+
 export function buildSummaryText(
   data: ShiftSummaryData,
   activityLogs: ActivityLog[],
   authorLabel: string,
+  extras?: BriefHandoverExtras,
 ): string {
+  const todayTodos = extras?.todayTodos ?? [];
+  const pendingTaxi = extras?.pendingTaxi ?? [];
+  const todayShiftLogs = extras?.todayShiftLogs ?? [];
+
   const sections: [string, unknown[], (item: never) => string][] = [
     ['⚠️ 미확인 긴급', data.unackedUrgent, renderSummaryCardText as (item: never) => string],
     ['🔴 현재 긴급', data.urgentActive, renderSummaryCardText as (item: never) => string],
     ['🟡 현재 진행중', data.progressActive, renderSummaryCardText as (item: never) => string],
+    ['⏸ 보류 중', data.holdActive, renderSummaryCardText as (item: never) => string],
+    ['📋 오늘 할일 (미완료)', todayTodos, renderSummaryTodoText as (item: never) => string],
+    ['🚕 오늘 택시 (미완료)', pendingTaxi, renderSummaryTaxiText as (item: never) => string],
+    ['📒 오늘 교대 기록', todayShiftLogs, renderSummaryShiftHandoverText as (item: never) => string],
     ['📢 업무 공지', data.announcements, renderSummaryNoticeText as (item: never) => string],
     ['🔄 업무 변경', data.changes, renderSummaryNoticeText as (item: never) => string],
     ['✅ 오늘 완료', data.doneToday, renderSummaryCardText as (item: never) => string],
@@ -85,7 +135,7 @@ export function buildSummaryText(
     getSummaryMetaLine(authorLabel),
     '',
     '[요약]',
-    `미확인 긴급 ${data.unackedUrgent.length}건 · 긴급 ${data.urgentActive.length}건 · 진행중 ${data.progressActive.length}건 · 오늘 완료 ${data.doneToday.length}건`,
+    `미확인 긴급 ${data.unackedUrgent.length}건 · 긴급 ${data.urgentActive.length}건 · 진행중 ${data.progressActive.length}건 · 보류 ${data.holdActive.length}건 · 할일 ${todayTodos.length}건 · 택시 ${pendingTaxi.length}건 · 오늘 완료 ${data.doneToday.length}건`,
     '',
   ];
 
@@ -161,7 +211,75 @@ function renderShiftSectionHtml(
   `;
 }
 
-export function buildSummarySectionsHtml(data: ShiftSummaryData, activityLogs: ActivityLog[]): string {
+function renderShiftTodoItemHtml(todo: Todo): string {
+  const due = todo.due_date
+    ? new Date(`${todo.due_date}T00:00:00`).toLocaleDateString('ko-KR', {
+        month: 'numeric',
+        day: 'numeric',
+        weekday: 'short',
+      })
+    : '마감 없음';
+  return `
+    <div class="item">
+      <p class="item__title">${escapeHtml(todo.title)}</p>
+      <p class="item__meta">${escapeHtml(TODO_PRIORITY_LABELS[todo.priority])} · ${escapeHtml(due)}${todo.linked_card_id ? ' · 인수인계 연동' : ''}</p>
+    </div>
+  `;
+}
+
+function renderShiftTaxiItemHtml(booking: TransportBooking): string {
+  const guest = booking.booker_name || booking.guest_name;
+  return `
+    <div class="item">
+      <p class="item__title">${escapeHtml(booking.pickup_time.slice(0, 5))} ${escapeHtml(booking.destination || '목적지 미입력')}</p>
+      <p class="item__meta">${escapeHtml(transportStatusLabel(booking.status))}${booking.room_number ? ` · ${escapeHtml(booking.room_number)}호` : ''}${guest ? ` · ${escapeHtml(guest)}` : ''}</p>
+    </div>
+  `;
+}
+
+function renderShiftHandoverItemHtml(record: ShiftHandover): string {
+  const type = record.handover_type === 'start' ? '교대 시작' : '교대 종료';
+  return `
+    <div class="item">
+      <p class="item__title">[${escapeHtml(type)}] ${escapeHtml(record.shift)} · ${escapeHtml(record.staff_name || '—')}</p>
+      <p class="item__meta">미확인 긴급 ${record.unacked_urgent} · 긴급 ${record.urgent_count} · 진행 ${record.progress_count} · ${formatTime(record.handover_at)}</p>
+      ${record.notes.trim() ? `<p class="item__meta">${escapeHtml(record.notes.trim())}</p>` : ''}
+    </div>
+  `;
+}
+
+function renderShiftExtrasSectionHtml(
+  title: string,
+  subtitle: string,
+  items: Todo[] | TransportBooking[] | ShiftHandover[],
+  kind: 'todo' | 'taxi' | 'shift',
+): string {
+  if (!items.length) return '';
+  const itemsHtml = items
+    .map((item) => {
+      if (kind === 'todo') return renderShiftTodoItemHtml(item as Todo);
+      if (kind === 'taxi') return renderShiftTaxiItemHtml(item as TransportBooking);
+      return renderShiftHandoverItemHtml(item as ShiftHandover);
+    })
+    .join('');
+  return `
+    <section class="section">
+      <h3>${escapeHtml(title)} (${items.length}건)</h3>
+      ${subtitle ? `<p class="section__sub">${escapeHtml(subtitle)}</p>` : ''}
+      ${itemsHtml}
+    </section>
+  `;
+}
+
+export function buildSummarySectionsHtml(
+  data: ShiftSummaryData,
+  activityLogs: ActivityLog[],
+  extras?: BriefHandoverExtras,
+): string {
+  const todayTodos = extras?.todayTodos ?? [];
+  const pendingTaxi = extras?.pendingTaxi ?? [];
+  const todayShiftLogs = extras?.todayShiftLogs ?? [];
+
   return [
     renderShiftSectionHtml(
       '⚠️ 미확인 긴급',
@@ -171,6 +289,15 @@ export function buildSummarySectionsHtml(data: ShiftSummaryData, activityLogs: A
     ),
     renderShiftSectionHtml('🔴 현재 긴급', '긴급 칸에 남아 있는 업무입니다.', data.urgentActive),
     renderShiftSectionHtml('🟡 현재 진행중', '진행중 칸의 업무입니다.', data.progressActive),
+    renderShiftSectionHtml('⏸ 보류 중', '대기 중인 업무입니다.', data.holdActive),
+    renderShiftExtrasSectionHtml('📋 오늘 할일 (미완료)', '오늘 처리할 열린 할일입니다.', todayTodos, 'todo'),
+    renderShiftExtrasSectionHtml('🚕 오늘 택시 (미완료)', '오늘 픽업 예정·미완료 건입니다.', pendingTaxi, 'taxi'),
+    renderShiftExtrasSectionHtml(
+      '📒 오늘 교대 기록',
+      '교대 시작·종료 시 저장된 인수·마감 스냅샷입니다.',
+      todayShiftLogs,
+      'shift',
+    ),
     renderShiftSectionHtml(
       '📢 업무 공지',
       data.pinnedAnnouncements.length > 0 ? `고정 공지 ${data.pinnedAnnouncements.length}건 포함` : '',
@@ -191,6 +318,9 @@ export function renderSummaryStatsHtml(data: ShiftSummaryData): string {
       : '',
     `<span class="stat">🔴 긴급 <strong>${data.urgentActive.length}</strong>건</span>`,
     `<span class="stat">🟡 진행중 <strong>${data.progressActive.length}</strong>건</span>`,
+    data.holdActive.length > 0
+      ? `<span class="stat">⏸ 보류 <strong>${data.holdActive.length}</strong>건</span>`
+      : '',
     `<span class="stat">📋 오늘 업무 <strong>${data.todayCards.length}</strong>건</span>`,
     `<span class="stat">✅ 오늘 완료 <strong>${data.doneToday.length}</strong>건</span>`,
   ]
@@ -221,8 +351,9 @@ export function buildPrintDocumentHtml(
   data: ShiftSummaryData,
   activityLogs: ActivityLog[],
   authorLabel: string,
+  extras?: BriefHandoverExtras,
 ): string {
-  const sections = buildSummarySectionsHtml(data, activityLogs);
+  const sections = buildSummarySectionsHtml(data, activityLogs, extras);
   const content = sections || '<div class="empty">오늘 표시할 업무가 없습니다.</div>';
 
   return `<!DOCTYPE html>
@@ -245,12 +376,13 @@ export function openSummaryPrintWindow(
   data: ShiftSummaryData,
   activityLogs: ActivityLog[],
   authorLabel: string,
+  extras?: BriefHandoverExtras,
 ): boolean {
   const printWindow = window.open('', '_blank', 'noopener,noreferrer');
   if (!printWindow) return false;
 
   printWindow.document.open();
-  printWindow.document.write(buildPrintDocumentHtml(data, activityLogs, authorLabel));
+  printWindow.document.write(buildPrintDocumentHtml(data, activityLogs, authorLabel, extras));
   printWindow.document.close();
   printWindow.focus();
   printWindow.onload = () => {
@@ -259,11 +391,19 @@ export function openSummaryPrintWindow(
   return true;
 }
 
-export function hasSummaryContent(data: ShiftSummaryData, activityLogs: ActivityLog[]): boolean {
+export function hasSummaryContent(
+  data: ShiftSummaryData,
+  activityLogs: ActivityLog[],
+  extras?: BriefHandoverExtras,
+): boolean {
   return (
     data.unackedUrgent.length > 0 ||
     data.urgentActive.length > 0 ||
     data.progressActive.length > 0 ||
+    data.holdActive.length > 0 ||
+    (extras?.todayTodos?.length ?? 0) > 0 ||
+    (extras?.pendingTaxi?.length ?? 0) > 0 ||
+    (extras?.todayShiftLogs?.length ?? 0) > 0 ||
     data.announcements.length > 0 ||
     data.changes.length > 0 ||
     data.doneToday.length > 0 ||

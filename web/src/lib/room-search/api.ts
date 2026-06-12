@@ -53,7 +53,15 @@ export async function searchByRoom(roomQuery: string): Promise<RoomSearchHit[]> 
       kind: isFacility ? 'facility' : 'handover',
       id: card.id,
       title: card.title,
-      subtitle: `${card.category} · ${card.column_id === 'done' ? '완료' : card.column_id === 'progress' ? '진행' : '긴급'}`,
+      subtitle: `${card.category} · ${
+        card.column_id === 'done'
+          ? '완료'
+          : card.column_id === 'hold'
+            ? '보류'
+            : card.column_id === 'progress'
+              ? '진행'
+              : '긴급'
+      }`,
       href: '/handover',
       at: card.updated_at || card.created_at,
     });

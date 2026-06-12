@@ -5,14 +5,42 @@ import Link from 'next/link';
 const QUICK_LINKS = [
   { href: '/handover', label: '인수인계', icon: '📋' },
   { href: '/notices', label: '게시판', icon: '📢' },
-  { href: '/todos', label: '할일', icon: '☑' },
-  { href: '/schedule', label: '일정', icon: '📅' },
+  { href: '/todos', label: '업무 일정', icon: '☑' },
+  { href: '/schedule', label: '근무표', icon: '📅' },
   { href: '/transport', label: '택시 예약', icon: '🚕' },
   { href: '/rate-confirm', label: '객실료 컨펌', icon: '💰' },
-  { href: '/sop', label: 'SOP·매뉴얼', icon: '📖' },
   { href: '/stats', label: '통계', icon: '📊' },
   { href: '/settings', label: '설정', icon: '⚙️' },
 ];
+
+const HANDOVER_GUIDE = {
+  icon: '📌',
+  title: '인수인계 운영 기준 (직원 공유)',
+  summary:
+    '예전 엑셀처럼 상시 안내·당일 업무·공지가 한곳에 섞이지 않도록, 아래 기준으로 올립니다. 교대 인수는 「움직이는 일」만 확인합니다.',
+  where: [
+    { place: '게시판', use: '기간 있는 안내·정책·매뉴얼 (📌 고정·유효기간). 매 교대마다 읽지 않음.' },
+    { place: '인수인계', use: '지금 처리·넘겨야 하는 업무. 한 건 = 카드 한 장. 경과는 댓글.' },
+    { place: '업무 일정', use: '할일 + 호텔 일정(교육·VIP·점검)을 한 메뉴에서 관리.' },
+    { place: '근무표', use: '조별 근무 CSV·휴무 신청만 (업무 일정과 분리).' },
+    { place: '택시 예약', use: '픽업만 등록. 상단 바에 미완료 표시.' },
+  ],
+  priority: [
+    { label: '🔴 긴급', hint: '즉시 확인·조치. 교대 시 ✓ 긴급 확인.' },
+    { label: '🟡 오늘', hint: '오늘 안에 처리.' },
+    { label: '⚪ 참고 요망', hint: '당장 손댈 필요 없음. 다음 조 참고용.' },
+  ],
+  shift: [
+    '교대 시작: 지금 근무 설정 → 인계 탭 → 미확인 긴급·진행·보류·오늘 업무 일정·택시만 확인.',
+    '근무 중: 새 이슈 → 카드 / 진행만 변경 → 댓글 / 정책 안내 → 게시판.',
+    '교대 종료: 완료 처리 + 처리 결과, 미완료는 보류·진행 유지 + 댓글.',
+  ],
+  avoid: [
+    '긴 공지를 인수인계 카드에 붙여 넣지 않기',
+    '한 카드에 여러 객실·여러 이슈 몰아넣지 않기',
+    '택시·할일·일정을 인수인계에 중복 적지 않기',
+  ],
+};
 
 const SECTIONS = [
   {
@@ -32,10 +60,10 @@ const SECTIONS = [
     body: [
       '왼쪽 70%: 진행중·완료·보관 목록. 긴급은 우선순위로 상단에 표시됩니다.',
       '검색은 보관함 왼쪽 — 객실·제목·댓글·담당자·기간(「기간」 버튼)으로 필터합니다.',
-      '오른쪽 패널: 업무 현황, 교대·기록, 고정 공지(클릭 시 인수인계 등록), 오늘 할일·일정.',
+      '오른쪽 패널: 업무 현황, 교대·기록, 고정 공지, 오늘 업무 일정(할일+호텔 일정).',
       '카드 드로어: 댓글·사진(2장), 할일 연동, 완료 시 처리 결과 필수.',
       '긴급 카드는 ✓ 긴급 확인 후 다음 교대로 넘깁니다.',
-      '상단 알림: 어메니티 재고 부족·택시 픽업 30분 전 리마인더.',
+      '상단 바: 오늘 택시 예약(완료 전까지 표시)·어메니티 재고 부족 알림.',
     ],
   },
   {
@@ -49,11 +77,11 @@ const SECTIONS = [
   },
   {
     icon: '☑',
-    title: '할일 · 일정',
+    title: '업무 일정 · 근무표',
     body: [
-      '할일: 우선순위·마감·담당자. 인수인계 카드와 양방향 연동됩니다.',
-      '일정: 호텔 이벤트(VIP·회의 등) + 근무표 CSV 업로드.',
-      '오늘 패널에서 할일·일정을 바로 열 수 있습니다.',
+      '업무 일정: 할일(마감·반복·인수인계 연동) + 호텔 일정(교육·VIP·점검)을 한 목록에서 관리.',
+      '근무표: 조별 근무 CSV 업로드·휴무 신청만 담당합니다.',
+      '인계 오른쪽 「오늘 업무 일정」에서 당일 할일·일정을 함께 봅니다.',
     ],
   },
   {
@@ -79,7 +107,7 @@ const SECTIONS = [
     title: '택시 예약 · 시설 현황',
     body: [
       '택시 예약: 카드형 목록·목적지별 요금·WhatsApp 전송·다국어 확인증 인쇄.',
-      '진행중/완료/취소 상태, 차량번호·메모 인라인 수정. 당일 30분 전 상단 알림.',
+      '진행중/완료/취소 상태, 차량번호·메모 인라인 수정. 당일 미완료는 상단 바에 표시.',
       'WhatsApp 수신 번호는 설정 → 메뉴 → 운영 자동화에서 관리자가 등록합니다.',
       '시설 현황: 루틴 A/B/C 템플릿, 시설 이슈 기록·해결 이력.',
     ],
@@ -99,15 +127,6 @@ const SECTIONS = [
     body: [
       '통계: 인수인계·긴급 처리·체크리스트·할일·리뷰 후속·어메니티·HK EB 추이.',
       '변경 기록: 인수인계 화면 「기록」— 유형·동작·검색 필터, Realtime 갱신.',
-    ],
-  },
-  {
-    icon: '📖',
-    title: 'SOP · 매뉴얼',
-    body: [
-      '운영 절차(환불, 119, 컴플레인 등)를 키워드로 검색합니다.',
-      '관리자는 SOP 추가·수정·고정이 가능합니다.',
-      '인수인계 카드 작성 시 관련 SOP가 자동 추천됩니다.',
     ],
   },
   {
@@ -139,6 +158,61 @@ export function HelpPageClient() {
           ))}
         </div>
       </div>
+
+      <article className="help-card help-card--guide">
+        <div className="help-card__head">
+          <span className="help-card__icon" aria-hidden>
+            {HANDOVER_GUIDE.icon}
+          </span>
+          <div>
+            <h3>{HANDOVER_GUIDE.title}</h3>
+            <p className="help-card__summary">{HANDOVER_GUIDE.summary}</p>
+          </div>
+        </div>
+
+        <div className="help-guide-grid">
+          <section>
+            <h4>어디에 올릴까?</h4>
+            <dl className="help-guide-dl">
+              {HANDOVER_GUIDE.where.map((row) => (
+                <div key={row.place}>
+                  <dt>{row.place}</dt>
+                  <dd>{row.use}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+
+          <section>
+            <h4>우선순위</h4>
+            <ul className="help-card__list">
+              {HANDOVER_GUIDE.priority.map((row) => (
+                <li key={row.label}>
+                  <strong>{row.label}</strong> — {row.hint}
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section>
+            <h4>교대 흐름</h4>
+            <ul className="help-card__list">
+              {HANDOVER_GUIDE.shift.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </section>
+
+          <section>
+            <h4>하지 말 것</h4>
+            <ul className="help-card__list help-card__list--warn">
+              {HANDOVER_GUIDE.avoid.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </section>
+        </div>
+      </article>
 
       <div className="help-page__grid">
         {SECTIONS.map((section) => (

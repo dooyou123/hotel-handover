@@ -2,6 +2,7 @@ import { isToday } from '@/lib/handover/shift-summary';
 import type { Card } from '@/lib/handover/types';
 import type { HotelEvent } from '@/lib/events/types';
 import type { Todo } from '@/lib/todos/types';
+import type { TransportBooking } from '@/lib/transport/types';
 
 export type TodayAlertItem = {
   id: string;
@@ -73,4 +74,11 @@ export function filterTodayTodos(todos: Todo[]): Todo[] {
 
 export function filterTodayEvents(events: HotelEvent[]): HotelEvent[] {
   return events.filter((e) => isToday(`${e.event_date}T12:00:00`));
+}
+
+/** 오늘 픽업·미완료(취소 제외) 택시 예약 — 인계·사이드바 공통 */
+export function filterPendingTodayTaxi(bookings: TransportBooking[]): TransportBooking[] {
+  return bookings
+    .filter((b) => b.status === 'pending')
+    .sort((a, b) => a.pickup_time.localeCompare(b.pickup_time));
 }

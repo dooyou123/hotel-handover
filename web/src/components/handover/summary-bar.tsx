@@ -11,7 +11,7 @@ type SummaryBarProps = {
 };
 
 export function SummaryBar({ data, totalCount, activeFilter, onFilterSelect }: SummaryBarProps) {
-  const doneCount = totalCount - data.urgentActive.length - data.progressActive.length;
+  const doneCount = data.boardDoneCount;
 
   function chipTone(label: string): string {
     if (label.includes('미확인')) return '';
@@ -33,6 +33,9 @@ export function SummaryBar({ data, totalCount, activeFilter, onFilterSelect }: S
       ? { label: '⚠️ 미확인 긴급', count: data.unackedUrgent.length, warn: true, filter: 'unacked' }
       : null,
     { label: '🟡 진행중', count: data.progressActive.length, warn: false },
+    ...(data.holdActive.length > 0
+      ? [{ label: '⏸ 보류', count: data.holdActive.length, warn: false }]
+      : []),
     { label: '✅ 완료', count: doneCount, warn: false },
     { label: '전체', count: totalCount, warn: false, filter: 'all' },
   ].filter(Boolean) as {

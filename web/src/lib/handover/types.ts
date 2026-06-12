@@ -1,7 +1,7 @@
-export type ColumnId = 'urgent' | 'progress' | 'done';
+export type ColumnId = 'urgent' | 'progress' | 'hold' | 'done';
 export type Priority = 'urgent' | 'today' | 'info';
 export type QuickFilter = 'all' | 'unacked' | 'mine' | 'roomclean' | string;
-export type HandoverViewMode = 'today' | 'board' | 'room';
+export type HandoverViewMode = 'today' | 'board' | 'room' | 'archive' | 'brief';
 
 export type CardAcknowledgment = {
   id: string;
@@ -18,6 +18,7 @@ export type CardComment = {
   staff_name: string;
   content: string;
   created_at: string;
+  updated_at?: string | null;
 };
 
 export type CardAttachment = {
@@ -92,6 +93,23 @@ export type ActivityLog = {
 };
 
 export type ShiftHandoverType = 'start' | 'end';
+
+export type ShiftHandover = {
+  id: string;
+  hotel_id: string;
+  shift: string;
+  staff_name: string;
+  handover_type: ShiftHandoverType;
+  work_date: string;
+  unacked_urgent: number;
+  urgent_count: number;
+  progress_count: number;
+  today_count: number;
+  checklist_incomplete: number;
+  progress_remaining: number;
+  notes: string;
+  handover_at: string;
+};
 
 export type AuditContext = {
   shift: string;

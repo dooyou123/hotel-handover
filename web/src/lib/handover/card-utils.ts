@@ -2,10 +2,18 @@ import { HIGHLIGHT_KEYWORDS } from '@/lib/handover/constants';
 import type { Card, CardComment, ColumnId, QuickFilter, WorkSession } from '@/lib/handover/types';
 
 export type ProjectListSection = {
-  id: 'unacked' | 'progress' | 'done' | 'archived';
+  id: 'unacked' | 'progress' | 'hold' | 'done' | 'archived';
   title: string;
   cards: Card[];
 };
+
+export function isHoldCard(card: Card): boolean {
+  return card.column_id === 'hold';
+}
+
+export function isWorkingColumn(card: Card): boolean {
+  return card.column_id === 'progress' || card.column_id === 'urgent';
+}
 
 export function splitTextBySearchQuery(
   text: string,
@@ -47,12 +55,12 @@ export function cardHasKeyword(card: Card): boolean {
 }
 
 export function isCardOverdue(card: Card): boolean {
-  if (!card.due_at || card.column_id === 'done') return false;
+  if (!card.due_at || card.column_id === 'done' || isHoldCard(card)) return false;
   return new Date(card.due_at).getTime() < Date.now();
 }
 
 export function getStaleLevel(card: Card): '' | 'mid' | 'high' {
-  if (card.column_id === 'done') return '';
+  if (card.column_id === 'done' || isHoldCard(card)) return '';
   const date = new Date(card.updated_at || card.created_at);
   if (Number.isNaN(date.getTime())) return '';
   const hours = (Date.now() - date.getTime()) / 3_600_000;
@@ -111,6 +119,11 @@ export function isUnackedUrgentCard(card: Card): boolean {
 export function getLatestCardComment(card: Card): CardComment | null {
   if (!card.card_comments.length) return null;
   return [...card.card_comments].sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null;
+}
+
+export function isCommentEdited(comment: CardComment): boolean {
+  if (!comment.updated_at) return false;
+  return comment.updated_at !== comment.created_at;
 }
 
 function cardMatchesDateRange(card: Card, dateFrom: string | null, dateTo: string | null): boolean {
@@ -321,6 +334,9 @@ export function sortCardsInColumn(cards: Card[], columnId: Card['column_id']): C
         return compareCardOrder(a, b);
       });
   }
+  if (columnId === 'hold') {
+    return cards.filter((card) => card.column_id === 'hold').sort(compareCardOrder);
+  }
   return cards.filter((card) => card.column_id === columnId).sort(compareCardOrder);
 }
 
@@ -341,6 +357,10 @@ export function buildProjectListSections(cards: Card[]): ProjectListSection[] {
     ),
     'progress',
   );
+  const holdCards = sortCardsInColumn(
+    cards.filter((card) => !isArchivedCard(card) && card.column_id === 'hold'),
+    'hold',
+  );
   const doneCards = sortCardsInColumn(
     cards.filter((card) => !isArchivedCard(card) && card.column_id === 'done'),
     'done',
@@ -352,6 +372,9 @@ export function buildProjectListSections(cards: Card[]): ProjectListSection[] {
     sections.push({ id: 'unacked', title: '미확인 긴급', cards: unacked });
   }
   sections.push({ id: 'progress', title: '진행중', cards: progressCards });
+  if (holdCards.length) {
+    sections.push({ id: 'hold', title: '보류', cards: holdCards });
+  }
   sections.push({ id: 'done', title: '완료', cards: doneCards });
   if (archivedCards.length) {
     sections.push({ id: 'archived', title: '완료 보관', cards: archivedCards });

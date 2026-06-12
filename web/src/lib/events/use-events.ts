@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
+import { subscribeHotelEventsRealtime } from '@/lib/events/events-realtime';
 import { monthDateRange } from '@/lib/schedule/month-range';
 import type { HotelEvent, HotelEventInput } from '@/lib/events/types';
 
@@ -32,20 +33,7 @@ export function useMonthEvents(month: string) {
     enabled: /^\d{4}-\d{2}$/.test(month),
   });
 
-  useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase
-      .channel('hotel-events')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'hotel_events', filter: `hotel_id=eq.${DEFAULT_HOTEL_ID}` },
-        () => queryClient.invalidateQueries({ queryKey: ['hotel-events'] }),
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
+  useEffect(() => subscribeHotelEventsRealtime(queryClient), [queryClient]);
 
   const createEvent = useMutation({
     mutationFn: async (input: HotelEventInput) => {

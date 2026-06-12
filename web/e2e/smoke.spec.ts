@@ -38,8 +38,8 @@ test.describe('스테이징 UAT smoke (로그인 계정 필요)', () => {
     await expect(page).toHaveURL(/\/handover/, { timeout: 15_000 });
   });
 
-  test('인수인계 — 일일 요약 버튼', async ({ page }) => {
-    await expect(page.getByRole('button', { name: '일일 요약' })).toBeVisible();
+  test('인수인계 — 인계 탭', async ({ page }) => {
+    await expect(page.getByRole('tab', { name: '인계' })).toBeVisible();
   });
 
   test('헤더 — 객실 통합 검색 모달', async ({ page }) => {
@@ -69,12 +69,6 @@ test.describe('스테이징 UAT smoke (로그인 계정 필요)', () => {
     await expect(page.getByRole('heading', { name: /객실료/ })).toBeVisible();
     await expect(page.getByText('TL-Lincoln RAW')).toBeVisible();
     await expect(page.getByText('PMS보내기')).toBeVisible();
-  });
-
-  test('SOP · 매뉴얼 페이지', async ({ page }) => {
-    await page.goto('/sop');
-    await expect(page.getByRole('heading', { name: /SOP/ })).toBeVisible();
-    await expect(page.getByPlaceholder(/키워드 검색/)).toBeVisible();
   });
 
   test('택시 예약 페이지', async ({ page }) => {

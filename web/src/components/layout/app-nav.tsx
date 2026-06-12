@@ -5,7 +5,9 @@ import { usePathname } from 'next/navigation';
 import { useMemo } from 'react';
 import { NAV_CATEGORIES, NAV_CATEGORY_LABELS } from '@/lib/constants';
 import { useIsManager } from '@/lib/handover/use-cards';
+import { useNavBadges } from '@/lib/nav/use-nav-badges';
 import { useNavItemsForUser, type NavDisplayItem } from '@/lib/settings/nav-visibility';
+import type { NavBadge } from '@/lib/nav/nav-badges';
 
 type AppNavProps = {
   variant?: 'classic' | 'nova';
@@ -67,25 +69,35 @@ function NavLink({
   active,
   btnClass,
   showStaffVisibility,
+  badge,
 }: {
   item: NavDisplayItem;
   active: boolean;
   btnClass: string;
   showStaffVisibility: boolean;
+  badge?: NavBadge;
 }) {
   const hiddenFromStaff = showStaffVisibility && !item.staffVisible;
+  const ariaLabel = showStaffVisibility
+    ? `${item.label}${item.staffVisible ? ' · 직원 표시' : ' · 직원 숨김'}`
+    : item.label;
 
   return (
     <Link
       href={item.href}
       className={`${btnClass}${active ? ' is-active' : ''}${hiddenFromStaff ? ' is-hidden-from-staff' : ''}`}
-      aria-label={
-        showStaffVisibility
-          ? `${item.label}${item.staffVisible ? ' · 직원 표시' : ' · 직원 숨김'}`
-          : item.label
-      }
+      aria-label={ariaLabel}
     >
       <span className="nav-btn__label">{item.label}</span>
+      {badge && badge.count > 0 ? (
+        <span
+          className={`nav-btn__badge nav-btn__badge--${badge.tone}`}
+          aria-label={`알림 ${badge.count}건`}
+          title={`알림 ${badge.count}건`}
+        >
+          {badge.count > 99 ? '99+' : badge.count}
+        </span>
+      ) : null}
       {showStaffVisibility ? (
         <NavStaffVisibilityIcon staffVisible={item.staffVisible} alwaysVisible={item.alwaysVisible} />
       ) : null}
@@ -97,6 +109,7 @@ export function AppNav({ variant = 'classic' }: AppNavProps) {
   const pathname = usePathname();
   const { data: isManager = false } = useIsManager();
   const { items, showStaffVisibility } = useNavItemsForUser(isManager);
+  const badges = useNavBadges();
   const navClass = variant === 'nova' ? 'nova-nav' : 'app-nav';
   const btnClass = variant === 'nova' ? 'nova-nav__btn' : 'app-nav__btn';
 
@@ -121,6 +134,7 @@ export function AppNav({ variant = 'classic' }: AppNavProps) {
                 active={pathname.startsWith(item.href)}
                 btnClass={btnClass}
                 showStaffVisibility={showStaffVisibility}
+                badge={badges[item.href]}
               />
             ))}
           </div>

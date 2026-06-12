@@ -8,9 +8,7 @@ import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { cardSummaryLabel, logActivity } from '@/lib/handover/activity';
 import { filterCards, isArchivedCard } from '@/lib/handover/card-utils';
 import { cardInputFromNotice } from '@/lib/handover/notice-to-card';
-import { openShiftBriefWindow } from '@/lib/handover/open-shift-brief';
 import { buildShiftSummaryData, todayDateString } from '@/lib/handover/shift-summary';
-import { useActivityLogs } from '@/lib/handover/use-activity-logs';
 import { useNotices } from '@/lib/handover/use-notices';
 import { useArchivedCards, useCards, useIsManager } from '@/lib/handover/use-cards';
 import { useWorkSession } from '@/lib/handover/use-work-session';
@@ -21,21 +19,20 @@ import type {
   HandoverViewMode,
   Priority,
   QuickFilter,
-  ShiftHandoverType,
 } from '@/lib/handover/types';
 import { useMonthEvents } from '@/lib/events/use-events';
 import type { HotelEvent, HotelEventInput } from '@/lib/events/types';
-import { buildTodayAlerts } from '@/lib/today/alerts';
+import { buildTodayAlerts, filterTodayEvents, filterTodayTodos } from '@/lib/today/alerts';
 import type { Todo, TodoInput, TodoPriority } from '@/lib/todos/types';
 import { useTodos } from '@/lib/todos/use-todos';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { EventModal } from '@/components/schedule/event-modal';
 import { TodoModal } from '@/components/todos/todo-modal';
-import { ExportSummaryModal } from './export-summary-modal';
 import { ActivityLogModal } from './activity-log-modal';
-import { ArchivedCardsModal } from './archived-cards-modal';
+import { ShiftHandoverLogModal } from './shift-handover-log-modal';
 import { CardModal } from './card-modal';
 import { ShiftHandoverModal } from './shift-handover-modal';
+import { ShiftStartConfirmModal } from './shift-start-confirm-modal';
 import { HandoverWorkspaceProject } from './project/handover-workspace-project';
 
 function cardPriorityToTodo(priority: Priority): TodoPriority {
@@ -63,6 +60,8 @@ export function HandoverPage() {
     deleteCard,
     acknowledgeCard,
     addComment,
+    updateComment,
+    deleteComment,
     uploadAttachment,
     deleteAttachment,
     archiveDone,
@@ -74,8 +73,6 @@ export function HandoverPage() {
     refetch: refetchArchived,
   } = useArchivedCards();
   const { notices } = useNotices();
-  const { data: activityLogs = [] } = useActivityLogs({ limit: 80 });
-
   function refreshActivityLogs() {
     void queryClient.invalidateQueries({ queryKey: ['activity-logs', DEFAULT_HOTEL_ID] });
   }
@@ -96,17 +93,17 @@ export function HandoverPage() {
   const [searchDateTo, setSearchDateTo] = useState('');
   const [quickFilter, setQuickFilter] = useState<QuickFilter>('all');
   const [modalOpen, setModalOpen] = useState(false);
+  const [cardModalView, setCardModalView] = useState<'full' | 'comments'>('full');
   const [editingCard, setEditingCard] = useState<Card | null>(null);
   const [createDraft, setCreateDraft] = useState<CardInput | null>(null);
   const [todoModalOpen, setTodoModalOpen] = useState(false);
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<HotelEvent | null>(null);
-  const [shiftModalOpen, setShiftModalOpen] = useState(false);
-  const [shiftModalMode, setShiftModalMode] = useState<ShiftHandoverType>('start');
+  const [shiftStartConfirmOpen, setShiftStartConfirmOpen] = useState(false);
+  const [shiftEndModalOpen, setShiftEndModalOpen] = useState(false);
   const [activityModalOpen, setActivityModalOpen] = useState(false);
-  const [exportModalOpen, setExportModalOpen] = useState(false);
-  const [archiveModalOpen, setArchiveModalOpen] = useState(false);
+  const [shiftHistoryModalOpen, setShiftHistoryModalOpen] = useState(false);
   const [staffNames, setStaffNames] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -214,29 +211,43 @@ export function HandoverPage() {
   function closeCardModal() {
     setModalOpen(false);
     setCreateDraft(null);
+    setCardModalView('full');
   }
 
   function openEditModal(card: Card) {
     setEditingCard(card);
+    setCardModalView('full');
     setModalOpen(true);
   }
 
+  function openCommentsModal(card: Card) {
+    setEditingCard(card);
+    setCardModalView('comments');
+    setModalOpen(true);
+  }
+
+  const todayTodoCount = useMemo(() => filterTodayTodos(todos).length, [todos]);
+  const todayEventCount = useMemo(() => filterTodayEvents(events).length, [events]);
+
   const handleShiftStart = useCallback(() => {
     if (!requireSession('교대 시작')) return;
-    setShiftModalMode('start');
-    setShiftModalOpen(true);
+    setShiftStartConfirmOpen(true);
   }, [requireSession]);
+
+  const handleShiftStartConfirm = useCallback(() => {
+    setShiftStartConfirmOpen(false);
+    setViewMode('brief');
+    showToast('인계 탭에서 미완료 업무를 확인해 주세요.');
+  }, []);
 
   const handleShiftEnd = useCallback(() => {
     if (!requireSession('교대 종료')) return;
-    setShiftModalMode('end');
-    setShiftModalOpen(true);
+    setShiftEndModalOpen(true);
   }, [requireSession]);
 
   const handleOpenShiftBrief = useCallback(() => {
-    if (!requireSession('교대 인계 화면')) return;
-    openShiftBriefWindow();
-  }, [requireSession]);
+    setViewMode('brief');
+  }, []);
 
   async function syncLinkedTodoOnCardDone(card: Card) {
     if (!card.linked_todo_id) return;
@@ -450,9 +461,13 @@ export function HandoverPage() {
   }
 
   async function handleToggleTodo(todo: Todo) {
-    await toggleTodoMutation.mutateAsync(todo);
+    const result = await toggleTodoMutation.mutateAsync(todo);
     if (todo.status === 'open') {
       await syncLinkedCardOnTodoDone(todo);
+      if (result.spawned) {
+        showToast(`할일을 완료했습니다. 다음 주기(${result.spawned.due_date}) 할일이 생성되었습니다.`);
+        return;
+      }
       showToast('할일을 완료했습니다.');
     } else {
       showToast('할일을 다시 열었습니다.');
@@ -488,7 +503,8 @@ export function HandoverPage() {
         audit: audit(),
         summary: `완료 보관 (${doneCount}건)`,
       });
-      showToast('완료 칸을 비웠습니다. 보관함에서 확인할 수 있습니다.');
+      showToast('완료 칸을 비웠습니다. 보관함 탭에서 확인할 수 있습니다.');
+      setViewMode('archive');
       refreshActivityLogs();
       refetchArchived();
     } catch {
@@ -534,6 +550,39 @@ export function HandoverPage() {
         audit: audit(),
         summary: `댓글: ${cardSummaryLabel(card.room, card.title)}`,
         details: { changes: [content] },
+      });
+      refreshActivityLogs();
+    }
+  }
+
+  async function handleUpdateComment(cardId: string, commentId: string, content: string) {
+    if (!requireSession('댓글 수정')) return;
+    const card = cards.find((item) => item.id === cardId);
+    await updateComment.mutateAsync({ commentId, cardId, content });
+    if (card) {
+      await logActivity({
+        entityType: 'card',
+        entityId: cardId,
+        action: 'update',
+        audit: audit(),
+        summary: `댓글 수정: ${cardSummaryLabel(card.room, card.title)}`,
+        details: { changes: [content] },
+      });
+      refreshActivityLogs();
+    }
+  }
+
+  async function handleDeleteComment(cardId: string, commentId: string) {
+    if (!requireSession('댓글 삭제')) return;
+    const card = cards.find((item) => item.id === cardId);
+    await deleteComment.mutateAsync({ commentId, cardId });
+    if (card) {
+      await logActivity({
+        entityType: 'card',
+        entityId: cardId,
+        action: 'update',
+        audit: audit(),
+        summary: `댓글 삭제: ${cardSummaryLabel(card.room, card.title)}`,
       });
       refreshActivityLogs();
     }
@@ -602,9 +651,12 @@ export function HandoverPage() {
           searchDateTo={searchDateTo}
           quickFilter={quickFilter}
           doneCount={doneCount}
+          archivedCards={archivedCards}
+          archivedLoading={archivedLoading}
           archivedCount={archivedCount}
           archivedSearchCount={archivedSearchMatches.length}
           isManager={isManager}
+          session={session}
           onViewModeChange={setViewMode}
           onSearchChange={setSearchQuery}
           onSearchDateFromChange={setSearchDateFrom}
@@ -612,13 +664,20 @@ export function HandoverPage() {
           onQuickFilterChange={setQuickFilter}
           onAdd={openCreateModal}
           onArchiveDone={handleArchiveDone}
-          onOpenArchive={() => setArchiveModalOpen(true)}
-          onExport={() => setExportModalOpen(true)}
+          onRestoreFromArchive={handleRestoreFromArchive}
           onActivity={() => setActivityModalOpen(true)}
+          onShiftHistory={() => setShiftHistoryModalOpen(true)}
           onOpenShiftBrief={handleOpenShiftBrief}
+          authorLabel={authorLabel}
+          requireSession={requireSession}
+          onToast={showToast}
           onShiftStart={handleShiftStart}
           onShiftEnd={handleShiftEnd}
           onOpenCard={openEditModal}
+          onOpenCardComments={openCommentsModal}
+          onAddComment={handleAddComment}
+          staffName={session.name}
+          commentDisabled={!session.name}
           onAcknowledge={handleAcknowledge}
           onMarkDone={handleMarkDone}
           onShowUnacked={showUnacked}
@@ -638,6 +697,7 @@ export function HandoverPage() {
       <CardModal
         open={modalOpen}
         card={activeCard}
+        view={cardModalView}
         createDraft={createDraft}
         linkedTodo={linkedTodo}
         authorLabel={authorLabel}
@@ -646,9 +706,12 @@ export function HandoverPage() {
         staffNames={staffNames}
         isManager={isManager}
         onClose={closeCardModal}
+        onSwitchToFull={() => setCardModalView('full')}
         onSave={handleSave}
         onDelete={handleDelete}
         onAddComment={handleAddComment}
+        onUpdateComment={handleUpdateComment}
+        onDeleteComment={handleDeleteComment}
         onUploadAttachment={handleUploadAttachment}
         onDeleteAttachment={handleDeleteAttachment}
         onCreateTodo={activeCard ? () => handleCreateTodoFromCard(activeCard) : undefined}
@@ -676,51 +739,28 @@ export function HandoverPage() {
         onSave={handleEventSave}
       />
 
+      <ShiftStartConfirmModal
+        open={shiftStartConfirmOpen}
+        authorLabel={authorLabel}
+        summary={summaryData}
+        todayTodoCount={todayTodoCount}
+        todayEventCount={todayEventCount}
+        onClose={() => setShiftStartConfirmOpen(false)}
+        onConfirm={handleShiftStartConfirm}
+      />
+
       <ShiftHandoverModal
-        open={shiftModalOpen}
-        mode={shiftModalMode}
+        open={shiftEndModalOpen}
         cards={cards}
         notices={notices}
-        activityLogs={activityLogs}
         session={session}
         authorLabel={authorLabel}
-        onClose={() => setShiftModalOpen(false)}
+        onClose={() => setShiftEndModalOpen(false)}
         onComplete={showToast}
-        onHandoverComplete={(mode) => {
-          if (mode !== 'start' || summaryData.unackedUrgent.length === 0) return;
-          setQuickFilter('unacked');
-          setViewMode('board');
-          showToast('미확인 긴급 건부터 확인해 주세요.');
-        }}
-        onOpenExport={() => {
-          setShiftModalOpen(false);
-          setExportModalOpen(true);
-        }}
       />
 
       <ActivityLogModal open={activityModalOpen} onClose={() => setActivityModalOpen(false)} />
-
-      <ExportSummaryModal
-        open={exportModalOpen}
-        cards={cards}
-        notices={notices}
-        authorLabel={authorLabel}
-        onClose={() => setExportModalOpen(false)}
-        onToast={showToast}
-      />
-
-      <ArchivedCardsModal
-        open={archiveModalOpen}
-        cards={archivedCards}
-        isLoading={archivedLoading}
-        isManager={isManager}
-        onClose={() => setArchiveModalOpen(false)}
-        onOpenCard={(card) => {
-          setArchiveModalOpen(false);
-          openEditModal(card);
-        }}
-        onRestore={handleRestoreFromArchive}
-      />
+      <ShiftHandoverLogModal open={shiftHistoryModalOpen} onClose={() => setShiftHistoryModalOpen(false)} />
 
       {toast ? <div className="toast toast--project">{toast}</div> : null}
     </>

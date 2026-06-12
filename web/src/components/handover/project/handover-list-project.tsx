@@ -9,24 +9,45 @@ type HandoverListProjectProps = {
   cards: Card[];
   searchQuery?: string;
   onOpenCard: (card: Card) => void;
+  onOpenCardComments: (card: Card) => void;
+  onAddComment: (cardId: string, content: string) => Promise<void>;
+  staffName: string;
+  commentDisabled?: boolean;
   onAcknowledge: (cardId: string) => void;
   onMarkDone: (cardId: string) => void;
 };
+
+type CollapsibleSectionId = 'done' | 'hold';
 
 export function HandoverListProject({
   cards,
   searchQuery,
   onOpenCard,
+  onOpenCardComments,
+  onAddComment,
+  staffName,
+  commentDisabled = false,
   onAcknowledge,
   onMarkDone,
 }: HandoverListProjectProps) {
-  const [doneExpanded, setDoneExpanded] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Record<CollapsibleSectionId, boolean>>({
+    done: false,
+    hold: false,
+  });
   const doneSectionRef = useRef<HTMLElement>(null);
   const scrollDoneOnExpandRef = useRef(false);
   const sections = useMemo(() => buildProjectListSections(cards), [cards]);
+  const remainingTotal = useMemo(
+    () =>
+      sections
+        .filter((section) => section.id === 'unacked' || section.id === 'progress')
+        .reduce((sum, section) => sum + section.cards.length, 0),
+    [sections],
+  );
+  let remainingIndex = 0;
 
   useEffect(() => {
-    if (!doneExpanded || !scrollDoneOnExpandRef.current) return;
+    if (!expandedSections.done || !scrollDoneOnExpandRef.current) return;
     scrollDoneOnExpandRef.current = false;
 
     requestAnimationFrame(() => {
@@ -52,13 +73,18 @@ export function HandoverListProject({
         }
       });
     });
-  }, [doneExpanded]);
+  }, [expandedSections.done]);
 
-  function toggleDoneExpanded() {
-    setDoneExpanded((open) => {
-      if (!open) scrollDoneOnExpandRef.current = true;
-      return !open;
+  function toggleSection(sectionId: CollapsibleSectionId) {
+    setExpandedSections((prev) => {
+      const nextOpen = !prev[sectionId];
+      if (sectionId === 'done' && nextOpen) scrollDoneOnExpandRef.current = true;
+      return { ...prev, [sectionId]: nextOpen };
     });
+  }
+
+  function isCollapsibleSection(sectionId: string): sectionId is CollapsibleSectionId {
+    return sectionId === 'done' || sectionId === 'hold';
   }
 
   if (!cards.length) {
@@ -68,22 +94,31 @@ export function HandoverListProject({
   return (
     <div className="project-list">
       {sections.map((section) => {
+        if (
+          section.cards.length === 0 &&
+          (section.id === 'done' || section.id === 'progress')
+        ) {
+          return null;
+        }
+
         const isDoneSection = section.id === 'done';
-        const isCollapsible = isDoneSection && section.cards.length > 0;
-        const isExpanded = !isCollapsible || doneExpanded;
+        const isCollapsible = isCollapsibleSection(section.id) && section.cards.length > 0;
+        const isExpanded = !isCollapsible || expandedSections[section.id];
 
         const head = isCollapsible ? (
           <button
             type="button"
             className="project-list__head project-list__head--toggle"
-            aria-expanded={doneExpanded}
-            onClick={toggleDoneExpanded}
+            aria-expanded={expandedSections[section.id]}
+            onClick={() => toggleSection(section.id)}
           >
             <span className="project-list__head-main">
               <h3>{section.title}</h3>
               <span className="project-list__count">{section.cards.length}</span>
             </span>
-            <span className="project-list__toggle-label">{doneExpanded ? '접기' : '펼치기'}</span>
+            <span className="project-list__toggle-label">
+              {expandedSections[section.id] ? '접기' : '펼치기'}
+            </span>
           </button>
         ) : (
           <header className="project-list__head">
@@ -96,22 +131,42 @@ export function HandoverListProject({
           <section
             key={section.id}
             ref={isDoneSection ? doneSectionRef : undefined}
-            className={`project-list__section project-list__section--${section.id}${isCollapsible && !doneExpanded ? ' is-collapsed' : ''}`}
+            className={[
+              'project-list__section',
+              `project-list__section--${section.id}`,
+              isCollapsible && !expandedSections[section.id] ? 'is-collapsed' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
           >
             {head}
             {isExpanded ? (
               section.cards.length ? (
                 <div className="project-list__rows">
-                  {section.cards.map((card) => (
-                    <HandoverListRowProject
-                      key={card.id}
-                      card={card}
-                      searchQuery={searchQuery}
-                      onOpen={() => onOpenCard(card)}
-                      onAcknowledge={() => onAcknowledge(card.id)}
-                      onMarkDone={() => onMarkDone(card.id)}
-                    />
-                  ))}
+                  {section.cards.map((card) => {
+                    const showPosition =
+                      remainingTotal > 0 &&
+                      (section.id === 'unacked' || section.id === 'progress');
+                    const position = showPosition
+                      ? { index: ++remainingIndex, total: remainingTotal }
+                      : undefined;
+
+                    return (
+                      <HandoverListRowProject
+                        key={card.id}
+                        card={card}
+                        position={position}
+                        searchQuery={searchQuery}
+                        onOpen={() => onOpenCard(card)}
+                        onOpenComments={() => onOpenCardComments(card)}
+                        onAddComment={(content) => onAddComment(card.id, content)}
+                        staffName={staffName}
+                        commentDisabled={commentDisabled}
+                        onAcknowledge={() => onAcknowledge(card.id)}
+                        onMarkDone={() => onMarkDone(card.id)}
+                      />
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="project-list__section-empty">항목 없음</p>

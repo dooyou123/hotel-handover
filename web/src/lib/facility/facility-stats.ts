@@ -16,24 +16,35 @@ export type FacilityRoomIssue = {
   issueKind: '시설' | '컴플레인';
 };
 
-const LOOKBACK_DAYS = 90;
+const LOOKBACK_MONTHS = 6;
+
+function isWithinLookback(card: Card): boolean {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - LOOKBACK_MONTHS);
+  cutoff.setHours(0, 0, 0, 0);
+  const at = new Date(card.created_at).getTime();
+  return !Number.isNaN(at) && at >= cutoff.getTime();
+}
 
 function isFacilityCategory(category: string): category is '시설' | '컴플레인' {
   return (FACILITY_CATEGORIES as readonly string[]).includes(category);
 }
 
-export function filterFacilityCards(cards: Card[]): Card[] {
-  const cutoff = Date.now() - LOOKBACK_DAYS * 86_400_000;
+export function filterFacilityCards(cards: Card[], options?: { includeArchived?: boolean }): Card[] {
+  const includeArchived = options?.includeArchived ?? false;
   return cards.filter((card) => {
     if (!isFacilityCategory(card.category)) return false;
-    if (card.archived_at) return false;
-    const at = new Date(card.created_at).getTime();
-    return !Number.isNaN(at) && at >= cutoff;
+    if (!includeArchived && card.archived_at) return false;
+    return isWithinLookback(card);
   });
 }
 
+export function mergeFacilityCardSources(activeCards: Card[], archivedCards: Card[]): Card[] {
+  return [...activeCards, ...archivedCards];
+}
+
 export function buildFacilitySummaries(cards: Card[]): FacilityIssueSummary[] {
-  const facilityCards = filterFacilityCards(cards);
+  const facilityCards = filterFacilityCards(cards, { includeArchived: true });
   const byRoom = new Map<string, Card[]>();
 
   for (const card of facilityCards) {
@@ -48,7 +59,7 @@ export function buildFacilitySummaries(cards: Card[]): FacilityIssueSummary[] {
       const sorted = [...roomCards].sort((a, b) =>
         (b.updated_at || b.created_at).localeCompare(a.updated_at || a.created_at),
       );
-      const openCount = sorted.filter((c) => c.column_id !== 'done').length;
+      const openCount = sorted.filter((c) => !c.archived_at && c.column_id !== 'done').length;
       return {
         room,
         totalCount: sorted.length,
@@ -79,7 +90,7 @@ export function getOpenFacilityIssues(cards: Card[]): FacilityRoomIssue[] {
 
 export function getRoomFacilityIssues(cards: Card[], room: string): FacilityRoomIssue[] {
   const normalized = room.trim();
-  return filterFacilityCards(cards)
+  return filterFacilityCards(cards, { includeArchived: true })
     .filter((card) => (card.room.trim() || '(객실 미지정)') === normalized)
     .map((card) => ({
       card,

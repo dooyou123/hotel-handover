@@ -4,8 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { WORK_GROUPS, formatWorkGroupLabel } from '@/lib/constants';
 import { emptyGroupSchedule, normalizeScheduleGroup } from '@/lib/schedule/group-utils';
-import { useMonthEvents } from '@/lib/events/use-events';
-import type { HotelEvent } from '@/lib/events/types';
 import { useWorkSession } from '@/lib/handover/use-work-session';
 import { buildSampleCsv } from '@/lib/schedule/parse-csv';
 import type { ScheduleEntry } from '@/lib/schedule/parse-csv';
@@ -14,12 +12,13 @@ import {
   uploadScheduleCsv,
   useMonthSchedule,
   useScheduleMutations,
+  type ScheduleEntryInput,
 } from '@/lib/schedule/use-schedule';
 import { createClient } from '@/lib/supabase/client';
-import { EventModal } from './event-modal';
+import { LeaveRequestPanel } from './leave-request-panel';
 import { ScheduleEntryModal } from './schedule-entry-modal';
 
-type ScheduleTab = 'roster' | 'events';
+type ScheduleTab = 'roster' | 'leave';
 
 function formatDateLabel(workDate: string): string {
   const date = new Date(`${workDate}T00:00:00`);
@@ -27,16 +26,9 @@ function formatDateLabel(workDate: string): string {
   return date.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short' });
 }
 
-function formatEventTime(start: string | null, end: string | null): string {
-  const fmt = (value: string) => value.slice(0, 5);
-  if (start && end) return `${fmt(start)} – ${fmt(end)}`;
-  if (start) return fmt(start);
-  return '종일';
-}
-
 export function SchedulePageClient() {
   const queryClient = useQueryClient();
-  const { authorLabel, requireSession } = useWorkSession();
+  const { requireSession } = useWorkSession();
   const [tab, setTab] = useState<ScheduleTab>('roster');
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [csvText, setCsvText] = useState('');
@@ -48,12 +40,8 @@ export function SchedulePageClient() {
   const [entryModalOpen, setEntryModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<ScheduleEntry | null>(null);
 
-  const [eventModalOpen, setEventModalOpen] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<HotelEvent | null>(null);
-
   const { data: entries = [], isLoading: rosterLoading } = useMonthSchedule(month);
   const { createEntry, updateEntry, deleteEntry } = useScheduleMutations();
-  const { events, isLoading: eventsLoading, createEvent, updateEvent, deleteEvent } = useMonthEvents(month);
 
   useEffect(() => {
     const supabase = createClient();
@@ -119,7 +107,7 @@ export function SchedulePageClient() {
     URL.revokeObjectURL(url);
   }
 
-  async function handleSaveEntry(input: Parameters<typeof createEntry.mutateAsync>[0], id?: string) {
+  async function handleSaveEntry(input: ScheduleEntryInput, id?: string) {
     if (!requireSession('근무 일정 저장')) return;
     if (id) {
       await updateEntry.mutateAsync({ id, input });
@@ -135,34 +123,15 @@ export function SchedulePageClient() {
     showToast('근무 일정을 삭제했습니다.');
   }
 
-  async function handleSaveEvent(
-    input: Parameters<typeof createEvent.mutateAsync>[0],
-    id?: string,
-  ) {
-    if (!requireSession('일정 저장')) return;
-    if (id) {
-      await updateEvent.mutateAsync({ id, input });
-      showToast('일정을 수정했습니다.');
-    } else {
-      await createEvent.mutateAsync(input);
-      showToast('일정을 추가했습니다.');
-    }
-  }
-
-  async function handleDeleteEvent(id: string) {
-    await deleteEvent.mutateAsync(id);
-    showToast('일정을 삭제했습니다.');
-  }
-
   return (
     <>
       <section className="schedule-page">
         <div className="schedule-page__intro">
-          <h2>일정 관리</h2>
-          <p>조별 근무표와 호텔 일정(VIP·회의·점검 등)을 한곳에서 관리합니다.</p>
+          <h2>근무표</h2>
+          <p>조별 근무표 CSV 업로드와 휴무 신청만 관리합니다. 호텔 일정·할일은 「업무 일정」 메뉴를 사용하세요.</p>
         </div>
 
-        <div className="schedule-tabs" role="tablist" aria-label="일정 종류">
+        <div className="schedule-tabs" role="tablist" aria-label="근무표 메뉴">
           <button
             type="button"
             role="tab"
@@ -175,23 +144,25 @@ export function SchedulePageClient() {
           <button
             type="button"
             role="tab"
-            aria-selected={tab === 'events'}
-            className={`schedule-tabs__btn${tab === 'events' ? ' is-active' : ''}`}
-            onClick={() => setTab('events')}
+            aria-selected={tab === 'leave'}
+            className={`schedule-tabs__btn${tab === 'leave' ? ' is-active' : ''}`}
+            onClick={() => setTab('leave')}
           >
-            호텔 일정
+            휴무 신청
           </button>
         </div>
 
-        <div className="schedule-page__month">
-          <label className="schedule-field">
-            <span>조회 월</span>
-            <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
-          </label>
-        </div>
-
-        {tab === 'roster' ? (
+        {tab === 'leave' ? (
+          <LeaveRequestPanel onToast={showToast} />
+        ) : (
           <>
+            <div className="schedule-page__month">
+              <label className="schedule-field">
+                <span>조회 월</span>
+                <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
+              </label>
+            </div>
+
             <article className="schedule-panel schedule-panel--upload schedule-panel--full">
               <div className="schedule-panel__header">
                 <div>
@@ -315,54 +286,6 @@ export function SchedulePageClient() {
               </article>
             ) : null}
           </>
-        ) : (
-          <article className="schedule-panel">
-            <div className="schedule-panel__header schedule-panel__header--split">
-              <div>
-                <h3>{month} 호텔 일정</h3>
-                <p>{events.length ? `${events.length}건` : '등록된 일정이 없습니다.'}</p>
-              </div>
-              <button
-                type="button"
-                className="btn btn--primary btn--small"
-                onClick={() => {
-                  setEditingEvent(null);
-                  setEventModalOpen(true);
-                }}
-              >
-                + 일정 추가
-              </button>
-            </div>
-
-            {eventsLoading ? (
-              <p className="empty-state">불러오는 중…</p>
-            ) : !events.length ? (
-              <p className="empty-state">VIP 체크인, 회의, 점검 등 일정을 추가해 보세요.</p>
-            ) : (
-              <ul className="event-list">
-                {events.map((event) => (
-                  <li key={event.id}>
-                    <button
-                      type="button"
-                      className="event-list__item"
-                      onClick={() => {
-                        setEditingEvent(event);
-                        setEventModalOpen(true);
-                      }}
-                    >
-                      <span className="event-list__date">{formatDateLabel(event.event_date)}</span>
-                      <span className="event-list__time">{formatEventTime(event.start_time, event.end_time)}</span>
-                      <span className="event-list__category">{event.category}</span>
-                      <span className="event-list__title">{event.title}</span>
-                      {event.description ? (
-                        <span className="event-list__desc">{event.description}</span>
-                      ) : null}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </article>
         )}
       </section>
 
@@ -373,15 +296,6 @@ export function SchedulePageClient() {
         onClose={() => setEntryModalOpen(false)}
         onSave={handleSaveEntry}
         onDelete={handleDeleteEntry}
-      />
-
-      <EventModal
-        open={eventModalOpen}
-        event={editingEvent}
-        authorLabel={authorLabel}
-        onClose={() => setEventModalOpen(false)}
-        onSave={handleSaveEvent}
-        onDelete={handleDeleteEvent}
       />
 
       {toast ? <div className="toast">{toast}</div> : null}

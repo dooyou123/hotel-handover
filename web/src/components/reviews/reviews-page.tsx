@@ -8,6 +8,7 @@ import { useWorkSession } from '@/lib/handover/use-work-session';
 import { createFollowUpCardFromReview } from '@/lib/reviews/follow-up-card';
 import { formatReviewDate, formatStayRange } from '@/lib/reviews/format';
 import {
+  REVIEW_ACCOUNT_PRESETS,
   REVIEW_FILTER_OPTIONS,
   REVIEW_SENTIMENT_LABELS,
   REVIEW_SENTIMENTS,
@@ -18,6 +19,8 @@ import {
 } from '@/lib/reviews/types';
 import { useReviews } from '@/lib/reviews/use-reviews';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
+import { OtaPastePanel, parsedOtaToReviewInput } from '@/components/reviews/ota-paste-panel';
+import { otaSourceLabel, type OtaSource } from '@/lib/reviews/parse-ota';
 
 type ReviewModalProps = {
   open: boolean;
@@ -38,6 +41,9 @@ const emptyForm = (authorLabel: string): GuestReviewInput => ({
   reservation_number: '',
   room_number: '',
   author: authorLabel,
+  ota_source: '',
+  rating: null,
+  account: '',
 });
 
 function ReviewModal({ open, review, authorLabel, onClose, onSave, onDelete }: ReviewModalProps) {
@@ -59,6 +65,9 @@ function ReviewModal({ open, review, authorLabel, onClose, onSave, onDelete }: R
         reservation_number: review.reservation_number,
         room_number: review.room_number || '',
         author: review.author || authorLabel,
+        ota_source: review.ota_source || '',
+        rating: review.rating,
+        account: review.account || '',
       });
     } else {
       setForm(emptyForm(authorLabel));
@@ -90,6 +99,7 @@ function ReviewModal({ open, review, authorLabel, onClose, onSave, onDelete }: R
           reservation_number: form.reservation_number.trim(),
           room_number: form.room_number.trim(),
           author: form.author.trim() || authorLabel,
+          account: (form.account ?? '').trim(),
         },
         review?.id,
       );
@@ -112,6 +122,12 @@ function ReviewModal({ open, review, authorLabel, onClose, onSave, onDelete }: R
             </button>
           </div>
 
+          {!review ? (
+            <OtaPastePanel
+              onApply={(parsed) => setForm((prev) => ({ ...prev, ...parsedOtaToReviewInput(parsed, authorLabel) }))}
+            />
+          ) : null}
+
           <div className="form-grid">
             <label className="field field--full">
               <span>구분 *</span>
@@ -131,6 +147,20 @@ function ReviewModal({ open, review, authorLabel, onClose, onSave, onDelete }: R
               </div>
             </label>
 
+            <label className="field">
+              <span>Account (여행사)</span>
+              <input
+                list="review-account-presets"
+                value={form.account ?? ''}
+                onChange={(e) => setForm({ ...form, account: e.target.value })}
+                placeholder="Booking.com, Agoda, Expedia…"
+              />
+              <datalist id="review-account-presets">
+                {REVIEW_ACCOUNT_PRESETS.map((account) => (
+                  <option key={account} value={account} />
+                ))}
+              </datalist>
+            </label>
             <label className="field">
               <span>고객 이름</span>
               <input
@@ -345,7 +375,7 @@ export function ReviewsPageClient() {
         <div className="reviews-page__header">
           <div>
             <h2>고객 리뷰 보관</h2>
-            <p>좋은·나쁜 리뷰를 모아 두고, 다국어 원문과 한국어 번역을 함께 관리합니다.</p>
+            <p>OTA 붙여넣기로 빠르게 등록하고, 나쁜 리뷰는 인수인계 카드로 이어갑니다.</p>
           </div>
           <button
             type="button"
@@ -430,6 +460,14 @@ export function ReviewsPageClient() {
                   <span className="review-card__guest">{review.guest_name || '고객명 미입력'}</span>
                   {review.reservation_number ? (
                     <span className="review-card__reservation">예약 {review.reservation_number}</span>
+                  ) : null}
+                  {review.account ? (
+                    <span className="review-card__account">{review.account}</span>
+                  ) : review.ota_source ? (
+                    <span className="review-card__ota">{otaSourceLabel(review.ota_source as OtaSource)}</span>
+                  ) : null}
+                  {review.rating !== null && review.rating !== undefined ? (
+                    <span className="review-card__rating">★ {review.rating}</span>
                   ) : null}
                 </div>
                 <p className="review-card__stay">{formatStayRange(review.check_in_date, review.check_out_date)}</p>
@@ -516,9 +554,31 @@ export function ReviewsPageClient() {
         authorLabel={authorLabel}
         onClose={() => setModalOpen(false)}
         onSave={async (input, id) => {
-          if (id) await updateReview.mutateAsync({ id, input });
-          else await createReview.mutateAsync(input);
+          let saved;
+          if (id) {
+            saved = await updateReview.mutateAsync({ id, input });
+          } else {
+            saved = await createReview.mutateAsync(input);
+          }
           showToast(id ? '리뷰가 수정되었습니다.' : '리뷰가 추가되었습니다.');
+          if (!id && saved.sentiment === 'negative' && !saved.follow_up_card_id) {
+            const ok = await confirm({
+              title: '인수인계 카드 만들기',
+              message: '나쁜 리뷰입니다. 후속 조치용 인수인계 카드를 바로 만들까요?',
+              confirmLabel: '카드 만들기',
+            });
+            if (ok) {
+              await createFollowUpCardFromReview({
+                review: saved,
+                author: authorLabel,
+                shift: session.shift,
+                name: session.name,
+              });
+              await queryClient.invalidateQueries({ queryKey: ['guest-reviews', DEFAULT_HOTEL_ID] });
+              await queryClient.invalidateQueries({ queryKey: ['cards'] });
+              showToast('인수인계 카드가 생성되었습니다.');
+            }
+          }
         }}
         onDelete={async (id) => {
           await deleteReview.mutateAsync(id);

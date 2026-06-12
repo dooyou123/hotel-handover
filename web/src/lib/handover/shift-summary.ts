@@ -1,5 +1,12 @@
 import { COLUMN_LABELS } from '@/lib/handover/constants';
-import { isActiveCard, isUnackedUrgentCard, isUrgentPriorityCard } from '@/lib/handover/card-utils';
+import {
+  isActiveCard,
+  isArchivedCard,
+  isHoldCard,
+  isUnackedUrgentCard,
+  isUrgentPriorityCard,
+  isWorkingColumn,
+} from '@/lib/handover/card-utils';
 import type { ActivityLog, Card, Notice } from '@/lib/handover/types';
 
 export function isToday(value: string): boolean {
@@ -28,6 +35,8 @@ export type ShiftSummaryData = {
   unackedUrgent: Card[];
   urgentActive: Card[];
   progressActive: Card[];
+  holdActive: Card[];
+  boardDoneCount: number;
   doneToday: Card[];
   announcements: Notice[];
   pinnedAnnouncements: Notice[];
@@ -38,7 +47,14 @@ export function buildShiftSummaryData(cards: Card[], notices: Notice[]): ShiftSu
   const todayCards = cards.filter((card) => isToday(card.created_at) || isToday(card.updated_at));
   const unackedUrgent = cards.filter(isUnackedUrgentCard);
   const urgentActive = cards.filter(isUrgentPriorityCard);
-  const progressActive = cards.filter((card) => isActiveCard(card) && card.priority !== 'urgent');
+  const progressActive = cards.filter(
+    (card) =>
+      !isArchivedCard(card) &&
+      isWorkingColumn(card) &&
+      card.priority !== 'urgent',
+  );
+  const holdActive = cards.filter((card) => !isArchivedCard(card) && isHoldCard(card));
+  const boardDoneCount = cards.filter((card) => !isArchivedCard(card) && card.column_id === 'done').length;
   const doneToday = todayCards.filter((card) => card.column_id === 'done');
   const todayActive = todayCards.filter((card) => card.column_id !== 'done');
   const announcements = notices.filter((notice) => notice.type === 'announcement');
@@ -51,6 +67,8 @@ export function buildShiftSummaryData(cards: Card[], notices: Notice[]): ShiftSu
     unackedUrgent,
     urgentActive,
     progressActive,
+    holdActive,
+    boardDoneCount,
     doneToday,
     announcements,
     pinnedAnnouncements,

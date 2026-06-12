@@ -7,18 +7,24 @@ import {
   buildFacilitySummaries,
   getOpenFacilityIssues,
   getRoomFacilityIssues,
+  mergeFacilityCardSources,
 } from '@/lib/facility/facility-stats';
-import { useCards } from '@/lib/handover/use-cards';
+import { useArchivedCards, useCards } from '@/lib/handover/use-cards';
 
 export function FacilityPageClient() {
   const { cards } = useCards();
+  const { data: archivedCards = [] } = useArchivedCards();
+  const facilityCards = useMemo(
+    () => mergeFacilityCardSources(cards, archivedCards),
+    [cards, archivedCards],
+  );
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
 
-  const openIssues = useMemo(() => getOpenFacilityIssues(cards), [cards]);
-  const summaries = useMemo(() => buildFacilitySummaries(cards), [cards]);
+  const openIssues = useMemo(() => getOpenFacilityIssues(facilityCards), [facilityCards]);
+  const summaries = useMemo(() => buildFacilitySummaries(facilityCards), [facilityCards]);
   const roomIssues = useMemo(
-    () => (selectedRoom ? getRoomFacilityIssues(cards, selectedRoom) : []),
-    [cards, selectedRoom],
+    () => (selectedRoom ? getRoomFacilityIssues(facilityCards, selectedRoom) : []),
+    [facilityCards, selectedRoom],
   );
 
   const frequentRooms = summaries.filter((s) => s.totalCount >= 2).slice(0, 12);
@@ -28,7 +34,7 @@ export function FacilityPageClient() {
       <header className="facility-page__header">
         <div>
           <h2>시설 문제 현황</h2>
-          <p>시설·컴플레인 인수인계 카드 기준 — 최근 90일, 객실별 빈도</p>
+          <p>시설·컴플레인 인수인계 카드 기준 — 최근 6개월, 보관함 포함 객실별 이력</p>
         </div>
         <div className="facility-page__stats">
           <span>미해결 <strong>{openIssues.length}</strong></span>
@@ -108,7 +114,17 @@ export function FacilityPageClient() {
                     <span className={`facility-issue-item__kind facility-issue-item__kind--${issueKind === '컴플레인' ? 'complaint' : 'facility'}`}>
                       {issueKind}
                     </span>
-                    <span>{card.column_id === 'done' ? '완료' : card.column_id === 'progress' ? '진행중' : '긴급'}</span>
+                    <span>
+                      {card.archived_at
+                        ? '보관'
+                        : card.column_id === 'done'
+                          ? '완료'
+                          : card.column_id === 'hold'
+                            ? '보류'
+                            : card.column_id === 'progress'
+                              ? '진행중'
+                              : '긴급'}
+                    </span>
                     <time>{formatTime(card.updated_at || card.created_at)}</time>
                   </div>
                   <strong>{card.title}</strong>

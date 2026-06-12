@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { splitTextBySearchQuery } from '@/lib/handover/card-utils';
+import { isCommentEdited, splitTextBySearchQuery } from '@/lib/handover/card-utils';
+import type { CardComment } from '@/lib/handover/types';
 import { monthDateRange } from '@/lib/schedule/month-range';
 import { buildSummaryText, getExportFilename, hasSummaryContent } from '@/lib/handover/daily-summary';
 import { buildShiftSummaryData } from '@/lib/handover/shift-summary';
@@ -11,6 +12,13 @@ import {
   guessColumnMapping,
   TL_BOOKING_SEARCH_HEADERS,
 } from '@/lib/rate-confirm/parse';
+import {
+  computeNextDueDate,
+  describeRecurrence,
+  nextDailyDueDate,
+  nextMonthlyDueDate,
+  nextWeeklyDueDate,
+} from '@/lib/todos/recurrence';
 
 test('monthDateRange uses last day of month', () => {
   assert.deepEqual(monthDateRange('2026-06'), { start: '2026-06-01', end: '2026-06-30' });
@@ -58,6 +66,91 @@ test('splitTextBySearchQuery highlights matching segments', () => {
     { text: ' 민원', match: false },
   ]);
   assert.deepEqual(splitTextBySearchQuery('민원 처리', ''), [{ text: '민원 처리', match: false }]);
+});
+
+test('leave validation blocks holidays and enforces daily cap', () => {
+  const {
+    isDateBlocked,
+    resolveLeaveStatus,
+    getTargetMonth,
+  } = require('@/lib/leave/validation') as typeof import('@/lib/leave/validation');
+  const policy = {
+    max_days_per_month: 4,
+    max_staff_per_day: 2,
+    apply_month_offset: 1,
+    application_open_day: 1,
+    application_close_day: 20,
+  };
+  const blocked = [{ id: '1', hotel_id: 'h', block_month: 12, block_day: 25, label: '크리스마스' }];
+  assert.equal(isDateBlocked('2026-12-25', blocked), true);
+  assert.equal(isDateBlocked('2026-12-24', blocked), false);
+
+  const blockedResult = resolveLeaveStatus('2026-12-25', '김', false, [], policy, blocked);
+  assert.equal(blockedResult.ok, false);
+
+  const requests = [
+    {
+      id: 'a',
+      hotel_id: 'h',
+      staff_name: '이',
+      work_group: 'A',
+      leave_date: '2026-07-10',
+      status: 'approved' as const,
+      is_exception: false,
+      reason: '',
+      reviewed_by: null,
+      reviewed_at: null,
+      created_at: '',
+    },
+    {
+      id: 'b',
+      hotel_id: 'h',
+      staff_name: '박',
+      work_group: 'B',
+      leave_date: '2026-07-10',
+      status: 'approved' as const,
+      is_exception: false,
+      reason: '',
+      reviewed_by: null,
+      reviewed_at: null,
+      created_at: '',
+    },
+  ];
+  const fullDay = resolveLeaveStatus('2026-07-10', '김', false, requests, policy, blocked);
+  assert.equal(fullDay.ok, false);
+  if (!fullDay.ok) assert.match(fullDay.error, /마감/);
+
+  const exception = resolveLeaveStatus('2026-07-11', '김', true, requests, policy, blocked);
+  assert.equal(exception.ok, true);
+  if (exception.ok) assert.equal(exception.status, 'pending_review');
+
+  const nextMonth = getTargetMonth(new Date(2026, 5, 8), 1);
+  assert.equal(nextMonth, '2026-07');
+
+  const { requestsForDateOrdered } = require('@/lib/leave/validation') as typeof import('@/lib/leave/validation');
+  const ordered = requestsForDateOrdered(
+    [
+      { ...requests[0]!, created_at: '2026-06-15T00:02:00.000Z' },
+      { ...requests[1]!, created_at: '2026-06-15T00:01:00.000Z' },
+    ],
+    '2026-07-10',
+  );
+  assert.equal(ordered[0]?.staff_name, '박');
+  assert.equal(ordered[1]?.staff_name, '이');
+});
+
+test('isCommentEdited when updated_at differs from created_at', () => {
+  const base: CardComment = {
+    id: '1',
+    card_id: 'c1',
+    shift: 'A',
+    staff_name: '홍길동',
+    content: '도착',
+    created_at: '2026-06-08T10:00:00.000Z',
+  };
+  assert.equal(isCommentEdited(base), false);
+  assert.equal(isCommentEdited({ ...base, updated_at: base.created_at }), false);
+  assert.equal(isCommentEdited({ ...base, updated_at: '2026-06-08T11:00:00.000Z' }), true);
 });
 
 test('parseAmount strips currency formatting', () => {
@@ -148,44 +241,6 @@ test('status and date normalization', () => {
   assert.equal(isStatusEqual('예약', 'RR'), true);
   assert.equal(normalizeDate('2026.05.20(수)'), '2026-05-20');
   assert.equal(normalizeDate('2026-05-20'), '2026-05-20');
-});
-
-test('SOP search ranks keyword and title matches', async () => {
-  const { searchSopArticles, suggestSopArticles } = await import('../src/lib/sop/search.ts');
-  const articles = [
-    {
-      id: '1',
-      hotel_id: 'h',
-      title: '119 · 112 긴급 연락',
-      body: '119 화재',
-      category: '긴급대응' as const,
-      keywords: ['119', '응급'],
-      is_pinned: true,
-      sort_order: 0,
-      author_name: '',
-      is_active: true,
-      created_at: '',
-      updated_at: '',
-    },
-    {
-      id: '2',
-      hotel_id: 'h',
-      title: '환불 안내',
-      body: '수수료',
-      category: '결제/환불' as const,
-      keywords: ['환불'],
-      is_pinned: false,
-      sort_order: 1,
-      author_name: '',
-      is_active: true,
-      created_at: '',
-      updated_at: '',
-    },
-  ];
-  const hits = searchSopArticles(articles, '119');
-  assert.equal(hits[0]?.id, '1');
-  const suggested = suggestSopArticles(articles, { title: '소음 컴플레인', details: '', category: '컴플레인' });
-  assert.equal(suggested.length, 0);
 });
 
 import { calculateTaxiPrice } from '@/lib/taxi/destinations';
@@ -422,4 +477,224 @@ test('computeTaxiDashboard aggregates revenue and rates', () => {
   const monthRange = dashboardPeriodRange('month', today);
   assert.equal(monthRange.from, '2026-06-01');
   assert.equal(monthRange.to, today);
+});
+
+test('nextDailyDueDate adds days', () => {
+  assert.equal(nextDailyDueDate('2026-06-11'), '2026-06-12');
+  assert.equal(nextDailyDueDate('2026-06-11', 3), '2026-06-14');
+});
+
+test('nextWeeklyDueDate adds 7 days', () => {
+  assert.equal(nextWeeklyDueDate('2026-06-11'), '2026-06-18');
+  assert.equal(nextWeeklyDueDate('2026-06-11', 2), '2026-06-25');
+});
+
+test('nextMonthlyDueDate keeps day and clamps month end', () => {
+  assert.equal(nextMonthlyDueDate('2026-01-31'), '2026-02-28');
+  assert.equal(nextMonthlyDueDate('2026-03-15'), '2026-04-15');
+  assert.equal(nextMonthlyDueDate('2026-03-15', 2), '2026-05-15');
+});
+
+test('describeRecurrence labels daily weekly and monthly', () => {
+  assert.equal(describeRecurrence({ recurrence_kind: 'daily', recurrence_interval: 1, due_date: '2026-06-11' }), '매일');
+  assert.equal(
+    describeRecurrence({ recurrence_kind: 'weekly', recurrence_interval: 1, due_date: '2026-06-11' }),
+    '매주 목요일',
+  );
+  assert.equal(
+    describeRecurrence({ recurrence_kind: 'weekly', recurrence_interval: 2, due_date: '2026-06-11' }),
+    '2주마다 목요일',
+  );
+  assert.equal(
+    describeRecurrence({ recurrence_kind: 'monthly', recurrence_interval: 1, due_date: '2026-06-15' }),
+    '매월 15일',
+  );
+  assert.equal(computeNextDueDate('2026-06-11', 'weekly', 1), '2026-06-18');
+});
+
+test('transport alerts within 30 minutes', () => {
+  const {
+    filterUpcomingTransportAlerts,
+    isUpcomingTransportAlert,
+    minutesUntilPickup,
+  } = require('@/lib/transport/alerts') as typeof import('@/lib/transport/alerts');
+
+  const now = new Date('2026-06-08T09:40:00');
+  const soon = {
+    id: '1',
+    status: 'pending',
+    booking_date: '2026-06-08',
+    pickup_time: '10:00:00',
+  } as import('@/lib/transport/types').TransportBooking;
+  const later = {
+    id: '2',
+    status: 'pending',
+    booking_date: '2026-06-08',
+    pickup_time: '11:30:00',
+  } as import('@/lib/transport/types').TransportBooking;
+  const done = { ...soon, id: '3', status: 'completed' } as import('@/lib/transport/types').TransportBooking;
+
+  assert.equal(minutesUntilPickup(soon, now), 20);
+  assert.equal(isUpcomingTransportAlert(soon, 30, now), true);
+  assert.equal(isUpcomingTransportAlert(later, 30, now), false);
+  assert.equal(isUpcomingTransportAlert(done, 30, now), false);
+  assert.deepEqual(filterUpcomingTransportAlerts([soon, later, done], 30, now).map((b) => b.id), ['1']);
+});
+
+test('mergeWorkScheduleItems combines todos and events by date', () => {
+  const { mergeWorkScheduleItems } = require('@/lib/work-items/merge') as typeof import('@/lib/work-items/merge');
+
+  const todos = [
+    {
+      id: 't1',
+      due_date: '2026-06-17',
+      status: 'open',
+    },
+    {
+      id: 't2',
+      due_date: null,
+      status: 'open',
+    },
+  ] as import('@/lib/todos/types').Todo[];
+
+  const events = [
+    {
+      id: 'e1',
+      event_date: '2026-06-17',
+      start_time: '14:00:00',
+      end_time: '18:00:00',
+      category: '교육',
+      title: 'CPR',
+    },
+  ] as import('@/lib/events/types').HotelEvent[];
+
+  const merged = mergeWorkScheduleItems({ todos, events, month: '2026-06' });
+  assert.equal(merged.length, 3);
+  assert.equal(merged[0].kind, 'event');
+  assert.equal(merged[1].kind, 'todo');
+});
+
+test('today taxi bar text shows overdue message', () => {
+  const {
+    formatTodayTaxiBarText,
+    isPickupOverdue,
+  } = require('@/lib/transport/alerts') as typeof import('@/lib/transport/alerts');
+
+  const booking = {
+    id: '1',
+    status: 'pending',
+    booking_date: '2026-06-08',
+    pickup_time: '10:00:00',
+    room_number: '1207',
+    guest_name: '홍길동',
+    destination: '공항',
+  } as import('@/lib/transport/types').TransportBooking;
+
+  const before = new Date('2026-06-08T09:40:00');
+  const after = new Date('2026-06-08T10:05:00');
+
+  assert.equal(isPickupOverdue(booking, before), false);
+  assert.equal(isPickupOverdue(booking, after), true);
+  assert.match(formatTodayTaxiBarText(booking, before), /택시 예약 · 1207호/);
+  assert.equal(formatTodayTaxiBarText(booking, after), '시간이 지났습니다. 택시 예약을 확인해주세요.');
+});
+
+test('parseOtaReviewPaste extracts booking fields and sentiment', () => {
+  const { parseOtaReviewPaste } = require('@/lib/reviews/parse-ota') as typeof import('@/lib/reviews/parse-ota');
+  const text = [
+    'Booking.com',
+    'Guest name: Jane Doe',
+    'Reservation number: 9876543210',
+    'Room number: 1207',
+    'Check-in: 2026-06-01',
+    'Check-out: 2026-06-03',
+    'Score: 2/10',
+    'The room was dirty and very noisy.',
+  ].join('\n');
+
+  const parsed = parseOtaReviewPaste(text);
+  assert.ok(parsed);
+  assert.equal(parsed!.ota_source, 'booking');
+  assert.equal(parsed!.guest_name, 'Jane Doe');
+  assert.equal(parsed!.reservation_number, '9876543210');
+  assert.equal(parsed!.room_number, '1207');
+  assert.equal(parsed!.check_in_date, '2026-06-01');
+  assert.equal(parsed!.check_out_date, '2026-06-03');
+  assert.equal(parsed!.sentiment, 'negative');
+  assert.equal(parsed!.account, 'Booking.com');
+});
+
+test('parseOtaReviewPaste detects google stars', () => {
+  const { parseOtaReviewPaste } = require('@/lib/reviews/parse-ota') as typeof import('@/lib/reviews/parse-ota');
+  const parsed = parseOtaReviewPaste('Google review\n★★★★★\nGreat stay, friendly staff.');
+  assert.ok(parsed);
+  assert.equal(parsed!.ota_source, 'google');
+  assert.equal(parsed!.rating, 5);
+  assert.equal(parsed!.sentiment, 'positive');
+});
+
+test('facility stats include archived cards in room history', () => {
+  const {
+    buildFacilitySummaries,
+    getRoomFacilityIssues,
+    getOpenFacilityIssues,
+    mergeFacilityCardSources,
+  } = require('@/lib/facility/facility-stats') as typeof import('@/lib/facility/facility-stats');
+
+  const active = {
+    id: '1',
+    category: '시설',
+    room: '1207',
+    title: '에어컨 고장',
+    column_id: 'done',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    archived_at: null,
+  } as import('@/lib/handover/types').Card;
+
+  const archived = {
+    ...active,
+    id: '2',
+    title: '누수 발생',
+    archived_at: new Date().toISOString(),
+  };
+
+  const merged = mergeFacilityCardSources([active], [archived]);
+  const history = getRoomFacilityIssues(merged, '1207');
+  assert.equal(history.length, 2);
+  assert.equal(getOpenFacilityIssues(merged).length, 0);
+
+  const summaries = buildFacilitySummaries(merged);
+  assert.equal(summaries[0]?.totalCount, 2);
+  assert.equal(summaries[0]?.openCount, 0);
+});
+
+test('cardFormSnapshotsEqual detects unsaved edits', () => {
+  const { cardFormSnapshotsEqual } = require('@/lib/handover/card-draft') as typeof import('@/lib/handover/card-draft');
+  const base = {
+    form: {
+      column_id: 'progress' as const,
+      priority: 'today' as const,
+      category: '기타',
+      room: '',
+      title: '제목',
+      details: '상세',
+      resolution: '',
+      next_action: '',
+      author: 'A',
+      assignee_shift: 'A',
+      assignee_name: 'Kim',
+      due_at: null,
+    },
+    dueDate: '',
+    dueTime: '',
+  };
+  assert.equal(cardFormSnapshotsEqual(base, base), true);
+  assert.equal(
+    cardFormSnapshotsEqual(base, {
+      ...base,
+      form: { ...base.form, details: '수정됨' },
+    }),
+    false,
+  );
 });

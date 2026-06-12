@@ -46,7 +46,7 @@ function ContactModal({ open, contact, onClose, onSave, onDelete }: ContactModal
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!form.name.trim() || !form.phone.trim()) {
-      setError('이름과 전화번호를 입력해 주세요.');
+      setError('이름과 연락처를 입력해 주세요.');
       return;
     }
     setSaving(true);
@@ -103,11 +103,11 @@ function ContactModal({ open, contact, onClose, onSave, onDelete }: ContactModal
               />
             </label>
             <label className="field">
-              <span>연락처 *</span>
+              <span>연락처 / ID *</span>
               <input
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                placeholder="예: 02-1234-5678"
+                placeholder="전화번호 또는 로그인 ID"
               />
             </label>
             <label className="field">
@@ -115,15 +115,16 @@ function ContactModal({ open, contact, onClose, onSave, onDelete }: ContactModal
               <input
                 value={form.phone_alt}
                 onChange={(e) => setForm({ ...form, phone_alt: e.target.value })}
-                placeholder="예: 내선 210"
+                placeholder="예: 휴대폰 · 내선"
               />
             </label>
             <label className="field field--full">
               <span>메모</span>
-              <input
+              <textarea
+                rows={3}
                 value={form.note}
                 onChange={(e) => setForm({ ...form, note: e.target.value })}
-                placeholder="예: 야간만 연락"
+                placeholder="비밀번호·결제 안내·유의사항"
               />
             </label>
           </div>
@@ -167,9 +168,147 @@ function ContactModal({ open, contact, onClose, onSave, onDelete }: ContactModal
   );
 }
 
-function phoneHref(value: string): string {
+function phoneHref(value: string): string | null {
   const digits = value.replace(/[^\d+]/g, '');
-  return digits ? `tel:${digits}` : '#';
+  return digits.length >= 8 ? `tel:${digits}` : null;
+}
+
+function isDialable(value: string): boolean {
+  return phoneHref(value) !== null;
+}
+
+function ContactValue({
+  value,
+  onCopy,
+  variant = 'primary',
+}: {
+  value: string;
+  onCopy: (text: string) => void;
+  variant?: 'primary' | 'alt';
+}) {
+  if (!value || value === '—') return <span className="contacts-table__empty">—</span>;
+
+  const href = isDialable(value) ? phoneHref(value) : null;
+
+  if (href) {
+    return (
+      <a
+        href={href}
+        className={`contacts-table__link contacts-table__link--${variant}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {value}
+      </a>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className={`contacts-table__copy contacts-table__copy--${variant}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        void onCopy(value);
+      }}
+      title="클릭하여 복사"
+    >
+      {value}
+    </button>
+  );
+}
+
+function ContactTable({
+  contacts,
+  showDepartment,
+  onEdit,
+  onTogglePin,
+  onCopy,
+}: {
+  contacts: Contact[];
+  showDepartment: boolean;
+  onEdit: (contact: Contact) => void;
+  onTogglePin: (contact: Contact) => void;
+  onCopy: (text: string) => void;
+}) {
+  return (
+    <div className="contacts-table-wrap">
+      <table className="contacts-table">
+        <thead>
+          <tr>
+            <th className="contacts-table__col-pin" aria-label="즐겨찾기" />
+            {showDepartment ? <th className="contacts-table__col-dept">구분</th> : null}
+            <th className="contacts-table__col-name">이름</th>
+            <th className="contacts-table__col-phone">연락처</th>
+            <th className="contacts-table__col-alt">추가</th>
+            <th className="contacts-table__col-note">메모</th>
+            <th className="contacts-table__col-actions" aria-label="작업" />
+          </tr>
+        </thead>
+        <tbody>
+          {contacts.map((contact) => (
+            <tr key={contact.id} className="contacts-table__row" onClick={() => onEdit(contact)}>
+              <td className="contacts-table__col-pin">
+                <button
+                  type="button"
+                  className={`contacts-table__pin${contact.is_pinned ? ' is-active' : ''}`}
+                  aria-label={contact.is_pinned ? '즐겨찾기 해제' : '즐겨찾기'}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onTogglePin(contact);
+                  }}
+                >
+                  ⭐
+                </button>
+              </td>
+              {showDepartment ? (
+                <td className="contacts-table__col-dept">
+                  <span className="contacts-table__dept">{contact.department}</span>
+                </td>
+              ) : null}
+              <td className="contacts-table__col-name">
+                <strong>{contact.name}</strong>
+              </td>
+              <td className="contacts-table__col-phone">
+                <ContactValue value={contact.phone} onCopy={onCopy} />
+              </td>
+              <td className="contacts-table__col-alt">
+                <ContactValue value={contact.phone_alt} onCopy={onCopy} variant="alt" />
+              </td>
+              <td className="contacts-table__col-note">
+                {contact.note ? (
+                  <button
+                    type="button"
+                    className="contacts-table__note"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void onCopy(contact.note);
+                    }}
+                    title="클릭하여 복사"
+                  >
+                    {contact.note}
+                  </button>
+                ) : (
+                  <span className="contacts-table__empty">—</span>
+                )}
+              </td>
+              <td className="contacts-table__col-actions">
+                <button
+                  type="button"
+                  className="contacts-table__edit"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit(contact);
+                  }}
+                >
+                  수정
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 export function ContactsPageClient() {
@@ -180,21 +319,71 @@ export function ContactsPageClient() {
   const [editing, setEditing] = useState<Contact | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
+  const countsByDept = useMemo(() => {
+    const counts: Record<string, number> = { 전체: contacts.length };
+    for (const contact of contacts) {
+      counts[contact.department] = (counts[contact.department] ?? 0) + 1;
+    }
+    return counts;
+  }, [contacts]);
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return contacts.filter((contact) => {
-      if (filter !== '전체' && contact.department !== filter) return false;
-      if (!q) return true;
-      return [contact.name, contact.department, contact.phone, contact.phone_alt, contact.note]
-        .join(' ')
-        .toLowerCase()
-        .includes(q);
-    });
+    return contacts
+      .filter((contact) => {
+        if (filter !== '전체' && contact.department !== filter) return false;
+        if (!q) return true;
+        return [contact.name, contact.department, contact.phone, contact.phone_alt, contact.note]
+          .join(' ')
+          .toLowerCase()
+          .includes(q);
+      })
+      .sort((a, b) => {
+        if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1;
+        if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+        return a.name.localeCompare(b.name, 'ko');
+      });
   }, [contacts, filter, query]);
+
+  const listLayout = useMemo(() => {
+    const pinned = visible.filter((contact) => contact.is_pinned);
+    const rest = visible.filter((contact) => !contact.is_pinned);
+
+    if (filter !== '전체') {
+      return {
+        pinned,
+        sections: [{ dept: filter, items: rest }],
+        showDepartment: false,
+      };
+    }
+
+    const byDept = new Map<string, Contact[]>();
+    for (const contact of rest) {
+      const list = byDept.get(contact.department) ?? [];
+      list.push(contact);
+      byDept.set(contact.department, list);
+    }
+
+    const sections = CONTACT_FORM_DEPARTMENTS.filter((dept) => byDept.has(dept)).map((dept) => ({
+      dept,
+      items: byDept.get(dept) ?? [],
+    }));
+
+    return { pinned, sections, showDepartment: false };
+  }, [visible, filter]);
 
   function showToast(msg: string) {
     setToast(msg);
     window.setTimeout(() => setToast(null), 2500);
+  }
+
+  async function handleCopy(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('복사했습니다.');
+    } catch {
+      showToast('복사에 실패했습니다.');
+    }
   }
 
   return (
@@ -203,7 +392,7 @@ export function ContactsPageClient() {
         <div className="contacts-page__header">
           <div>
             <h2>외부 연락처</h2>
-            <p>엔지니어링·업체·응급 등 자주 쓰는 번호를 빠르게 확인하세요.</p>
+            <p>목록에서 번호·ID를 눌러 전화하거나 복사하세요. 검색과 구분 필터로 빠르게 찾을 수 있습니다.</p>
           </div>
           <button
             type="button"
@@ -226,16 +415,20 @@ export function ContactsPageClient() {
             aria-label="연락처 검색"
           />
           <div className="segmented-control segmented-control--wrap" aria-label="구분 필터">
-            {CONTACT_DEPARTMENTS.map((dept) => (
-              <button
-                key={dept}
-                type="button"
-                onClick={() => setFilter(dept)}
-                className={`segmented-control__btn${filter === dept ? ' is-active' : ''}`}
-              >
-                {dept}
-              </button>
-            ))}
+            {CONTACT_DEPARTMENTS.map((dept) => {
+              const count = countsByDept[dept];
+              return (
+                <button
+                  key={dept}
+                  type="button"
+                  onClick={() => setFilter(dept)}
+                  className={`segmented-control__btn${filter === dept ? ' is-active' : ''}`}
+                >
+                  {dept}
+                  {count ? ` ${count}` : ''}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -244,62 +437,54 @@ export function ContactsPageClient() {
         ) : !visible.length ? (
           <p className="empty-state">등록된 연락처가 없습니다.</p>
         ) : (
-          <div className="contacts-grid">
-            {visible.map((contact) => (
-              <article
-                key={contact.id}
-                className="contact-card"
-                onClick={() => {
-                  setEditing(contact);
-                  setModalOpen(true);
-                }}
-              >
-                <div className="contact-card__top">
-                  <span className="contact-card__dept">{contact.department}</span>
-                  <div className="contact-card__actions">
-                    <button
-                      type="button"
-                      className={`contact-card__pin${contact.is_pinned ? ' is-active' : ''}`}
-                      aria-label={contact.is_pinned ? '즐겨찾기 해제' : '즐겨찾기 추가'}
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        await togglePin.mutateAsync({ id: contact.id, isPinned: contact.is_pinned });
-                        showToast(contact.is_pinned ? '즐겨찾기 해제' : '즐겨찾기 추가');
-                      }}
-                    >
-                      ⭐
-                    </button>
-                    <button
-                      type="button"
-                      className="contact-card__edit"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditing(contact);
-                        setModalOpen(true);
-                      }}
-                    >
-                      수정
-                    </button>
-                  </div>
-                </div>
-                <h3 className="contact-card__name">{contact.name}</h3>
-                <div className="contact-card__phones">
-                  <a href={phoneHref(contact.phone)} className="contact-card__phone" onClick={(e) => e.stopPropagation()}>
-                    {contact.phone}
-                  </a>
-                  {contact.phone_alt ? (
-                    <a
-                      href={phoneHref(contact.phone_alt)}
-                      className="contact-card__phone contact-card__phone--alt"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {contact.phone_alt}
-                    </a>
+          <div className="contacts-list">
+            {listLayout.pinned.length ? (
+              <section className="contacts-list__section">
+                <header className="contacts-list__head contacts-list__head--pinned">
+                  <h3>⭐ 즐겨찾기</h3>
+                  <span>{listLayout.pinned.length}</span>
+                </header>
+                <ContactTable
+                  contacts={listLayout.pinned}
+                  showDepartment={filter === '전체'}
+                  onEdit={(contact) => {
+                    setEditing(contact);
+                    setModalOpen(true);
+                  }}
+                  onTogglePin={async (contact) => {
+                    await togglePin.mutateAsync({ id: contact.id, isPinned: contact.is_pinned });
+                    showToast(contact.is_pinned ? '즐겨찾기 해제' : '즐겨찾기 추가');
+                  }}
+                  onCopy={handleCopy}
+                />
+              </section>
+            ) : null}
+
+            {listLayout.sections.map((section) =>
+              section.items.length ? (
+                <section key={section.dept} className="contacts-list__section">
+                  {filter === '전체' ? (
+                    <header className="contacts-list__head">
+                      <h3>{section.dept}</h3>
+                      <span>{section.items.length}</span>
+                    </header>
                   ) : null}
-                </div>
-                {contact.note ? <p className="contact-card__note">{contact.note}</p> : null}
-              </article>
-            ))}
+                  <ContactTable
+                    contacts={section.items}
+                    showDepartment={false}
+                    onEdit={(contact) => {
+                      setEditing(contact);
+                      setModalOpen(true);
+                    }}
+                    onTogglePin={async (contact) => {
+                      await togglePin.mutateAsync({ id: contact.id, isPinned: contact.is_pinned });
+                      showToast(contact.is_pinned ? '즐겨찾기 해제' : '즐겨찾기 추가');
+                    }}
+                    onCopy={handleCopy}
+                  />
+                </section>
+              ) : null,
+            )}
           </div>
         )}
       </section>

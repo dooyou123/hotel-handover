@@ -7,6 +7,8 @@ import type { TodaySchedule } from '@/lib/schedule/use-schedule';
 import type { TodayAlertItem } from '@/lib/today/alerts';
 import type { Todo } from '@/lib/todos/types';
 import { HandoverSummaryNova } from '@/components/handover/nova/handover-summary-nova';
+import { PersonalTasksPanel } from '@/components/personal-tasks/personal-tasks-panel';
+import { AsideMonthCalendar } from './aside-month-calendar';
 import { HandoverTodaySidebar } from './handover-today-sidebar';
 import { HandoverTopActions } from './handover-top-actions';
 
@@ -22,7 +24,7 @@ type HandoverAsideProjectProps = {
   onShiftStart: () => void;
   onShiftEnd: () => void;
   onOpenShiftBrief: () => void;
-  onExport: () => void;
+  onShiftHistory: () => void;
   onActivity: () => void;
   onAlertClick: (id: string) => void;
   onOpenCard: (card: Card) => void;
@@ -43,7 +45,7 @@ export function HandoverAsideProject({
   onShiftStart,
   onShiftEnd,
   onOpenShiftBrief,
-  onExport,
+  onShiftHistory,
   onActivity,
   onAlertClick,
   onOpenCard,
@@ -53,31 +55,20 @@ export function HandoverAsideProject({
   onToggleTodo,
 }: HandoverAsideProjectProps) {
   return (
-    <aside className="project-handover__aside" aria-label="공지 · 오늘 업무">
+    <aside className="project-handover__aside" aria-label="오늘 업무">
       <div className="project-handover-aside">
-        <section className="aside-card">
+        <section className="aside-card aside-card--shift">
           <div className="aside-card__head">
-            <h3 className="aside-card__title">교대 · 기록</h3>
+            <h3 className="aside-card__title">교대 · 기록 보기</h3>
           </div>
           <HandoverTopActions
             layout="grid"
+            showHelp
             onShiftStart={onShiftStart}
             onShiftEnd={onShiftEnd}
             onOpenShiftBrief={onOpenShiftBrief}
-            onExport={onExport}
+            onShiftHistory={onShiftHistory}
             onActivity={onActivity}
-          />
-        </section>
-
-        <section className="aside-card">
-          <div className="aside-card__head">
-            <h3 className="aside-card__title">업무 현황</h3>
-          </div>
-          <HandoverSummaryNova
-            data={summaryData}
-            totalCount={cards.length}
-            activeFilter={quickFilter}
-            onFilterSelect={onQuickFilterChange}
           />
         </section>
 
@@ -102,17 +93,37 @@ export function HandoverAsideProject({
           </section>
         ) : null}
 
-        <HandoverTodaySidebar
-          cards={cards}
-          todos={todos}
-          events={events}
-          onOpenCard={onOpenCard}
-          onOpenTodo={onOpenTodo}
-          onOpenEvent={onOpenEvent}
-          onAcknowledge={onAcknowledge}
-          onToggleTodo={onToggleTodo}
-          hideUnacked
-        />
+        <div className="project-handover-aside__today">
+          <HandoverTodaySidebar
+            cards={cards}
+            todos={todos}
+            events={events}
+            onOpenCard={onOpenCard}
+            onOpenTodo={onOpenTodo}
+            onOpenEvent={onOpenEvent}
+            onAcknowledge={onAcknowledge}
+            onToggleTodo={onToggleTodo}
+            hideUnacked
+          />
+        </div>
+
+        <section className="aside-card aside-card--compact">
+          <div className="aside-card__head">
+            <h3 className="aside-card__title">업무 현황</h3>
+          </div>
+          <HandoverSummaryNova
+            data={summaryData}
+            totalCount={cards.length}
+            activeFilter={quickFilter}
+            onFilterSelect={onQuickFilterChange}
+          />
+        </section>
+
+        <AsideMonthCalendar onOpenEvent={onOpenEvent} />
+
+        <section className="aside-card aside-card--personal-tasks">
+          <PersonalTasksPanel variant="aside" />
+        </section>
       </div>
     </aside>
   );

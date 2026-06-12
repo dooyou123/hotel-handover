@@ -4,7 +4,8 @@ import { useEffect } from 'react';
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
-import type { ActivityLog, ShiftHandoverType } from '@/lib/handover/types';
+import { todayDateString } from '@/lib/handover/shift-summary';
+import type { ActivityLog, ShiftHandover, ShiftHandoverType } from '@/lib/handover/types';
 import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
 
 export type ActivityLogFilters = {
@@ -129,8 +130,52 @@ export function useActivityLogs(options?: {
 /** 일일 요약 export용 — 오늘 기록만 최대 limit건 */
 export async function fetchTodayActivityLogs(limit = 200): Promise<ActivityLog[]> {
   const logs = await fetchActivityLogs(limit, { entityType: 'all', action: 'all', query: '' });
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayDateString();
   return logs.filter((log) => log.created_at.startsWith(today));
+}
+
+function shiftHandoversQueryKey(scope: 'today' | 'recent', limit: number) {
+  return ['shift-handovers', DEFAULT_HOTEL_ID, scope, limit] as const;
+}
+
+async function fetchShiftHandovers(limit: number, todayOnly: boolean): Promise<ShiftHandover[]> {
+  const supabase = createClient();
+  let query = supabase
+    .from('shift_handovers')
+    .select('*')
+    .eq('hotel_id', DEFAULT_HOTEL_ID)
+    .order('handover_at', { ascending: false })
+    .limit(limit);
+
+  if (todayOnly) {
+    query = query.eq('work_date', todayDateString());
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as ShiftHandover[];
+}
+
+export async function fetchTodayShiftHandovers(limit = 50): Promise<ShiftHandover[]> {
+  return fetchShiftHandovers(limit, true);
+}
+
+export function useShiftHandovers(options?: { limit?: number; todayOnly?: boolean; enabled?: boolean }) {
+  const limit = options?.limit ?? 80;
+  const todayOnly = options?.todayOnly ?? false;
+  const enabled = options?.enabled ?? true;
+  const scope = todayOnly ? 'today' : 'recent';
+
+  return useQuery({
+    queryKey: shiftHandoversQueryKey(scope, limit),
+    queryFn: () => fetchShiftHandovers(limit, todayOnly),
+    enabled,
+    staleTime: 15_000,
+  });
+}
+
+export function useTodayShiftHandovers(limit = 50) {
+  return useShiftHandovers({ limit, todayOnly: true });
 }
 
 export async function logShiftHandover(input: {

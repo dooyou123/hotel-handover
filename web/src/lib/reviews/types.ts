@@ -9,6 +9,18 @@ export const REVIEW_SENTIMENT_LABELS: Record<ReviewSentiment, string> = {
 export const REVIEW_FILTER_OPTIONS = ['전체', '좋은 리뷰', '나쁜 리뷰'] as const;
 export type ReviewFilter = (typeof REVIEW_FILTER_OPTIONS)[number];
 
+export const REVIEW_ACCOUNT_PRESETS = [
+  'Booking.com',
+  'Agoda',
+  'Expedia',
+  'Trip.com',
+  'Hotels.com',
+  'Airbnb',
+  'Google',
+  '직접 투숙',
+  '기타',
+] as const;
+
 export type GuestReview = {
   id: string;
   hotel_id: string;
@@ -24,6 +36,9 @@ export type GuestReview = {
   room_number: string;
   room_action_completed_at: string | null;
   room_action_completed_by: string;
+  ota_source: string;
+  rating: number | null;
+  account: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -39,4 +54,7 @@ export type GuestReviewInput = {
   reservation_number: string;
   room_number: string;
   author: string;
+  ota_source?: string;
+  rating?: number | null;
+  account?: string;
 };

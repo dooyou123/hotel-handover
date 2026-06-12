@@ -7,6 +7,7 @@ export const CONTACT_DEPARTMENTS = [
   '보안',
   '응급',
   '업체',
+  '계정',
   '기타',
 ] as const;
 

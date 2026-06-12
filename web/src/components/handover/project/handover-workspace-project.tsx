@@ -1,13 +1,15 @@
 'use client';
 
 import type { ShiftSummaryData } from '@/lib/handover/shift-summary';
-import type { Card, HandoverViewMode, QuickFilter } from '@/lib/handover/types';
+import type { Card, HandoverViewMode, QuickFilter, WorkSession } from '@/lib/handover/types';
 import type { HotelEvent } from '@/lib/events/types';
 import type { TodayAlertItem } from '@/lib/today/alerts';
 import type { Todo } from '@/lib/todos/types';
 import { RoomView } from '@/components/handover/room-view';
+import { HandoverArchiveProject } from './handover-archive-project';
 import { HandoverAsideProject } from './handover-aside-project';
 import { HandoverListProject } from './handover-list-project';
+import { HandoverShiftBriefProject } from './handover-shift-brief-project';
 import { HandoverToolbarProject } from './handover-toolbar-project';
 
 type HandoverWorkspaceProjectProps = {
@@ -23,9 +25,12 @@ type HandoverWorkspaceProjectProps = {
   searchDateTo: string;
   quickFilter: QuickFilter;
   doneCount: number;
+  archivedCards: Card[];
+  archivedLoading: boolean;
   archivedCount: number;
   archivedSearchCount: number;
   isManager: boolean;
+  session: WorkSession;
   onViewModeChange: (mode: HandoverViewMode) => void;
   onSearchChange: (value: string) => void;
   onSearchDateFromChange: (value: string) => void;
@@ -33,14 +38,21 @@ type HandoverWorkspaceProjectProps = {
   onQuickFilterChange: (filter: QuickFilter) => void;
   onAdd: () => void;
   onArchiveDone: () => void;
-  onOpenArchive: () => void;
-  onExport: () => void;
+  onRestoreFromArchive: (cardId: string) => Promise<void>;
   onActivity: () => void;
+  onShiftHistory: () => void;
   onOpenShiftBrief: () => void;
+  authorLabel: string;
+  requireSession: (action: string) => boolean;
+  onToast: (message: string) => void;
   onShiftStart: () => void;
   onShiftEnd: () => void;
   onOpenCard: (card: Card) => void;
-  onAcknowledge: (cardId: string) => void;
+  onOpenCardComments: (card: Card) => void;
+  onAddComment: (cardId: string, content: string) => Promise<void>;
+  staffName: string;
+  commentDisabled?: boolean;
+  onAcknowledge: (cardId: string) => void | Promise<void>;
   onMarkDone: (cardId: string) => void;
   onShowUnacked: () => void;
   onAlertClick: (id: string) => void;
@@ -62,9 +74,12 @@ export function HandoverWorkspaceProject({
   searchDateTo,
   quickFilter,
   doneCount,
+  archivedCards,
+  archivedLoading,
   archivedCount,
   archivedSearchCount,
   isManager,
+  session,
   onViewModeChange,
   onSearchChange,
   onSearchDateFromChange,
@@ -72,13 +87,20 @@ export function HandoverWorkspaceProject({
   onQuickFilterChange,
   onAdd,
   onArchiveDone,
-  onOpenArchive,
-  onExport,
+  onRestoreFromArchive,
   onActivity,
+  onShiftHistory,
   onOpenShiftBrief,
+  authorLabel,
+  requireSession,
+  onToast,
   onShiftStart,
   onShiftEnd,
   onOpenCard,
+  onOpenCardComments,
+  onAddComment,
+  staffName,
+  commentDisabled = false,
   onAcknowledge,
   onMarkDone,
   onShowUnacked,
@@ -109,17 +131,48 @@ export function HandoverWorkspaceProject({
               onSearchDateToChange={onSearchDateToChange}
               onAdd={onAdd}
               onArchiveDone={onArchiveDone}
-              onOpenArchive={onOpenArchive}
             />
           </div>
           <div className="project-handover__main-body">
-            {viewMode === 'room' ? (
+            {viewMode === 'brief' ? (
+              <HandoverShiftBriefProject
+                summary={summaryData}
+                todos={todos}
+                events={events}
+                session={session}
+                authorLabel={authorLabel}
+                requireSession={requireSession}
+                onAcknowledge={onAcknowledge}
+                onOpenCard={onOpenCard}
+                onOpenTodo={onOpenTodo}
+                onOpenEvent={onOpenEvent}
+                onShiftHistory={onShiftHistory}
+                onActivityLog={onActivity}
+                onToast={onToast}
+              />
+            ) : viewMode === 'archive' ? (
+              <HandoverArchiveProject
+                cards={archivedCards}
+                isLoading={archivedLoading}
+                isManager={isManager}
+                searchQuery={searchQuery}
+                searchDateFrom={searchDateFrom}
+                searchDateTo={searchDateTo}
+                session={session}
+                onOpenCard={onOpenCard}
+                onRestore={onRestoreFromArchive}
+              />
+            ) : viewMode === 'room' ? (
               <RoomView cards={visibleCards} onOpenCard={onOpenCard} />
             ) : (
               <HandoverListProject
                 cards={visibleCards}
                 searchQuery={searchQuery}
                 onOpenCard={onOpenCard}
+                onOpenCardComments={onOpenCardComments}
+                onAddComment={onAddComment}
+                staffName={staffName}
+                commentDisabled={commentDisabled}
                 onAcknowledge={onAcknowledge}
                 onMarkDone={onMarkDone}
               />
@@ -138,7 +191,7 @@ export function HandoverWorkspaceProject({
           onShiftStart={onShiftStart}
           onShiftEnd={onShiftEnd}
           onOpenShiftBrief={onOpenShiftBrief}
-          onExport={onExport}
+          onShiftHistory={onShiftHistory}
           onActivity={onActivity}
           onAlertClick={onAlertClick}
           onOpenCard={onOpenCard}

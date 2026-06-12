@@ -134,6 +134,31 @@ export function useTransportBookingsForDate(date: string) {
   return useTransportBookings({ from: date, to: date });
 }
 
+export const transportTodayPendingQueryKey = ['transport-today-pending', DEFAULT_HOTEL_ID] as const;
+
+async function fetchTodayPendingTransport(): Promise<TransportBooking[]> {
+  const supabase = createClient();
+  const today = todayDateString();
+  const { data, error } = await supabase
+    .from('transport_bookings')
+    .select('*')
+    .eq('hotel_id', DEFAULT_HOTEL_ID)
+    .eq('booking_date', today)
+    .eq('status', 'pending')
+    .order('pickup_time');
+  if (error) throw error;
+  return (data ?? []).map((row) => normalizeTransportRow(row as Record<string, unknown>));
+}
+
+/** 오늘 미완료 택시 — 30분 전 알림·네비 배지 */
+export function useTodayPendingTransport(refetchInterval = 30_000) {
+  return useQuery({
+    queryKey: transportTodayPendingQueryKey,
+    queryFn: fetchTodayPendingTransport,
+    refetchInterval,
+  });
+}
+
 /** 오늘 택시 예약 (메인 사이드바·알림) */
 export function useTodayTaxiBookings() {
   const today = todayDateString();

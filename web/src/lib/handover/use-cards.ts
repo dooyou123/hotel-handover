@@ -218,6 +218,30 @@ export function useCards() {
     onSuccess: () => invalidateCardQueriesLocal(queryClient),
   });
 
+  const updateComment = useMutation({
+    mutationFn: async ({ commentId, cardId, content }: { commentId: string; cardId: string; content: string }) => {
+      const supabase = createClient();
+      const now = new Date().toISOString();
+      const { error } = await supabase
+        .from('card_comments')
+        .update({ content, updated_at: now })
+        .eq('id', commentId);
+      if (error) throw error;
+      await supabase.from('cards').update({ updated_at: now }).eq('id', cardId);
+    },
+    onSuccess: () => invalidateCardQueriesLocal(queryClient),
+  });
+
+  const deleteComment = useMutation({
+    mutationFn: async ({ commentId, cardId }: { commentId: string; cardId: string }) => {
+      const supabase = createClient();
+      const { error } = await supabase.from('card_comments').delete().eq('id', commentId);
+      if (error) throw error;
+      await supabase.from('cards').update({ updated_at: new Date().toISOString() }).eq('id', cardId);
+    },
+    onSuccess: () => invalidateCardQueriesLocal(queryClient),
+  });
+
   const uploadAttachment = useMutation({
     mutationFn: async ({ cardId, file, existingCount }: { cardId: string; file: File; existingCount: number }) =>
       uploadCardAttachment(cardId, file, existingCount),
@@ -262,6 +286,8 @@ export function useCards() {
     moveCard,
     acknowledgeCard,
     addComment,
+    updateComment,
+    deleteComment,
     uploadAttachment,
     deleteAttachment,
     archiveDone,

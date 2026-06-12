@@ -1,0 +1,154 @@
+'use client';
+
+import Link from 'next/link';
+import { useState } from 'react';
+import { useWorkSession } from '@/lib/handover/use-work-session';
+import { usePersonalTasks } from '@/lib/personal-tasks/use-personal-tasks';
+import type { PersonalTask } from '@/lib/personal-tasks/types';
+
+type PersonalTasksPanelProps = {
+  variant?: 'aside' | 'page';
+  onToast?: (message: string) => void;
+};
+
+function formatDue(value: string | null): string {
+  if (!value) return '';
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short' });
+}
+
+function isOverdue(task: PersonalTask): boolean {
+  if (!task.due_date || task.status === 'done') return false;
+  return new Date(`${task.due_date}T23:59:59`).getTime() < Date.now();
+}
+
+export function PersonalTasksPanel({ variant = 'page', onToast }: PersonalTasksPanelProps) {
+  const { session, requireSession } = useWorkSession();
+  const staffName = session.name;
+  const { tasks, isLoading, schemaMissing, createTask, toggleTask, deleteTask } = usePersonalTasks(staffName);
+  const [draft, setDraft] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [showDone, setShowDone] = useState(false);
+
+  const openTasks = tasks.filter((task) => task.status === 'open');
+  const doneTasks = tasks.filter((task) => task.status === 'done');
+  const visible = showDone ? tasks : openTasks;
+  const compact = variant === 'aside';
+
+  async function handleAdd(event: React.FormEvent) {
+    event.preventDefault();
+    const title = draft.trim();
+    if (!title) return;
+    if (!requireSession('개인 할 일')) return;
+    try {
+      await createTask.mutateAsync({ title, due_date: dueDate || null });
+      setDraft('');
+      setDueDate('');
+      onToast?.('할 일을 추가했습니다.');
+    } catch (caught) {
+      onToast?.(caught instanceof Error ? caught.message : '추가에 실패했습니다.');
+    }
+  }
+
+  if (!staffName) {
+    return (
+      <p className={compact ? 'personal-tasks__hint' : 'empty-state'}>
+        근무 세션에서 이름을 설정하면 개인 할 일을 쓸 수 있습니다.
+      </p>
+    );
+  }
+
+  return (
+    <section className={`personal-tasks personal-tasks--${variant}`}>
+      <div className={compact ? 'aside-card__head' : 'schedule-panel__header'}>
+        <div>
+          <h3 className={compact ? 'aside-card__title' : undefined}>내 할 일</h3>
+          {!compact ? <p>{staffName}님만 보는 개인 체크리스트입니다.</p> : null}
+        </div>
+        {compact ? (
+          <Link href="/todos?view=personal" className="aside-card__link">
+            전체
+          </Link>
+        ) : null}
+      </div>
+
+      {schemaMissing ? (
+        <p className="personal-tasks__hint">DB 마이그레이션 <code>034_personal_tasks.sql</code> 적용이 필요합니다.</p>
+      ) : null}
+
+      <form className="personal-tasks__composer" onSubmit={handleAdd}>
+        <input
+          type="text"
+          className="personal-tasks__input"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder="할 일 입력…"
+          disabled={createTask.isPending}
+        />
+        <input
+          type="date"
+          className="personal-tasks__date"
+          value={dueDate}
+          onChange={(event) => setDueDate(event.target.value)}
+          aria-label="마감일"
+        />
+        <button type="submit" className="btn btn--primary btn--small" disabled={createTask.isPending || !draft.trim()}>
+          추가
+        </button>
+      </form>
+
+      {isLoading ? (
+        <p className="personal-tasks__hint">불러오는 중…</p>
+      ) : !visible.length ? (
+        <p className="personal-tasks__hint">{showDone ? '할 일이 없습니다.' : '미완료 할 일이 없습니다.'}</p>
+      ) : (
+        <ul className="personal-tasks__list">
+          {visible.map((task) => (
+            <li
+              key={task.id}
+              className={`personal-tasks__item${task.status === 'done' ? ' is-done' : ''}${isOverdue(task) ? ' is-overdue' : ''}`}
+            >
+              <button
+                type="button"
+                className="personal-tasks__check"
+                aria-label={task.status === 'done' ? '다시 열기' : '완료'}
+                onClick={() => void toggleTask.mutateAsync(task)}
+              >
+                {task.status === 'done' ? '✓' : ''}
+              </button>
+              <div className="personal-tasks__body">
+                <span className="personal-tasks__title">{task.title}</span>
+                {task.due_date ? (
+                  <time className="personal-tasks__due">{formatDue(task.due_date)}</time>
+                ) : null}
+              </div>
+              {!compact ? (
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--small"
+                  onClick={() => void deleteTask.mutateAsync(task.id)}
+                >
+                  삭제
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {doneTasks.length && compact ? (
+        <button type="button" className="personal-tasks__toggle-done" onClick={() => setShowDone((v) => !v)}>
+          {showDone ? '미완료만 보기' : `완료 ${doneTasks.length}건 보기`}
+        </button>
+      ) : null}
+
+      {!compact && doneTasks.length ? (
+        <label className="personal-tasks__show-done">
+          <input type="checkbox" checked={showDone} onChange={(event) => setShowDone(event.target.checked)} />
+          완료 항목 포함 ({doneTasks.length})
+        </label>
+      ) : null}
+    </section>
+  );
+}
