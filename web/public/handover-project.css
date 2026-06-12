@@ -1644,8 +1644,10 @@ html[data-ui='project'] .project-list-row__actions {
 }
 
 html[data-ui='project'] .project-list-row__ack,
-html[data-ui='project'] .project-list-row__done {
-  min-height: 2.25rem;
+html[data-ui='project'] .project-list-row__done,
+html[data-ui='project'] .project-list-row__hold,
+html[data-ui='project'] .project-list-row__resume {
+  min-height: 2.75rem;
   min-width: 3.5rem;
   padding: 0.5rem 0.85rem;
   border-radius: var(--radius-sm);
@@ -1654,6 +1656,7 @@ html[data-ui='project'] .project-list-row__done {
   line-height: 1.2;
   cursor: pointer;
   white-space: nowrap;
+  touch-action: manipulation;
 }
 
 html[data-ui='project'] .project-list-row__ack {
@@ -1671,6 +1674,41 @@ html[data-ui='project'] .project-list-row__done {
 html[data-ui='project'] .project-list-row__done:hover {
   background: #d1fae5;
   border-color: #4ade80;
+}
+
+html[data-ui='project'] .project-list-row__hold {
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+  color: #b45309;
+}
+
+html[data-ui='project'] .project-list-row__hold:hover {
+  background: #fef3c7;
+  border-color: #fbbf24;
+}
+
+html[data-ui='project'] .project-list-row__resume {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-secondary);
+}
+
+html[data-ui='project'] .project-list-row__resume:hover {
+  background: var(--bg-accent);
+}
+
+html[data-ui='project'] .project-list-row__assign {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 
 html[data-ui='project'] .project-list-row__restore {
@@ -2576,7 +2614,8 @@ html[data-ui='project'] .checklist-item--page.is-done {
   }
 
   html[data-ui='project'] .project-board__pin-btn {
-    width: 2.25rem;
+    width: 2.75rem;
+    min-height: 2.75rem;
   }
 
   html[data-ui='project'] .project-board__controls {
@@ -2590,6 +2629,37 @@ html[data-ui='project'] .checklist-item--page.is-done {
 
   html[data-ui='project'] .handover-top-actions__sep {
     display: none;
+  }
+
+  html[data-ui='project'] .project-list-row {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+  }
+
+  html[data-ui='project'] .project-list-row__actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: stretch;
+    align-self: auto;
+    gap: 0.4rem;
+    min-width: 0;
+    padding: 0 0.75rem 0.75rem;
+  }
+
+  html[data-ui='project'] .project-list-row__ack,
+  html[data-ui='project'] .project-list-row__done,
+  html[data-ui='project'] .project-list-row__hold,
+  html[data-ui='project'] .project-list-row__resume {
+    flex: 1 1 calc(50% - 0.2rem);
+    min-width: 0;
+  }
+
+  html[data-ui='project'] .project-list-row__assign {
+    flex: 1 1 100%;
+  }
+
+  html[data-ui='project'] .drawer-panel {
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
   }
 }
 

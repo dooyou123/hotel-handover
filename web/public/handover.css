@@ -9429,6 +9429,84 @@ a.help-quick-link:hover {
   font-weight: 600;
 }
 
+.todo-list__past {
+  margin-top: 0.75rem;
+}
+
+.todo-list__past-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-accent);
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.todo-list__past-toggle-label {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.todo-list--past {
+  margin-top: 0.45rem;
+}
+
+.todo-list__item.is-past {
+  opacity: 0.82;
+}
+
+@media (max-width: 640px) {
+  .todos-page__toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .todos-page__filters {
+    flex-wrap: wrap;
+  }
+
+  .todos-page__filter {
+    min-height: 2.75rem;
+    flex: 1 1 calc(50% - 0.25rem);
+  }
+
+  .todos-page__actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .todos-page__actions .btn {
+    flex: 1 1 auto;
+    min-height: 2.75rem;
+  }
+
+  .todo-list__check {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+
+  .contacts-table-wrap {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  .contacts-table__pin,
+  .contacts-table__edit,
+  .contacts-table__copy {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+}
+
 /* 일일 요약 전체 화면 */
 .modal-overlay--fullscreen {
   padding: 0;

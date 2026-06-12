@@ -16,6 +16,7 @@ type HandoverListRowProjectProps = {
   card: Card;
   position?: { index: number; total: number };
   searchQuery?: string;
+  staffNames: string[];
   onOpen: () => void;
   onOpenComments: () => void;
   onAddComment: (content: string) => Promise<void>;
@@ -23,12 +24,16 @@ type HandoverListRowProjectProps = {
   commentDisabled?: boolean;
   onAcknowledge: () => void;
   onMarkDone: () => void;
+  onHold: () => void;
+  onResume: () => void;
+  onAssignChange: (assigneeName: string) => void;
 };
 
 export function HandoverListRowProject({
   card,
   position,
   searchQuery = '',
+  staffNames,
   onOpen,
   onOpenComments,
   onAddComment,
@@ -36,6 +41,9 @@ export function HandoverListRowProject({
   commentDisabled = false,
   onAcknowledge,
   onMarkDone,
+  onHold,
+  onResume,
+  onAssignChange,
 }: HandoverListRowProjectProps) {
   const isUrgent = isUrgentPriorityCard(card);
   const isUnacked = isUrgent && card.card_acknowledgments.length === 0;
@@ -51,6 +59,9 @@ export function HandoverListRowProject({
           ? '미확인'
           : '진행';
   const canComplete = !archived && card.column_id !== 'done';
+  const canHold = !archived && card.column_id !== 'done' && card.column_id !== 'hold';
+  const canResume = !archived && card.column_id === 'hold';
+  const canAssign = !archived && card.column_id !== 'done';
   const author = card.author?.trim() || '미입력';
   const assignee = formatAssigneeLabel(card);
   const updatedAt = formatUpdatedAt(card.updated_at || card.created_at);
@@ -157,6 +168,30 @@ export function HandoverListRowProject({
             확인
           </button>
         ) : null}
+        {canHold ? (
+          <button
+            type="button"
+            className="project-list-row__hold"
+            onClick={(event) => {
+              event.stopPropagation();
+              onHold();
+            }}
+          >
+            보류
+          </button>
+        ) : null}
+        {canResume ? (
+          <button
+            type="button"
+            className="project-list-row__resume"
+            onClick={(event) => {
+              event.stopPropagation();
+              onResume();
+            }}
+          >
+            재개
+          </button>
+        ) : null}
         {canComplete ? (
           <button
             type="button"
@@ -168,6 +203,25 @@ export function HandoverListRowProject({
           >
             완료
           </button>
+        ) : null}
+        {canAssign && staffNames.length ? (
+          <select
+            className="project-list-row__assign"
+            aria-label="담당 변경"
+            value={card.assignee_name || ''}
+            onClick={(event) => event.stopPropagation()}
+            onChange={(event) => {
+              event.stopPropagation();
+              onAssignChange(event.target.value);
+            }}
+          >
+            <option value="">담당 없음</option>
+            {staffNames.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
         ) : null}
       </div>
     </article>

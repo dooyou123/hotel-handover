@@ -698,3 +698,30 @@ test('cardFormSnapshotsEqual detects unsaved edits', () => {
     false,
   );
 });
+
+test('isDoneTodoHiddenFromList hides done todos older than 7 days', () => {
+  const {
+    DONE_TODO_HIDE_AFTER_DAYS,
+    isDoneTodoHiddenFromList,
+    isPastHotelEvent,
+    todayDateString,
+  } = require('@/lib/work-items/schedule-filters') as typeof import('@/lib/work-items/schedule-filters');
+
+  assert.equal(DONE_TODO_HIDE_AFTER_DAYS, 7);
+
+  const now = new Date('2026-06-08T12:00:00');
+  assert.equal(
+    isDoneTodoHiddenFromList({ status: 'open', completed_at: null }, now),
+    false,
+  );
+  assert.equal(
+    isDoneTodoHiddenFromList({ status: 'done', completed_at: '2026-06-08T09:00:00Z' }, now),
+    false,
+  );
+  assert.equal(
+    isDoneTodoHiddenFromList({ status: 'done', completed_at: '2026-05-31T09:00:00Z' }, now),
+    true,
+  );
+  assert.equal(isPastHotelEvent({ event_date: '2026-06-07' }, todayDateString(now)), true);
+  assert.equal(isPastHotelEvent({ event_date: '2026-06-08' }, todayDateString(now)), false);
+});

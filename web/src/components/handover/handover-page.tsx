@@ -386,6 +386,79 @@ export function HandoverPage() {
     }
   }
 
+  async function handleMoveToHold(cardId: string) {
+    const card = cards.find((item) => item.id === cardId);
+    if (!card || card.column_id === 'hold' || card.column_id === 'done' || isArchivedCard(card)) return;
+    if (!requireSession('보류')) return;
+
+    try {
+      await updateCard.mutateAsync({ id: cardId, input: { column_id: 'hold' } });
+      await logActivity({
+        entityType: 'card',
+        entityId: cardId,
+        action: 'move',
+        audit: audit(),
+        summary: `보류: ${cardSummaryLabel(card.room, card.title)}`,
+        details: { from: card.column_id, to: 'hold', quick: true },
+      });
+      showToast('보류로 이동했습니다.');
+      refreshActivityLogs();
+    } catch {
+      showToast('보류 처리에 실패했습니다.');
+    }
+  }
+
+  async function handleResumeFromHold(cardId: string) {
+    const card = cards.find((item) => item.id === cardId);
+    if (!card || card.column_id !== 'hold' || isArchivedCard(card)) return;
+    if (!requireSession('재개')) return;
+
+    try {
+      await updateCard.mutateAsync({ id: cardId, input: { column_id: 'progress' } });
+      await logActivity({
+        entityType: 'card',
+        entityId: cardId,
+        action: 'move',
+        audit: audit(),
+        summary: `재개: ${cardSummaryLabel(card.room, card.title)}`,
+        details: { from: 'hold', to: 'progress', quick: true },
+      });
+      showToast('진행으로 재개했습니다.');
+      refreshActivityLogs();
+    } catch {
+      showToast('재개에 실패했습니다.');
+    }
+  }
+
+  async function handleQuickAssign(cardId: string, assigneeName: string) {
+    const card = cards.find((item) => item.id === cardId);
+    if (!card || card.column_id === 'done' || isArchivedCard(card)) return;
+    if (assigneeName === (card.assignee_name || '')) return;
+    if (!requireSession('담당 변경')) return;
+
+    try {
+      await updateCard.mutateAsync({
+        id: cardId,
+        input: {
+          assignee_name: assigneeName,
+          assignee_shift: session.group || session.shift || card.assignee_shift,
+        },
+      });
+      await logActivity({
+        entityType: 'card',
+        entityId: cardId,
+        action: 'update',
+        audit: audit(),
+        summary: `담당 변경: ${cardSummaryLabel(card.room, card.title)}`,
+        details: { assignee_name: assigneeName, quick: true },
+      });
+      showToast(assigneeName ? `${assigneeName}(으)로 담당을 변경했습니다.` : '담당을 해제했습니다.');
+      refreshActivityLogs();
+    } catch {
+      showToast('담당 변경에 실패했습니다.');
+    }
+  }
+
   async function handleCreateTodoFromCard(card: Card) {
     if (!requireSession('할일 등록')) return;
     if (card.linked_todo_id) {
@@ -676,10 +749,14 @@ export function HandoverPage() {
           onOpenCard={openEditModal}
           onOpenCardComments={openCommentsModal}
           onAddComment={handleAddComment}
+          staffNames={staffNames}
           staffName={session.name}
           commentDisabled={!session.name}
           onAcknowledge={handleAcknowledge}
           onMarkDone={handleMarkDone}
+          onHold={handleMoveToHold}
+          onResume={handleResumeFromHold}
+          onAssignChange={handleQuickAssign}
           onShowUnacked={showUnacked}
           onAlertClick={handleAlertClick}
           onOpenTodo={(todo) => {

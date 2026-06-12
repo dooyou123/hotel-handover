@@ -8,6 +8,7 @@ import { HandoverListRowProject } from './handover-list-row-project';
 type HandoverListProjectProps = {
   cards: Card[];
   searchQuery?: string;
+  staffNames: string[];
   onOpenCard: (card: Card) => void;
   onOpenCardComments: (card: Card) => void;
   onAddComment: (cardId: string, content: string) => Promise<void>;
@@ -15,6 +16,9 @@ type HandoverListProjectProps = {
   commentDisabled?: boolean;
   onAcknowledge: (cardId: string) => void;
   onMarkDone: (cardId: string) => void;
+  onHold: (cardId: string) => void;
+  onResume: (cardId: string) => void;
+  onAssignChange: (cardId: string, assigneeName: string) => void;
 };
 
 type CollapsibleSectionId = 'done' | 'hold';
@@ -22,6 +26,7 @@ type CollapsibleSectionId = 'done' | 'hold';
 export function HandoverListProject({
   cards,
   searchQuery,
+  staffNames,
   onOpenCard,
   onOpenCardComments,
   onAddComment,
@@ -29,6 +34,9 @@ export function HandoverListProject({
   commentDisabled = false,
   onAcknowledge,
   onMarkDone,
+  onHold,
+  onResume,
+  onAssignChange,
 }: HandoverListProjectProps) {
   const [expandedSections, setExpandedSections] = useState<Record<CollapsibleSectionId, boolean>>({
     done: false,
@@ -157,6 +165,7 @@ export function HandoverListProject({
                         card={card}
                         position={position}
                         searchQuery={searchQuery}
+                        staffNames={staffNames}
                         onOpen={() => onOpenCard(card)}
                         onOpenComments={() => onOpenCardComments(card)}
                         onAddComment={(content) => onAddComment(card.id, content)}
@@ -164,6 +173,9 @@ export function HandoverListProject({
                         commentDisabled={commentDisabled}
                         onAcknowledge={() => onAcknowledge(card.id)}
                         onMarkDone={() => onMarkDone(card.id)}
+                        onHold={() => onHold(card.id)}
+                        onResume={() => onResume(card.id)}
+                        onAssignChange={(assigneeName) => onAssignChange(card.id, assigneeName)}
                       />
                     );
                   })}

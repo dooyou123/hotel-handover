@@ -22,7 +22,8 @@ import {
 } from '@/lib/todos/types';
 import { describeRecurrence } from '@/lib/todos/recurrence';
 import { useTodos } from '@/lib/todos/use-todos';
-import { formatEventTimeRange, mergeWorkScheduleItems } from '@/lib/work-items/merge';
+import { formatEventTimeRange, mergeWorkScheduleItems, type WorkScheduleItem } from '@/lib/work-items/merge';
+import { isDoneTodoHiddenFromList, isPastHotelEvent } from '@/lib/work-items/schedule-filters';
 import { TodoModal } from './todo-modal';
 
 function formatDueDate(value: string | null): string {
@@ -75,6 +76,7 @@ export function TodosPageClient() {
   const [editingEvent, setEditingEvent] = useState<HotelEvent | null>(null);
   const [staffNames, setStaffNames] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
+  const [pastEventsExpanded, setPastEventsExpanded] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -92,19 +94,41 @@ export function TodosPageClient() {
       if (filter === 'done') return todo.status === 'done';
       if (filter === 'mine') {
         if (!session.name) return false;
-        return todo.assignee_name === session.name || todo.author === session.name;
+        const mine =
+          todo.assignee_name === session.name || todo.author === session.name;
+        if (!mine) return false;
+        if (todo.status === 'done' && isDoneTodoHiddenFromList(todo)) return false;
+        return true;
       }
+      if (todo.status === 'done' && isDoneTodoHiddenFromList(todo)) return false;
       return true;
     });
   }, [todos, filter, session.name]);
 
-  const mergedItems = useMemo(() => {
+  const { activeItems, pastEvents } = useMemo(() => {
     const eventsForList = filter === 'done' || filter === 'mine' ? [] : events;
-    return mergeWorkScheduleItems({
+    const merged = mergeWorkScheduleItems({
       todos: filteredTodos,
       events: eventsForList,
       month,
     });
+
+    if (filter === 'done') {
+      return { activeItems: merged, pastEvents: [] as HotelEvent[] };
+    }
+
+    const activeItems: WorkScheduleItem[] = [];
+    const pastEvents: HotelEvent[] = [];
+
+    for (const item of merged) {
+      if (item.kind === 'event' && isPastHotelEvent(item.event)) {
+        pastEvents.push(item.event);
+      } else {
+        activeItems.push(item);
+      }
+    }
+
+    return { activeItems, pastEvents };
   }, [filteredTodos, events, month, filter]);
 
   const openCount = todos.filter((t) => t.status === 'open').length;
@@ -304,114 +328,172 @@ export function TodosPageClient() {
               <p className="empty-state" style={{ color: '#b91c1c' }}>
                 할일을 불러오지 못했습니다. DB 마이그레이션(015)을 적용했는지 확인해 주세요.
               </p>
-            ) : !mergedItems.length ? (
+            ) : !activeItems.length && !pastEvents.length ? (
               <p className="empty-state">
                 {filter === 'open' ? '이 달에 표시할 미완료 업무 일정이 없습니다.' : '표시할 항목이 없습니다.'}
               </p>
             ) : (
-              <ul className="todo-list">
-                {mergedItems.map((item) => {
-                  if (item.kind === 'event') {
-                    const event = item.event;
-                    return (
-                      <li key={`event-${event.id}`} className="todo-list__item todo-list__item--event">
-                        <span className="todo-list__kind" aria-hidden>
-                          일정
-                        </span>
-                        <button
-                          type="button"
-                          className="todo-list__body"
-                          onClick={() => {
-                            setEditingEvent(event);
-                            setEventModalOpen(true);
-                          }}
-                        >
-                          <span className="todo-list__title">{event.title}</span>
-                          {event.description ? <span className="todo-list__desc">{event.description}</span> : null}
-                          <span className="todo-list__meta">
-                            <span className="todo-list__kind-inline">{event.category}</span>
-                            <span className="todo-list__due">
-                              {formatDueDate(event.event_date)}
-                              {' · '}
-                              {formatEventTimeRange(event.start_time, event.end_time)}
+              <>
+                {activeItems.length ? (
+                  <ul className="todo-list">
+                    {activeItems.map((item) => {
+                      if (item.kind === 'event') {
+                        const event = item.event;
+                        return (
+                          <li key={`event-${event.id}`} className="todo-list__item todo-list__item--event">
+                            <span className="todo-list__kind" aria-hidden>
+                              일정
                             </span>
-                            {event.author ? <span>· {event.author}</span> : null}
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  }
-
-                  const todo = item.todo;
-                  const card = todo.linked_card_id
-                    ? cards.find((linked) => linked.id === todo.linked_card_id)
-                    : null;
-                  return (
-                    <li
-                      key={`todo-${todo.id}`}
-                      className={[
-                        'todo-list__item',
-                        todo.status === 'done' ? 'is-done' : '',
-                        isOverdue(todo) ? 'is-overdue' : '',
-                        todo.priority === 'urgent' ? 'is-urgent' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                    >
-                      <span className="todo-list__kind" aria-hidden>
-                        할일
-                      </span>
-                      <button
-                        type="button"
-                        className="todo-list__check"
-                        aria-label={todo.status === 'done' ? '완료 취소' : '완료'}
-                        onClick={() => handleToggle(todo)}
-                      >
-                        {todo.status === 'done' ? '✓' : ''}
-                      </button>
-                      <button
-                        type="button"
-                        className="todo-list__body"
-                        onClick={() => {
-                          setEditingTodo(todo);
-                          setModalOpen(true);
-                        }}
-                      >
-                        <span className="todo-list__title">{todo.title}</span>
-                        {todo.description ? <span className="todo-list__desc">{todo.description}</span> : null}
-                        <span className="todo-list__meta">
-                          <span className={`todo-list__priority todo-list__priority--${todo.priority}`}>
-                            {TODO_PRIORITY_LABELS[todo.priority]}
-                          </span>
-                          {todo.due_date ? (
-                            <span className={isOverdue(todo) ? 'todo-list__due is-overdue' : 'todo-list__due'}>
-                              마감 {formatDueDate(todo.due_date)}
-                            </span>
-                          ) : (
-                            <span className="todo-list__due">마감 없음</span>
-                          )}
-                          {describeRecurrence(todo) ? (
-                            <span className="todo-list__repeat" title="반복 할일">
-                              🔁 {describeRecurrence(todo)}
-                            </span>
-                          ) : null}
-                          {todo.assignee_name ? <span>담당 {todo.assignee_name}</span> : null}
-                          {todo.author ? <span>· {todo.author}</span> : null}
-                          {card ? (
-                            <Link
-                              href={`/handover?card=${card.id}`}
-                              className="todo-list__link"
-                              onClick={(e) => e.stopPropagation()}
+                            <button
+                              type="button"
+                              className="todo-list__body"
+                              onClick={() => {
+                                setEditingEvent(event);
+                                setEventModalOpen(true);
+                              }}
                             >
-                              인수인계 연동
-                            </Link>
-                          ) : null}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+                              <span className="todo-list__title">{event.title}</span>
+                              {event.description ? (
+                                <span className="todo-list__desc">{event.description}</span>
+                              ) : null}
+                              <span className="todo-list__meta">
+                                <span className="todo-list__kind-inline">{event.category}</span>
+                                <span className="todo-list__due">
+                                  {formatDueDate(event.event_date)}
+                                  {' · '}
+                                  {formatEventTimeRange(event.start_time, event.end_time)}
+                                </span>
+                                {event.author ? <span>· {event.author}</span> : null}
+                              </span>
+                            </button>
+                          </li>
+                        );
+                      }
+
+                      const todo = item.todo;
+                      const card = todo.linked_card_id
+                        ? cards.find((linked) => linked.id === todo.linked_card_id)
+                        : null;
+                      return (
+                        <li
+                          key={`todo-${todo.id}`}
+                          className={[
+                            'todo-list__item',
+                            todo.status === 'done' ? 'is-done' : '',
+                            isOverdue(todo) ? 'is-overdue' : '',
+                            todo.priority === 'urgent' ? 'is-urgent' : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' ')}
+                        >
+                          <span className="todo-list__kind" aria-hidden>
+                            할일
+                          </span>
+                          <button
+                            type="button"
+                            className="todo-list__check"
+                            aria-label={todo.status === 'done' ? '완료 취소' : '완료'}
+                            onClick={() => handleToggle(todo)}
+                          >
+                            {todo.status === 'done' ? '✓' : ''}
+                          </button>
+                          <button
+                            type="button"
+                            className="todo-list__body"
+                            onClick={() => {
+                              setEditingTodo(todo);
+                              setModalOpen(true);
+                            }}
+                          >
+                            <span className="todo-list__title">{todo.title}</span>
+                            {todo.description ? <span className="todo-list__desc">{todo.description}</span> : null}
+                            <span className="todo-list__meta">
+                              <span className={`todo-list__priority todo-list__priority--${todo.priority}`}>
+                                {TODO_PRIORITY_LABELS[todo.priority]}
+                              </span>
+                              {todo.due_date ? (
+                                <span className={isOverdue(todo) ? 'todo-list__due is-overdue' : 'todo-list__due'}>
+                                  마감 {formatDueDate(todo.due_date)}
+                                </span>
+                              ) : (
+                                <span className="todo-list__due">마감 없음</span>
+                              )}
+                              {describeRecurrence(todo) ? (
+                                <span className="todo-list__repeat" title="반복 할일">
+                                  🔁 {describeRecurrence(todo)}
+                                </span>
+                              ) : null}
+                              {todo.assignee_name ? <span>담당 {todo.assignee_name}</span> : null}
+                              {todo.author ? <span>· {todo.author}</span> : null}
+                              {card ? (
+                                <Link
+                                  href={`/handover?card=${card.id}`}
+                                  className="todo-list__link"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  인수인계 연동
+                                </Link>
+                              ) : null}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : null}
+
+                {pastEvents.length ? (
+                  <div className="todo-list__past">
+                    <button
+                      type="button"
+                      className="todo-list__past-toggle"
+                      aria-expanded={pastEventsExpanded}
+                      onClick={() => setPastEventsExpanded((open) => !open)}
+                    >
+                      <span>지난 일정 {pastEvents.length}건</span>
+                      <span className="todo-list__past-toggle-label">
+                        {pastEventsExpanded ? '접기' : '펼치기'}
+                      </span>
+                    </button>
+                    {pastEventsExpanded ? (
+                      <ul className="todo-list todo-list--past">
+                        {pastEvents.map((event) => (
+                          <li
+                            key={`past-event-${event.id}`}
+                            className="todo-list__item todo-list__item--event is-past"
+                          >
+                            <span className="todo-list__kind" aria-hidden>
+                              일정
+                            </span>
+                            <button
+                              type="button"
+                              className="todo-list__body"
+                              onClick={() => {
+                                setEditingEvent(event);
+                                setEventModalOpen(true);
+                              }}
+                            >
+                              <span className="todo-list__title">{event.title}</span>
+                              {event.description ? (
+                                <span className="todo-list__desc">{event.description}</span>
+                              ) : null}
+                              <span className="todo-list__meta">
+                                <span className="todo-list__kind-inline">{event.category}</span>
+                                <span className="todo-list__due">
+                                  {formatDueDate(event.event_date)}
+                                  {' · '}
+                                  {formatEventTimeRange(event.start_time, event.end_time)}
+                                </span>
+                                {event.author ? <span>· {event.author}</span> : null}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                ) : null}
+              </>
             )}
           </>
         ) : null}

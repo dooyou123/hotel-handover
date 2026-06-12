@@ -50,10 +50,14 @@ type HandoverWorkspaceProjectProps = {
   onOpenCard: (card: Card) => void;
   onOpenCardComments: (card: Card) => void;
   onAddComment: (cardId: string, content: string) => Promise<void>;
+  staffNames: string[];
   staffName: string;
   commentDisabled?: boolean;
   onAcknowledge: (cardId: string) => void | Promise<void>;
   onMarkDone: (cardId: string) => void;
+  onHold: (cardId: string) => void;
+  onResume: (cardId: string) => void;
+  onAssignChange: (cardId: string, assigneeName: string) => void;
   onShowUnacked: () => void;
   onAlertClick: (id: string) => void;
   onOpenTodo: (todo: Todo) => void;
@@ -99,10 +103,14 @@ export function HandoverWorkspaceProject({
   onOpenCard,
   onOpenCardComments,
   onAddComment,
+  staffNames,
   staffName,
   commentDisabled = false,
   onAcknowledge,
   onMarkDone,
+  onHold,
+  onResume,
+  onAssignChange,
   onShowUnacked,
   onAlertClick,
   onOpenTodo,
@@ -168,6 +176,7 @@ export function HandoverWorkspaceProject({
               <HandoverListProject
                 cards={visibleCards}
                 searchQuery={searchQuery}
+                staffNames={staffNames}
                 onOpenCard={onOpenCard}
                 onOpenCardComments={onOpenCardComments}
                 onAddComment={onAddComment}
@@ -175,6 +184,9 @@ export function HandoverWorkspaceProject({
                 commentDisabled={commentDisabled}
                 onAcknowledge={onAcknowledge}
                 onMarkDone={onMarkDone}
+                onHold={onHold}
+                onResume={onResume}
+                onAssignChange={onAssignChange}
               />
             )}
           </div>
