@@ -19,7 +19,7 @@ import { transportStatusLabel, type TransportBooking } from '@/lib/transport/typ
 import { formatEventTimeRange, mergeWorkScheduleItems, type WorkScheduleItem } from '@/lib/work-items/merge';
 
 export type AmenityBriefAlert = {
-  id: string;
+  id: number;
   name: string;
   quantity: number;
   monthlyUsage: number;

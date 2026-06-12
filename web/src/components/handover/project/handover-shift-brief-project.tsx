@@ -38,7 +38,7 @@ type HandoverShiftBriefProjectProps = {
   session: WorkSession;
   authorLabel: string;
   requireSession: (action: string) => boolean;
-  onAcknowledge: (cardId: string) => Promise<void>;
+  onAcknowledge: (cardId: string) => void | Promise<void>;
   onOpenCard: (card: Card) => void;
   onOpenTodo?: (todo: Todo) => void;
   onOpenEvent?: (event: HotelEvent) => void;
