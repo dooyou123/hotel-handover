@@ -110,22 +110,23 @@ export function HandoverListProject({
         }
 
         const isDoneSection = section.id === 'done';
-        const isCollapsible = isCollapsibleSection(section.id) && section.cards.length > 0;
-        const isExpanded = !isCollapsible || expandedSections[section.id];
+        const collapsibleId =
+          isCollapsibleSection(section.id) && section.cards.length > 0 ? section.id : null;
+        const isExpanded = collapsibleId === null || expandedSections[collapsibleId];
 
-        const head = isCollapsible ? (
+        const head = collapsibleId ? (
           <button
             type="button"
             className="project-list__head project-list__head--toggle"
-            aria-expanded={expandedSections[section.id]}
-            onClick={() => toggleSection(section.id)}
+            aria-expanded={expandedSections[collapsibleId]}
+            onClick={() => toggleSection(collapsibleId)}
           >
             <span className="project-list__head-main">
               <h3>{section.title}</h3>
               <span className="project-list__count">{section.cards.length}</span>
             </span>
             <span className="project-list__toggle-label">
-              {expandedSections[section.id] ? '접기' : '펼치기'}
+              {expandedSections[collapsibleId] ? '접기' : '펼치기'}
             </span>
           </button>
         ) : (
@@ -142,7 +143,7 @@ export function HandoverListProject({
             className={[
               'project-list__section',
               `project-list__section--${section.id}`,
-              isCollapsible && !expandedSections[section.id] ? 'is-collapsed' : '',
+              collapsibleId && !expandedSections[collapsibleId] ? 'is-collapsed' : '',
             ]
               .filter(Boolean)
               .join(' ')}
