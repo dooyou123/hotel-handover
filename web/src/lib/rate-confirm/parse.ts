@@ -85,7 +85,7 @@ export const PMS_RESERVATION_LIST_HEADERS = {
   ota: 'ota_no',
   guestName: 'guest_name',
   status: 'sts',
-  rate: 'room_rate',
+  rate: 'total_amount',
   account: 'account',
   ciDate: 'arr_date',
 } as const;

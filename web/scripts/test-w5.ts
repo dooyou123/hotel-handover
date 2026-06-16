@@ -24,6 +24,7 @@ import { isStatusEqual, normalizeDate, normalizeRate } from '@/lib/rate-confirm/
 import {
   detectRateFileFormat,
   guessColumnMapping,
+  PMS_RESERVATION_LIST_HEADERS,
   TL_BOOKING_SEARCH_HEADERS,
 } from '@/lib/rate-confirm/parse';
 import {
@@ -242,6 +243,15 @@ test('detects TL booking search export columns', () => {
   assert.equal(mapping.account, TL_BOOKING_SEARCH_HEADERS.account);
   assert.notEqual(mapping.ota, 'ota_코드');
   assert.notEqual(mapping.rate, '이용객실합계(수)');
+});
+
+test('detects PMS reservation list export columns', () => {
+  const headers = ['ota_no', 'guest_name', 'sts', 'room_rate', 'total_amount', 'account', 'arr_date'];
+  assert.equal(detectRateFileFormat(headers), 'pms_reservation_list');
+  const mapping = guessColumnMapping(headers, 'pms');
+  assert.equal(mapping.rate, PMS_RESERVATION_LIST_HEADERS.rate);
+  assert.equal(mapping.rate, 'total_amount');
+  assert.notEqual(mapping.rate, 'room_rate');
 });
 
 test('OTA channel names match TL OTA명 and PMS Account', async () => {
