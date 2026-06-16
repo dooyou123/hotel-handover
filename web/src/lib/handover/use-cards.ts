@@ -320,3 +320,16 @@ export function useIsManager() {
     },
   });
 }
+
+export function useCurrentUserId() {
+  return useQuery({
+    queryKey: ['auth-user-id'],
+    queryFn: async () => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      return user?.id ?? null;
+    },
+  });
+}

@@ -18,7 +18,7 @@ import {
   saveCardCreateDraft,
   type CardFormSnapshot,
 } from '@/lib/handover/card-draft';
-import { parseDueAt, toDateInputValue, toTimeInputValue } from '@/lib/handover/card-utils';
+import { parseDueAt, toDateInputValue, toTimeInputValue, canDeleteCard } from '@/lib/handover/card-utils';
 import { WORK_GROUPS, formatWorkGroupLabel } from '@/lib/constants';
 import type { Card, CardAttachment, CardInput, ColumnId, Priority } from '@/lib/handover/types';
 import type { Todo } from '@/lib/todos/types';
@@ -45,6 +45,7 @@ type CardModalProps = {
   defaultName: string;
   staffNames: string[];
   isManager: boolean;
+  currentUserId?: string | null;
   onClose: () => void;
   onSave: (input: CardInput, id?: string, options?: { pendingFiles?: File[] }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
@@ -84,6 +85,7 @@ export function CardModal({
   defaultName,
   staffNames,
   isManager,
+  currentUserId = null,
   onClose,
   onSave,
   onDelete,
@@ -309,8 +311,17 @@ export function CardModal({
     }
   }
 
+  const canDelete = card
+    ? canDeleteCard(card, {
+        isManager,
+        userId: currentUserId,
+        staffName: defaultName,
+        authorLabel,
+      })
+    : false;
+
   async function handleDelete() {
-    if (!card || !isManager) return;
+    if (!card || !canDelete) return;
     const ok = await confirm({
       title: '인수인계 삭제',
       message: '이 인수인계를 삭제합니다.',
@@ -705,7 +716,7 @@ export function CardModal({
   const formFooter = (
     <div className="modal__footer">
       <div className="modal__footer-left">
-        {card && isManager ? (
+        {card && canDelete ? (
           <button type="button" onClick={handleDelete} disabled={saving} className="btn btn--danger">
             삭제
           </button>

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isCardDueSoon, isCardOverdue, isCommentEdited, splitTextBySearchQuery } from '@/lib/handover/card-utils';
+import { isCardDueSoon, isCardOverdue, isCommentEdited, splitTextBySearchQuery, canDeleteCard } from '@/lib/handover/card-utils';
 import {
   getTickerActionLabel,
   getTickerItemHref,
@@ -900,6 +900,27 @@ test('session schedule mismatch detection', () => {
     'A',
   );
   assert.equal(getSessionScheduleMismatch({ shift: 'A', group: 'A', name: 'Kim' }, schedule as never), null);
+});
+
+test('canDeleteCard allows manager, author account, and legacy author label', () => {
+  const card = {
+    author: 'B조 · Kim',
+    created_by: 'user-1',
+  } as Parameters<typeof canDeleteCard>[0];
+
+  assert.equal(canDeleteCard(card, { isManager: true, userId: null, staffName: '', authorLabel: '' }), true);
+  assert.equal(
+    canDeleteCard(card, { isManager: false, userId: 'user-1', staffName: 'Lee', authorLabel: 'B조 · Lee' }),
+    true,
+  );
+  assert.equal(
+    canDeleteCard(card, { isManager: false, userId: null, staffName: 'Kim', authorLabel: 'B조 · Kim' }),
+    true,
+  );
+  assert.equal(
+    canDeleteCard(card, { isManager: false, userId: null, staffName: 'Lee', authorLabel: 'B조 · Lee' }),
+    false,
+  );
 });
 
 test('unread pinned notice count', () => {

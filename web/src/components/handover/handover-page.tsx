@@ -10,7 +10,7 @@ import { filterCards, isArchivedCard } from '@/lib/handover/card-utils';
 import { cardInputFromNotice } from '@/lib/handover/notice-to-card';
 import { buildShiftSummaryData, todayDateString } from '@/lib/handover/shift-summary';
 import { useNotices } from '@/lib/handover/use-notices';
-import { useArchivedCards, useCards, useIsManager } from '@/lib/handover/use-cards';
+import { useArchivedCards, useCards, useCurrentUserId, useIsManager } from '@/lib/handover/use-cards';
 import { useWorkSession } from '@/lib/handover/use-work-session';
 import type {
   Card,
@@ -79,6 +79,7 @@ export function HandoverPage() {
     void queryClient.invalidateQueries({ queryKey: ['activity-logs', DEFAULT_HOTEL_ID] });
   }
   const { data: isManager = false } = useIsManager();
+  const { data: currentUserId = null } = useCurrentUserId();
   const { session, requireSession, authorLabel } = useWorkSession();
   const { confirm } = useConfirmDialog();
   const { todos, createTodo: createTodoMutation, updateTodo: updateTodoMutation, toggleTodo: toggleTodoMutation } =
@@ -806,6 +807,7 @@ export function HandoverPage() {
         defaultName={session.name}
         staffNames={staffNames}
         isManager={isManager}
+        currentUserId={currentUserId}
         onClose={closeCardModal}
         onSwitchToFull={() => setCardModalView('full')}
         onSave={handleSave}

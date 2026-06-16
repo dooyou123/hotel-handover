@@ -230,6 +230,25 @@ export function formatAssigneeLabel(card: Card): string {
   return '';
 }
 
+export function canDeleteCard(
+  card: Card,
+  options: { isManager: boolean; userId: string | null; staffName: string; authorLabel: string },
+): boolean {
+  if (options.isManager) return true;
+  if (options.userId && card.created_by === options.userId) return true;
+
+  const author = card.author?.trim() ?? '';
+  if (!author) return false;
+
+  const staffName = options.staffName.trim();
+  const authorLabel = options.authorLabel.trim();
+  if (staffName && (author === staffName || author.endsWith(staffName) || author.includes(` · ${staffName}`))) {
+    return true;
+  }
+  if (authorLabel && author === authorLabel) return true;
+  return false;
+}
+
 export function formatTime(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
