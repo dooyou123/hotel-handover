@@ -2,10 +2,21 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { ParcelSignPreview } from '@/lib/parcels/types';
+import {
+  PARCEL_SIGN_LOCALES,
+  PARCEL_SIGN_LOCALE_LABELS,
+  detectParcelSignLocale,
+  formatParcelSignRoom,
+  parcelSignMessages,
+  parseParcelSignLocale,
+  translateParcelSignApiError,
+  type ParcelSignLocale,
+} from '@/lib/parcels/sign-i18n';
 import { SignaturePad, type SignaturePadHandle } from '@/components/parcels/signature-pad';
 
 type ParcelSignClientProps = {
   token: string;
+  initialLocale?: ParcelSignLocale | null;
 };
 
 type LoadState =
@@ -14,12 +25,31 @@ type LoadState =
   | { kind: 'error'; message: string }
   | { kind: 'done' };
 
-export function ParcelSignClient({ token }: ParcelSignClientProps) {
+export function ParcelSignClient({ token, initialLocale = null }: ParcelSignClientProps) {
   const padRef = useRef<SignaturePadHandle>(null);
+  const [locale, setLocale] = useState<ParcelSignLocale>(
+    () => initialLocale ?? detectParcelSignLocale(),
+  );
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
   const [recipientName, setRecipientName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const t = parcelSignMessages(locale);
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
+
+  function changeLocale(next: ParcelSignLocale) {
+    setLocale(next);
+    setSubmitError(null);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('lang', next);
+      window.history.replaceState(null, '', url.toString());
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -36,12 +66,16 @@ export function ParcelSignClient({ token }: ParcelSignClientProps) {
         if (cancelled) return;
 
         if (!res.ok) {
-          setLoadState({ kind: 'error', message: data.error ?? '링크를 사용할 수 없습니다.' });
+          const message = translateParcelSignApiError(
+            data.error ?? t.linkUnavailable,
+            locale,
+          );
+          setLoadState({ kind: 'error', message });
           return;
         }
 
         if (!data.preview) {
-          setLoadState({ kind: 'error', message: '택배 정보를 불러오지 못했습니다.' });
+          setLoadState({ kind: 'error', message: t.loadParcelFailed });
           return;
         }
 
@@ -53,7 +87,7 @@ export function ParcelSignClient({ token }: ParcelSignClientProps) {
         });
       } catch {
         if (!cancelled) {
-          setLoadState({ kind: 'error', message: '네트워크 오류가 발생했습니다.' });
+          setLoadState({ kind: 'error', message: t.networkError });
         }
       }
     }
@@ -62,6 +96,7 @@ export function ParcelSignClient({ token }: ParcelSignClientProps) {
     return () => {
       cancelled = true;
     };
+    // token 변경 시에만 재조회
   }, [token]);
 
   async function handleSubmit(event: React.FormEvent) {
@@ -70,13 +105,13 @@ export function ParcelSignClient({ token }: ParcelSignClientProps) {
 
     const name = recipientName.trim();
     if (!name) {
-      setSubmitError('수령자 성명을 입력해 주세요.');
+      setSubmitError(t.errRecipientRequired);
       return;
     }
 
     const signature = padRef.current?.toDataUrl();
     if (!signature) {
-      setSubmitError('서명을 입력해 주세요.');
+      setSubmitError(t.errSignatureRequired);
       return;
     }
 
@@ -96,22 +131,42 @@ export function ParcelSignClient({ token }: ParcelSignClientProps) {
       const data = (await res.json()) as { error?: string };
 
       if (!res.ok) {
-        setSubmitError(data.error ?? '인도 처리에 실패했습니다.');
+        setSubmitError(translateParcelSignApiError(data.error ?? t.errSubmitFailed, locale));
         return;
       }
 
       setLoadState({ kind: 'done' });
     } catch {
-      setSubmitError('네트워크 오류가 발생했습니다.');
+      setSubmitError(t.networkError);
     } finally {
       setSubmitting(false);
     }
   }
 
+  function LocaleSwitcher() {
+    return (
+      <div className="parcel-sign__locales" role="radiogroup" aria-label={t.langSwitch}>
+        {PARCEL_SIGN_LOCALES.map((code) => (
+          <button
+            key={code}
+            type="button"
+            role="radio"
+            aria-checked={locale === code}
+            className={`parcel-sign__locale${locale === code ? ' is-active' : ''}`}
+            onClick={() => changeLocale(code)}
+          >
+            {PARCEL_SIGN_LOCALE_LABELS[code]}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
   if (loadState.kind === 'loading') {
     return (
       <div className="parcel-sign">
-        <p className="parcel-sign__state">불러오는 중…</p>
+        <LocaleSwitcher />
+        <p className="parcel-sign__state">{t.loading}</p>
       </div>
     );
   }
@@ -119,10 +174,11 @@ export function ParcelSignClient({ token }: ParcelSignClientProps) {
   if (loadState.kind === 'error') {
     return (
       <div className="parcel-sign">
+        <LocaleSwitcher />
         <div className="parcel-sign__card parcel-sign__card--error">
-          <h1>링크를 사용할 수 없습니다</h1>
-          <p>{loadState.message}</p>
-          <p className="parcel-sign__help">프론트 데스크에 새 인도 링크를 요청해 주세요.</p>
+          <h1>{t.errorTitle}</h1>
+          <p>{translateParcelSignApiError(loadState.message, locale)}</p>
+          <p className="parcel-sign__help">{t.errorHelp}</p>
         </div>
       </div>
     );
@@ -131,9 +187,10 @@ export function ParcelSignClient({ token }: ParcelSignClientProps) {
   if (loadState.kind === 'done') {
     return (
       <div className="parcel-sign">
+        <LocaleSwitcher />
         <div className="parcel-sign__card parcel-sign__card--done">
-          <h1>인도가 완료되었습니다</h1>
-          <p>감사합니다. 이 화면을 닫아 주세요.</p>
+          <h1>{t.doneTitle}</h1>
+          <p>{t.doneBody}</p>
         </div>
       </div>
     );
@@ -143,47 +200,48 @@ export function ParcelSignClient({ token }: ParcelSignClientProps) {
 
   return (
     <div className="parcel-sign">
+      <LocaleSwitcher />
       <form className="parcel-sign__card" onSubmit={(e) => void handleSubmit(e)}>
         <header className="parcel-sign__head">
-          <p className="parcel-sign__eyebrow">택배 · 우편 인도 확인</p>
-          <h1>{preview.room_number ? `${preview.room_number}호` : '객실 미지정'}</h1>
+          <p className="parcel-sign__eyebrow">{t.eyebrow}</p>
+          <h1>{formatParcelSignRoom(preview.room_number, locale)}</h1>
           {preview.guest_name ? <p className="parcel-sign__guest">{preview.guest_name}</p> : null}
         </header>
 
         <dl className="parcel-sign__meta">
           {preview.carrier ? (
             <>
-              <dt>택배사</dt>
+              <dt>{t.carrier}</dt>
               <dd>{preview.carrier}</dd>
             </>
           ) : null}
           {preview.storage_slot ? (
             <>
-              <dt>보관 위치</dt>
+              <dt>{t.storage}</dt>
               <dd>{preview.storage_slot}</dd>
             </>
           ) : null}
           {preview.description ? (
             <>
-              <dt>내용</dt>
+              <dt>{t.description}</dt>
               <dd>{preview.description}</dd>
             </>
           ) : null}
           {preview.tracking_number ? (
             <>
-              <dt>운송장</dt>
+              <dt>{t.tracking}</dt>
               <dd>{preview.tracking_number}</dd>
             </>
           ) : null}
         </dl>
 
         <label className="parcel-sign__field">
-          <span>수령자 성명</span>
+          <span>{t.recipientLabel}</span>
           <input
             type="text"
             value={recipientName}
             onChange={(e) => setRecipientName(e.target.value)}
-            placeholder="성명"
+            placeholder={t.recipientPlaceholder}
             autoComplete="name"
             disabled={submitting}
             required
@@ -191,17 +249,23 @@ export function ParcelSignClient({ token }: ParcelSignClientProps) {
         </label>
 
         <div className="parcel-sign__field">
-          <span>서명</span>
-          <SignaturePad ref={padRef} disabled={submitting} />
+          <span>{t.signatureLabel}</span>
+          <SignaturePad
+            ref={padRef}
+            disabled={submitting}
+            hint={t.signatureHint}
+            clearLabel={t.signatureClear}
+            ariaLabel={t.signatureAria}
+          />
         </div>
 
         {submitError ? <p className="parcel-sign__error">{submitError}</p> : null}
 
         <button type="submit" className="btn btn--primary parcel-sign__submit" disabled={submitting}>
-          {submitting ? '처리 중…' : '인도 확인'}
+          {submitting ? t.submitting : t.submit}
         </button>
 
-        <p className="parcel-sign__legal">서명은 택배 수령 확인용으로만 사용됩니다.</p>
+        <p className="parcel-sign__legal">{t.legal}</p>
       </form>
     </div>
   );

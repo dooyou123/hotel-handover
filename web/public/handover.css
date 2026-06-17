@@ -14396,6 +14396,27 @@ a.help-quick-link:hover {
   font-size: 0.88rem;
 }
 
+.parcel-sign-link__body--done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.5rem;
+}
+
+.parcel-sign-link__done-title {
+  margin: 0.25rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #15803d;
+}
+
+.parcel-sign-link__done-meta {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
 .modal--parcel-detail .modal__form.parcel-detail {
   padding: 1rem 1.25rem 1.15rem;
   overflow-y: auto;
@@ -14447,6 +14468,31 @@ a.help-quick-link:hover {
 
 .parcel-sign {
   width: min(28rem, 100%);
+}
+
+.parcel-sign__locales {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+  justify-content: flex-end;
+}
+
+.parcel-sign__locale {
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: #fff;
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.parcel-sign__locale.is-active {
+  border-color: #2563eb;
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
 }
 
 .parcel-sign__card {

@@ -319,6 +319,11 @@ export function ParcelsPageClient() {
         parcel={signParcel}
         staffName={authorLabel || session.name}
         onClose={() => setSignParcel(null)}
+        onDelivered={(parcel) => {
+          showToast(
+            `${parcel.room_number ? `${parcel.room_number}호 ` : ''}택배 인도가 완료되었습니다.`,
+          );
+        }}
         onToast={showToast}
       />
 

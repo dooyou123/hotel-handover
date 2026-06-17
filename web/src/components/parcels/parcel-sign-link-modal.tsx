@@ -1,33 +1,54 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import type { Parcel } from '@/lib/parcels/types';
+import { normalizeParcel } from '@/lib/parcels/types';
+import { createClient } from '@/lib/supabase/client';
+
+const POLL_MS = 3_000;
 
 type ParcelSignLinkModalProps = {
   open: boolean;
   parcel: Parcel | null;
   staffName: string;
   onClose: () => void;
+  onDelivered?: (parcel: Parcel) => void;
   onToast?: (message: string) => void;
 };
 
-export function ParcelSignLinkModal({ open, parcel, staffName, onClose, onToast }: ParcelSignLinkModalProps) {
+export function ParcelSignLinkModal({
+  open,
+  parcel,
+  staffName,
+  onClose,
+  onDelivered,
+  onToast,
+}: ParcelSignLinkModalProps) {
   const [loading, setLoading] = useState(false);
   const [signUrl, setSignUrl] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [deliveredParcel, setDeliveredParcel] = useState<Parcel | null>(null);
 
   useEffect(() => {
     if (!open || !parcel) {
       setSignUrl('');
       setExpiresAt('');
       setError(null);
+      setDeliveredParcel(null);
+      return;
+    }
+
+    if (parcel.status === 'delivered') {
+      setDeliveredParcel(parcel);
       return;
     }
 
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setDeliveredParcel(null);
 
     async function createToken() {
       try {
@@ -57,6 +78,65 @@ export function ParcelSignLinkModal({ open, parcel, staffName, onClose, onToast 
     };
   }, [open, parcel, staffName]);
 
+  useEffect(() => {
+    if (!open || !parcel || deliveredParcel) return;
+
+    const parcelId = parcel.id;
+    const supabase = createClient();
+    let notified = false;
+
+    function handleDelivered(row: Record<string, unknown>) {
+      if (notified) return;
+      const next = normalizeParcel(row);
+      if (next.status !== 'delivered') return;
+      notified = true;
+      setDeliveredParcel(next);
+      onDelivered?.(next);
+    }
+
+    async function pollParcel() {
+      const { data } = await supabase
+        .from('parcels')
+        .select('*')
+        .eq('id', parcelId)
+        .eq('hotel_id', DEFAULT_HOTEL_ID)
+        .maybeSingle();
+      if (data) handleDelivered(data as Record<string, unknown>);
+    }
+
+    const channel = supabase
+      .channel(`parcel-sign-wait-${parcelId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'parcels',
+          filter: `id=eq.${parcelId}`,
+        },
+        (payload) => {
+          handleDelivered(payload.new as Record<string, unknown>);
+        },
+      )
+      .subscribe();
+
+    void pollParcel();
+    const timer = window.setInterval(() => void pollParcel(), POLL_MS);
+
+    return () => {
+      window.clearInterval(timer);
+      void supabase.removeChannel(channel);
+    };
+  }, [open, parcel, deliveredParcel, onDelivered]);
+
+  useEffect(() => {
+    if (!deliveredParcel) return;
+    const timer = window.setTimeout(() => {
+      onClose();
+    }, 4000);
+    return () => window.clearTimeout(timer);
+  }, [deliveredParcel, onClose]);
+
   if (!open || !parcel) return null;
 
   const qrSrc = signUrl
@@ -76,6 +156,52 @@ export function ParcelSignLinkModal({ open, parcel, staffName, onClose, onToast 
   function openOnPhone() {
     if (!signUrl) return;
     window.open(signUrl, '_blank', 'noopener,noreferrer');
+  }
+
+  if (deliveredParcel) {
+    return (
+      <div className="modal-overlay modal-overlay--parcel" onClick={onClose}>
+        <div
+          className="modal modal--parcel-sign-link"
+          onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="modal__header">
+            <div>
+              <h2>인도 완료</h2>
+              <p className="parcel-sign-link__subtitle">
+                {deliveredParcel.room_number ? `${deliveredParcel.room_number}호` : '객실 미지정'}
+                {deliveredParcel.guest_name ? ` · ${deliveredParcel.guest_name}` : ''}
+              </p>
+            </div>
+            <button type="button" className="icon-btn" onClick={onClose} aria-label="닫기">
+              ✕
+            </button>
+          </div>
+          <div className="parcel-sign-link__body parcel-sign-link__body--done">
+            <p className="parcel-sign-link__done-title">서명이 접수되었습니다.</p>
+            {deliveredParcel.recipient_name ? (
+              <p className="parcel-sign-link__done-meta">수령자: {deliveredParcel.recipient_name}</p>
+            ) : null}
+            {deliveredParcel.delivered_at ? (
+              <p className="parcel-sign-link__done-meta">
+                {new Date(deliveredParcel.delivered_at).toLocaleString('ko-KR', {
+                  month: 'numeric',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </p>
+            ) : null}
+            <p className="parcel-sign-link__state">잠시 후 자동으로 닫힙니다.</p>
+            <button type="button" className="btn btn--primary" onClick={onClose}>
+              확인
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

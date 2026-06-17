@@ -10,10 +10,13 @@ export type SignaturePadHandle = {
 
 type SignaturePadProps = {
   disabled?: boolean;
+  hint?: string;
+  clearLabel?: string;
+  ariaLabel?: string;
 };
 
 export const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(function SignaturePad(
-  { disabled = false },
+  { disabled = false, hint = '여기에 서명해 주세요', clearLabel = '지우기', ariaLabel = '서명' },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -126,16 +129,16 @@ export const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(fu
       <canvas
         ref={canvasRef}
         className="signature-pad__canvas"
-        aria-label="서명"
+        aria-label={ariaLabel}
         onPointerDown={startDraw}
         onPointerMove={draw}
         onPointerUp={endDraw}
         onPointerLeave={endDraw}
         onPointerCancel={endDraw}
       />
-      {!hasStroke ? <span className="signature-pad__hint">여기에 서명해 주세요</span> : null}
+      {!hasStroke ? <span className="signature-pad__hint">{hint}</span> : null}
       <button type="button" className="signature-pad__clear" onClick={clear} disabled={disabled || !hasStroke}>
-        지우기
+        {clearLabel}
       </button>
     </div>
   );

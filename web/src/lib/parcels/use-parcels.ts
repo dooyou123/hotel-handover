@@ -49,7 +49,7 @@ export function useParcels(statusFilter: ParcelStatusFilter = 'all') {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'parcels', filter: `hotel_id=eq.${DEFAULT_HOTEL_ID}` },
         () => {
-          void queryClient.invalidateQueries({ queryKey: ['parcels', DEFAULT_HOTEL_ID] });
+          void queryClient.refetchQueries({ queryKey: ['parcels', DEFAULT_HOTEL_ID] });
         },
       )
       .subscribe();

@@ -1300,6 +1300,18 @@ test('buildFloorHeatmap aggregates by floor', () => {
   assert.ok(floor12?.recentEvents.some((event) => event.title.includes('에어컨')));
 });
 
+test('parcel sign i18n formats room labels', () => {
+  const { formatParcelSignRoom, translateParcelSignApiError } =
+    require('@/lib/parcels/sign-i18n') as typeof import('@/lib/parcels/sign-i18n');
+
+  assert.equal(formatParcelSignRoom('1207', 'ko'), '1207호');
+  assert.equal(formatParcelSignRoom('1207', 'en'), 'Room 1207');
+  assert.equal(formatParcelSignRoom('1207', 'ja'), '1207号室');
+  assert.ok(
+    translateParcelSignApiError('만료되었거나 이미 사용된 링크입니다.', 'en').includes('expired'),
+  );
+});
+
 test('buildLiveBoardFeed groups urgent and warn items', () => {
   const { buildLiveBoardFeed } = require('@/lib/live-board/build-feed') as typeof import('@/lib/live-board/build-feed');
 
