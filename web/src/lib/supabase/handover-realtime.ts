@@ -79,7 +79,7 @@ function removePoolChannel(supabase: SupabaseClient, pool: ChannelPool): Promise
   if (!channel) return Promise.resolve();
 
   pool.closing = true;
-  return Promise.resolve(supabase.removeChannel(channel)).finally(() => {
+  return supabase.removeChannel(channel).then(() => {
     pool.closing = false;
   });
 }

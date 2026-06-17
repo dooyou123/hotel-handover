@@ -62,7 +62,7 @@ export function AmenityPageClient() {
         title: `어메니티 발주 (${lines.length}품목)`,
         description: buildAmenityOrderText(lines),
         due_date: todayDateString(),
-        priority: 'today',
+        priority: 'normal',
         assignee_shift: session.group || session.shift,
         assignee_name: session.name,
         author: authorLabel,
