@@ -30,7 +30,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const { parcelId } = await context.params;
   if (!parcelId) {
-    return NextResponse.json({ error: '택배 ID가 필요합니다.' }, { status: 400 });
+    return NextResponse.json({ error: '항목 ID가 필요합니다.' }, { status: 400 });
   }
 
   let staffName = '';
@@ -52,12 +52,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: parcelError.message }, { status: 500 });
   }
   if (!parcel) {
-    return NextResponse.json({ error: '택배를 찾을 수 없습니다.' }, { status: 404 });
+    return NextResponse.json({ error: '항목을 찾을 수 없습니다.' }, { status: 404 });
   }
 
   const status = String(parcel.status);
   if (status === 'delivered' || status === 'returned') {
-    return NextResponse.json({ error: '이미 처리된 택배입니다.' }, { status: 409 });
+    return NextResponse.json({ error: '이미 처리된 항목입니다.' }, { status: 409 });
   }
 
   const token = generateDeliveryToken();

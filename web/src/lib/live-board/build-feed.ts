@@ -11,6 +11,7 @@ import {
   formatNoticeExpiryAlertDetail,
   getNoticeExpiryUrgency,
 } from '@/lib/notices/expiry';
+import { filterNoticesForFeed } from '@/lib/notices/status';
 import { isParcelOverdue, type Parcel } from '@/lib/parcels/types';
 import type { Card, Notice } from '@/lib/handover/types';
 import type { TransportBooking } from '@/lib/transport/types';
@@ -72,8 +73,9 @@ export function buildLiveBoardFeed(input: {
   const dueSoon = input.cards.filter((c) => isCardDueSoon(c) && !isCardOverdue(c));
   const stale = input.cards.filter(isStaleCard);
   const holdLong = input.cards.filter(isLongHoldCard);
-  const expiringNotices = filterNoticesExpiringSoon(input.notices, 7);
-  const pinned = input.notices.filter((n) => n.is_pinned);
+  const activeNotices = filterNoticesForFeed(input.notices);
+  const expiringNotices = filterNoticesExpiringSoon(activeNotices, 7);
+  const pinned = activeNotices.filter((n) => n.is_pinned);
   const taxiNeedsInput = filterTransportNeedsInputImminent(input.transportBookings ?? []);
   const parcelsOverdue = (input.parcels ?? []).filter((p) => isParcelOverdue(p));
 
@@ -88,7 +90,7 @@ export function buildLiveBoardFeed(input: {
   pushSummary('hold-long', '보류 오래됨', holdLong.length, 'warn');
   pushSummary('notice-expiry', '공지 만료', expiringNotices.length, 'warn');
   pushSummary('taxi-input', '택시 입력', taxiNeedsInput.length, 'urgent');
-  pushSummary('parcels', '택배 미인도', parcelsOverdue.length, 'warn');
+  pushSummary('parcels', '픽업 미인도', parcelsOverdue.length, 'warn');
 
   for (const card of unacked) {
     items.push({
@@ -156,8 +158,8 @@ export function buildLiveBoardFeed(input: {
   for (const parcel of parcelsOverdue) {
     items.push({
       id: `parcel-${parcel.id}`,
-      label: '택배 장기 미인도',
-      body: `${parcel.room_number ? `${parcel.room_number}호 · ` : ''}${parcel.guest_name || parcel.carrier || '택배'}`,
+      label: '픽업 장기 미인도',
+      body: `${parcel.room_number ? `${parcel.room_number}호 · ` : ''}${parcel.guest_name || parcel.description || '물건'}`,
       tone: 'warn',
       href: '/parcels',
     });

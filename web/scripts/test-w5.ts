@@ -11,10 +11,10 @@ import {
   getSessionScheduleMismatch,
 } from '@/lib/schedule/session-schedule-match';
 import { pinnedNotices, unreadPinnedCount } from '@/lib/notices/reads';
-import { xpLevelProgress, xpToLevel } from '@/lib/staff/xp';
 import { buildTodayAlerts } from '@/lib/today/alerts';
 import type { CardComment } from '@/lib/handover/types';
 import { buildAmenityOrderLines, buildAmenityOrderText } from '@/lib/amenity/order-sheet';
+import { buildAmenityTransactionsCsv, getAmenityTransactionsExportFilename } from '@/lib/amenity/export';
 import { getKoreanHoliday, getKoreanHolidaysInMonth } from '@/lib/calendar/korean-holidays';
 import { monthDateRange } from '@/lib/schedule/month-range';
 import { buildSummaryText, getExportFilename, hasSummaryContent } from '@/lib/handover/daily-summary';
@@ -85,6 +85,33 @@ test('buildAmenityOrderLines includes only items needing reorder', () => {
   assert.equal(lines.length, 1);
   assert.equal(lines[0]?.name, '샴푸');
   assert.match(buildAmenityOrderText(lines), /샴푸/);
+});
+
+test('buildAmenityTransactionsCsv includes headers and escaped memo', () => {
+  const csv = buildAmenityTransactionsCsv([
+    {
+      id: 'tx-1',
+      hotel_id: 'h',
+      created_at: '2026-06-08T09:30:00.000Z',
+      type: '출고',
+      amenity_id: 1,
+      box_count: 2,
+      total_items: 20,
+      author: 'A조 · 홍길동',
+      memo: '3층, "비치"',
+      amenities: { name: '샴푸' },
+    },
+  ]);
+
+  assert.match(csv, /^\uFEFF/);
+  assert.match(csv, /"일시","구분","품목","수량\(개\)","박스수","작성자","메모"/);
+  assert.match(csv, /"출고","샴푸","20","2"/);
+  assert.match(csv, /3층, ""비치"""/);
+});
+
+test('getAmenityTransactionsExportFilename uses amenity prefix', () => {
+  const name = getAmenityTransactionsExportFilename(new Date('2026-06-08T12:00:00'));
+  assert.equal(name, '어메니티_입출고_20260608.csv');
 });
 
 test('getExportFilename includes date prefix', () => {
@@ -794,6 +821,8 @@ test('isDoneTodoHiddenFromList hides done todos older than 7 days', () => {
     DONE_TODO_HIDE_AFTER_DAYS,
     isDoneTodoHiddenFromList,
     isPastHotelEvent,
+    isCompletedHotelEvent,
+    isPastOrCompletedHotelEvent,
     todayDateString,
   } = require('@/lib/work-items/schedule-filters') as typeof import('@/lib/work-items/schedule-filters');
 
@@ -814,6 +843,62 @@ test('isDoneTodoHiddenFromList hides done todos older than 7 days', () => {
   );
   assert.equal(isPastHotelEvent({ event_date: '2026-06-07' }, todayDateString(now)), true);
   assert.equal(isPastHotelEvent({ event_date: '2026-06-08' }, todayDateString(now)), false);
+  assert.equal(isCompletedHotelEvent({ completed_at: null }), false);
+  assert.equal(isCompletedHotelEvent({ completed_at: '2026-06-08T09:00:00Z' }), true);
+  assert.equal(
+    isPastOrCompletedHotelEvent({ event_date: '2026-06-08', completed_at: '2026-06-08T09:00:00Z' }, todayDateString(now)),
+    true,
+  );
+  assert.equal(
+    isPastOrCompletedHotelEvent({ event_date: '2026-06-09', completed_at: null }, todayDateString(now)),
+    false,
+  );
+});
+
+test('notice completed status helpers', () => {
+  const {
+    isNoticeCompleted,
+    isNoticeExpired,
+    isNoticeActiveForFeed,
+    filterNoticesForFeed,
+  } = require('@/lib/notices/status') as typeof import('@/lib/notices/status');
+  const {
+    filterNoticesForBoard,
+    countNoticesForBoardTab,
+  } = require('@/lib/notices/filter') as typeof import('@/lib/notices/filter');
+
+  const today = '2026-06-08';
+  const active = {
+    id: '1',
+    type: 'announcement',
+    content: 'active',
+    completed_at: null,
+    expires_at: '2026-06-30',
+    is_pinned: false,
+    author: '주간',
+    hotel_id: 'h',
+    created_at: '2026-06-08T00:00:00Z',
+    updated_at: '2026-06-08T00:00:00Z',
+  } as import('@/lib/handover/types').Notice;
+  const done = { ...active, id: '2', completed_at: '2026-06-08T09:00:00Z' };
+  const expired = { ...active, id: '3', expires_at: '2026-06-01' };
+
+  assert.equal(isNoticeCompleted(done), true);
+  assert.equal(isNoticeCompleted(active), false);
+  assert.equal(isNoticeExpired(expired, today), true);
+  assert.equal(isNoticeActiveForFeed(done, today), false);
+  assert.equal(isNoticeActiveForFeed(active, today), true);
+  assert.equal(isNoticeActiveForFeed(expired, today), false);
+  assert.deepEqual(filterNoticesForFeed([active, done], today).map((n) => n.id), ['1']);
+  assert.deepEqual(
+    filterNoticesForBoard([active, done], {
+      tab: 'completed',
+      searchQuery: '',
+    }).map((n) => n.id),
+    ['2'],
+  );
+  assert.equal(countNoticesForBoardTab([active, done], 'announcement'), 1);
+  assert.equal(countNoticesForBoardTab([active, done], 'completed'), 1);
 });
 
 test('card due soon and overdue helpers', () => {
@@ -990,15 +1075,6 @@ test('ticker navigation hrefs', () => {
   assert.equal(getTickerActionLabel('unacked-1'), '확인하기');
   assert.equal(getTickerActionLabel('notice-1'), '읽기');
   assert.equal(getTickerActionLabel('urgent-1'), '열기');
-});
-
-test('xp level progress', () => {
-  assert.equal(xpToLevel(0), 1);
-  assert.equal(xpToLevel(99), 1);
-  assert.equal(xpToLevel(100), 2);
-  const p = xpLevelProgress(150);
-  assert.equal(p.level, 2);
-  assert.equal(p.inLevel, 50);
 });
 
 test('buildTodayAlerts includes card due alerts', () => {
@@ -1244,6 +1320,61 @@ test('parcel overdue helper', () => {
   assert.equal(isParcelOverdue(done, 3, now), false);
 });
 
+test('parcel board filter hides completed after 24h and supports completed tab', () => {
+  const { filterParcelsForBoard, isParcelHiddenAfterCompletion } =
+    require('@/lib/parcels/filter') as typeof import('@/lib/parcels/filter');
+
+  const now = new Date('2026-06-08T12:00:00');
+  const active = {
+    id: '1',
+    direction: 'out_to_room',
+    status: 'stored',
+    room_number: '1207',
+    guest_name: 'Kim',
+    checkout_date: '2026-06-09',
+    storage_slot: '',
+    description: '박스',
+    received_at: '2026-06-08T08:00:00Z',
+    delivered_at: null,
+    updated_at: '2026-06-08T08:00:00Z',
+    recipient_name: '',
+    notes: '',
+  } as import('@/lib/parcels/types').Parcel;
+
+  const recentDone = {
+    ...active,
+    id: '2',
+    status: 'delivered',
+    delivered_at: '2026-06-08T10:00:00Z',
+  } as import('@/lib/parcels/types').Parcel;
+
+  const oldDone = {
+    ...active,
+    id: '3',
+    status: 'delivered',
+    delivered_at: '2026-06-06T10:00:00Z',
+  } as import('@/lib/parcels/types').Parcel;
+
+  assert.equal(isParcelHiddenAfterCompletion(oldDone, now), true);
+  assert.equal(isParcelHiddenAfterCompletion(recentDone, now), false);
+
+  const outTab = filterParcelsForBoard([active, recentDone, oldDone], 'out_to_room', '', 'all', now);
+  assert.deepEqual(outTab.map((p) => p.id), ['1', '2']);
+
+  const completedTab = filterParcelsForBoard([active, recentDone, oldDone], 'completed', '', 'all', now);
+  assert.equal(completedTab.length, 2);
+
+  const completedSearch = filterParcelsForBoard(
+    [{ ...oldDone, guest_name: 'Park' }, recentDone],
+    'completed',
+    'Kim',
+    'all',
+    now,
+  );
+  assert.equal(completedSearch.length, 1);
+  assert.equal(completedSearch[0]?.id, '2');
+});
+
 test('parseRoomFloor extracts hotel floors', () => {
   const { parseRoomFloor } = require('@/lib/insights/room-floor') as typeof import('@/lib/insights/room-floor');
 
@@ -1298,6 +1429,16 @@ test('buildFloorHeatmap aggregates by floor', () => {
   assert.equal(floor12?.negativeReviewCount, 1);
   assert.equal(floor12?.recentEvents.length, 3);
   assert.ok(floor12?.recentEvents.some((event) => event.title.includes('에어컨')));
+});
+
+test('isStaleRefreshError detects invalid refresh token', () => {
+  const { isStaleRefreshError } =
+    require('@/lib/supabase/auth-session') as typeof import('@/lib/supabase/auth-session');
+
+  assert.equal(isStaleRefreshError('refresh_token_not_found'), true);
+  assert.equal(isStaleRefreshError('invalid_refresh_token'), true);
+  assert.equal(isStaleRefreshError(undefined, 'Invalid Refresh Token: Refresh Token Not Found'), true);
+  assert.equal(isStaleRefreshError('other'), false);
 });
 
 test('parcel sign i18n formats room labels', () => {

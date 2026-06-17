@@ -1,25 +1,33 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { Parcel, ParcelInput, ParcelStatus } from '@/lib/parcels/types';
-import { PARCEL_STATUS_LABELS } from '@/lib/parcels/types';
+import type { Parcel, ParcelDirection, ParcelInput, ParcelStatus } from '@/lib/parcels/types';
+import { PARCEL_DIRECTION_LABELS, PARCEL_STATUS_LABELS } from '@/lib/parcels/types';
 
 type ParcelFormModalProps = {
   open: boolean;
   editing: Parcel | null;
   authorLabel: string;
+  defaultDirection: ParcelDirection;
   onClose: () => void;
   onSave: (input: ParcelInput) => Promise<void>;
 };
 
 const STATUS_OPTIONS: ParcelStatus[] = ['stored', 'ready', 'delivered', 'returned'];
 
-export function ParcelFormModal({ open, editing, authorLabel, onClose, onSave }: ParcelFormModalProps) {
+export function ParcelFormModal({
+  open,
+  editing,
+  authorLabel,
+  defaultDirection,
+  onClose,
+  onSave,
+}: ParcelFormModalProps) {
   const [form, setForm] = useState<ParcelInput>(() => ({
+    direction: defaultDirection,
     room_number: '',
     guest_name: '',
-    carrier: '',
-    tracking_number: '',
+    checkout_date: '',
     storage_slot: '',
     description: '',
     status: 'stored',
@@ -34,10 +42,10 @@ export function ParcelFormModal({ open, editing, authorLabel, onClose, onSave }:
     if (!open) return;
     if (editing) {
       setForm({
+        direction: editing.direction,
         room_number: editing.room_number,
         guest_name: editing.guest_name,
-        carrier: editing.carrier,
-        tracking_number: editing.tracking_number,
+        checkout_date: editing.checkout_date,
         storage_slot: editing.storage_slot,
         description: editing.description,
         status: editing.status,
@@ -48,10 +56,10 @@ export function ParcelFormModal({ open, editing, authorLabel, onClose, onSave }:
       });
     } else {
       setForm({
+        direction: defaultDirection,
         room_number: '',
         guest_name: '',
-        carrier: '',
-        tracking_number: '',
+        checkout_date: '',
         storage_slot: '',
         description: '',
         status: 'stored',
@@ -61,7 +69,7 @@ export function ParcelFormModal({ open, editing, authorLabel, onClose, onSave }:
         updated_by: authorLabel,
       });
     }
-  }, [open, editing, authorLabel]);
+  }, [open, editing, authorLabel, defaultDirection]);
 
   if (!open) return null;
 
@@ -82,8 +90,8 @@ export function ParcelFormModal({ open, editing, authorLabel, onClose, onSave }:
         <form className="modal__form parcel-form" onSubmit={(e) => void handleSubmit(e)}>
           <div className="modal__header">
             <div>
-              <h2>{editing ? '택배 수정' : '택배 등록'}</h2>
-              <p className="parcel-form__subtitle">객실·보관 위치·택배사를 입력합니다.</p>
+              <h2>{editing ? '기록 수정' : '기록 등록'}</h2>
+              <p className="parcel-form__subtitle">객실·체크아웃·보관 위치를 입력합니다.</p>
             </div>
             <button type="button" className="icon-btn" onClick={onClose} aria-label="닫기">
               ✕
@@ -91,6 +99,21 @@ export function ParcelFormModal({ open, editing, authorLabel, onClose, onSave }:
           </div>
 
           <div className="parcel-form__scroll">
+            <div className="parcel-form__direction" role="group" aria-label="구분">
+              {(Object.keys(PARCEL_DIRECTION_LABELS) as ParcelDirection[]).map((direction) => (
+                <button
+                  key={direction}
+                  type="button"
+                  className={`parcel-form__direction-btn parcel-form__direction-btn--${direction}${
+                    form.direction === direction ? ' is-active' : ''
+                  }`}
+                  onClick={() => setForm({ ...form, direction })}
+                >
+                  {PARCEL_DIRECTION_LABELS[direction]}
+                </button>
+              ))}
+            </div>
+
             <div className="parcel-form__grid">
               <label className="field">
                 <span>객실</span>
@@ -110,18 +133,11 @@ export function ParcelFormModal({ open, editing, authorLabel, onClose, onSave }:
                 />
               </label>
               <label className="field">
-                <span>택배사</span>
+                <span>체크아웃</span>
                 <input
-                  value={form.carrier}
-                  onChange={(e) => setForm({ ...form, carrier: e.target.value })}
-                  placeholder="CJ · 우체국"
-                />
-              </label>
-              <label className="field">
-                <span>운송장</span>
-                <input
-                  value={form.tracking_number}
-                  onChange={(e) => setForm({ ...form, tracking_number: e.target.value })}
+                  type="date"
+                  value={form.checkout_date}
+                  onChange={(e) => setForm({ ...form, checkout_date: e.target.value })}
                 />
               </label>
               <label className="field">

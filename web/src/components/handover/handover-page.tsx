@@ -22,8 +22,6 @@ import type {
 } from '@/lib/handover/types';
 import { useMonthEvents } from '@/lib/events/use-events';
 import type { HotelEvent, HotelEventInput } from '@/lib/events/types';
-import { awardStaffXp } from '@/lib/staff/award-xp';
-import type { XpRewardKey } from '@/lib/staff/xp';
 import { buildTodayAlerts, filterTodayEvents, filterTodayTodos } from '@/lib/today/alerts';
 import { consumeHkHandoverDraft } from '@/lib/housekeeping/handover-draft';
 import { useTodayTaxiBookings } from '@/lib/transport/use-transport';
@@ -222,13 +220,6 @@ export function HandoverPage() {
     window.setTimeout(() => setToast(null), 2500);
   }
 
-  async function grantXp(reward: XpRewardKey) {
-    if (!session.name.trim()) return;
-    const result = await awardStaffXp(session.name, reward);
-    if (result?.leveledUp) showToast(`레벨 업! Lv.${result.level} 달성`);
-    void queryClient.invalidateQueries({ queryKey: ['staff-xp', DEFAULT_HOTEL_ID] });
-  }
-
   function openCreateModal() {
     if (!requireSession('인수인계 추가')) return;
     setEditingCard(null);
@@ -383,7 +374,6 @@ export function HandoverPage() {
         staffName: session.name,
       });
       showToast('긴급 건 확인이 기록되었습니다.');
-      void grantXp('acknowledge_urgent');
     } catch (caught) {
       showToast(caught instanceof Error ? caught.message : '확인에 실패했습니다.');
     }
@@ -410,7 +400,6 @@ export function HandoverPage() {
       });
       showToast('완료 처리했습니다.');
       refreshActivityLogs();
-      void grantXp('complete_card');
     } catch {
       showToast('완료 처리에 실패했습니다.');
     }
@@ -678,7 +667,6 @@ export function HandoverPage() {
         return;
       }
       showToast('할일을 완료했습니다.');
-      void grantXp('complete_todo');
     } else {
       showToast('할일을 다시 열었습니다.');
     }
@@ -762,7 +750,6 @@ export function HandoverPage() {
         details: { changes: [content] },
       });
       refreshActivityLogs();
-      void grantXp('add_comment');
     }
   }
 

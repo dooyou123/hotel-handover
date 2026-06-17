@@ -69,6 +69,7 @@ export type Notice = {
   author: string;
   is_pinned: boolean;
   expires_at: string | null;
+  completed_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -79,6 +80,7 @@ export type NoticeInput = {
   author: string;
   is_pinned: boolean;
   expires_at: string | null;
+  completed_at?: string | null;
 };
 
 export type ActivityLog = {

@@ -1,41 +1,36 @@
-import { SHIFTS } from '@/lib/constants';
-import { filterNoticesByChannel, type NoticeChannelId } from '@/lib/notices/channels';
-import { isNoticeExpiringSoon } from '@/lib/notices/expiry';
+import { isNoticeCompleted } from '@/lib/notices/status';
 import type { Notice } from '@/lib/handover/types';
 
-export type NoticeShiftFilter = 'all' | (typeof SHIFTS)[number] | '관리자' | 'other';
+export type NoticeBoardTab = 'announcement' | 'change' | 'completed';
 
-export const NOTICE_SHIFT_FILTERS: { id: NoticeShiftFilter; label: string }[] = [
-  { id: 'all', label: '전체 교대' },
-  { id: '주간', label: '주간' },
-  { id: '오후', label: '오후' },
-  { id: '야간', label: '야간' },
-  { id: '관리자', label: '관리자' },
-  { id: 'other', label: '기타' },
-];
-
-export const NOTICE_EXPIRY_FILTERS: { id: NoticeExpiryFilter; label: string }[] = [
-  { id: 'all', label: '전체' },
-  { id: 'renewal', label: '만료 임박 7일' },
+export const NOTICE_BOARD_TABS: { id: NoticeBoardTab; label: string }[] = [
+  { id: 'announcement', label: '공지' },
+  { id: 'change', label: '변경' },
+  { id: 'completed', label: '완료' },
 ];
 
 export type NoticeBoardView = 'list' | 'table';
-export type NoticeExpiryFilter = 'all' | 'renewal';
+
+export function isNoticeBoardTab(value: string | null): value is NoticeBoardTab {
+  return value === 'announcement' || value === 'change' || value === 'completed';
+}
+
+export function parseNoticeBoardTab(channelParam: string | null): NoticeBoardTab {
+  if (isNoticeBoardTab(channelParam)) return channelParam;
+  return 'announcement';
+}
 
 export function filterNoticesForBoard(
   notices: Notice[],
   options: {
-    channelId: NoticeChannelId;
+    tab: NoticeBoardTab;
     searchQuery: string;
-    shiftFilter: NoticeShiftFilter;
-    expiryFilter?: NoticeExpiryFilter;
   },
 ): Notice[] {
-  let result = filterNoticesByChannel(notices, options.channelId);
-
-  if (options.expiryFilter === 'renewal') {
-    result = result.filter((notice) => isNoticeExpiringSoon(notice, 7));
-  }
+  let result =
+    options.tab === 'completed'
+      ? notices.filter(isNoticeCompleted)
+      : notices.filter((notice) => notice.type === options.tab && !isNoticeCompleted(notice));
 
   const query = options.searchQuery.trim().toLowerCase();
   if (query) {
@@ -47,17 +42,13 @@ export function filterNoticesForBoard(
     );
   }
 
-  if (options.shiftFilter !== 'all') {
-    if (options.shiftFilter === 'other') {
-      const known = new Set<string>([...SHIFTS, '관리자']);
-      result = result.filter((notice) => !known.has(notice.author));
-    } else {
-      result = result.filter((notice) => notice.author === options.shiftFilter);
-    }
-  }
-
   return [...result].sort((a, b) => {
     if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1;
     return (b.updated_at || b.created_at).localeCompare(a.updated_at || a.created_at);
   });
+}
+
+export function countNoticesForBoardTab(notices: Notice[], tab: NoticeBoardTab): number {
+  if (tab === 'completed') return notices.filter(isNoticeCompleted).length;
+  return notices.filter((notice) => notice.type === tab && !isNoticeCompleted(notice)).length;
 }

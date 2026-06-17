@@ -53,12 +53,12 @@ export async function validateSignToken(token: string): Promise<ValidatedSignTok
     tokenId: row.id,
     parcel,
     preview: {
+      direction: parcel.direction,
       room_number: parcel.room_number,
       guest_name: parcel.guest_name,
-      carrier: parcel.carrier,
+      checkout_date: parcel.checkout_date,
       storage_slot: parcel.storage_slot,
       description: parcel.description,
-      tracking_number: parcel.tracking_number,
     },
     staffName: row.created_by,
   };

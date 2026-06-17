@@ -1,5 +1,6 @@
 import { isCardDueSoon, isCardOverdue, isLongHoldCard, isStaleCard } from '@/lib/handover/card-utils';
 import { filterNoticesExpiringSoon } from '@/lib/notices/expiry';
+import { filterNoticesForFeed } from '@/lib/notices/status';
 import { isToday } from '@/lib/handover/shift-summary';
 import type { Card, Notice } from '@/lib/handover/types';
 import type { HotelEvent } from '@/lib/events/types';
@@ -42,7 +43,7 @@ export function buildTodayAlerts(input: {
   const dueSoonCards = activeCards.filter((c) => isCardDueSoon(c) && !isCardOverdue(c));
   const staleCards = activeCards.filter(isStaleCard);
   const longHoldCards = activeCards.filter(isLongHoldCard);
-  const expiringNotices = filterNoticesExpiringSoon(input.notices ?? [], 7);
+  const expiringNotices = filterNoticesExpiringSoon(filterNoticesForFeed(input.notices ?? []), 7);
   const taxiNeedsInput = filterTransportNeedsInputImminent(input.transportBookings ?? []);
 
   if (input.unackedUrgent.length) {
@@ -133,8 +134,10 @@ export function filterTodayTodos(todos: Todo[]): Todo[] {
   return todos.filter((t) => t.status === 'open' && (isTodoDueToday(t) || isTodoOverdue(t) || !t.due_date));
 }
 
+import { isCompletedHotelEvent } from '@/lib/work-items/schedule-filters';
+
 export function filterTodayEvents(events: HotelEvent[]): HotelEvent[] {
-  return events.filter((e) => isToday(`${e.event_date}T12:00:00`));
+  return events.filter((e) => isToday(`${e.event_date}T12:00:00`) && !isCompletedHotelEvent(e));
 }
 
 /** 오늘 픽업·미완료(취소 제외) 택시 예약 — 인계·사이드바 공통 */

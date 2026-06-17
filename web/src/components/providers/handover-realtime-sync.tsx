@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { clearStaleAuthSession, isStaleRefreshError } from '@/lib/supabase/auth-session';
 import { createClient } from '@/lib/supabase/client';
 import { subscribeHandoverRealtime } from '@/lib/supabase/handover-realtime';
 
@@ -17,7 +18,11 @@ export function HandoverRealtimeSync() {
       unsubscribe = subscribeHandoverRealtime(queryClient);
     }
 
-    void supabase.auth.getSession().then(({ data }) => {
+    void supabase.auth.getSession().then(async ({ data, error }) => {
+      if (error && isStaleRefreshError(error.code, error.message)) {
+        await clearStaleAuthSession(supabase);
+        return;
+      }
       if (data.session) start();
     });
 

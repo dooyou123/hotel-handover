@@ -32,3 +32,16 @@ export function isPastHotelEvent(
 ): boolean {
   return event.event_date < today;
 }
+
+export function isCompletedHotelEvent(
+  event: Pick<HotelEvent, 'completed_at'>,
+): boolean {
+  return Boolean(event.completed_at);
+}
+
+export function isPastOrCompletedHotelEvent(
+  event: Pick<HotelEvent, 'event_date' | 'completed_at'>,
+  today = todayDateString(),
+): boolean {
+  return isPastHotelEvent(event, today) || isCompletedHotelEvent(event);
+}

@@ -5,6 +5,7 @@ import type { HotelEvent } from '@/lib/events/types';
 import { filterTodayEvents, isTodoDueToday, isTodoOverdue } from '@/lib/today/alerts';
 import { isPickupOverdue } from '@/lib/transport/alerts';
 import { filterPendingTodayTaxi } from '@/lib/today/alerts';
+import { filterNoticesForFeed } from '@/lib/notices/status';
 import type { TransportBooking } from '@/lib/transport/types';
 import type { Todo } from '@/lib/todos/types';
 
@@ -42,8 +43,9 @@ export function computeNavBadges(input: {
     };
   }
 
-  const pinnedNotices = input.notices.filter((notice) => notice.is_pinned).length;
-  const todayChanges = input.notices.filter(
+  const activeNotices = filterNoticesForFeed(input.notices);
+  const pinnedNotices = activeNotices.filter((notice) => notice.is_pinned).length;
+  const todayChanges = activeNotices.filter(
     (notice) => notice.type === 'change' && notice.created_at.slice(0, 10) === today,
   ).length;
   const noticesCount = pinnedNotices + todayChanges;

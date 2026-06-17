@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ACTION_LABELS } from '@/lib/handover/activity';
 import { formatTime } from '@/lib/handover/card-utils';
+import { noticeTypeShort } from '@/lib/handover/notice-utils';
 import {
   cardStatusLabel,
   formatActivityDetail,
@@ -121,9 +122,27 @@ function BriefCardItem({
 }
 
 function BriefNoticeItem({ notice }: { notice: Notice }) {
+  const lines = notice.content
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const title = lines[0] ?? '(내용 없음)';
+  const body = lines.slice(1).join('\n');
+  const singleBlock = lines.length <= 1;
+
   return (
-    <article className="brief-item">
-      <p className="brief-item__title">{notice.content}</p>
+    <article className="brief-item brief-item--notice">
+      <div className="brief-item__top">
+        <span className="brief-item__status">{noticeTypeShort(notice.type)}</span>
+      </div>
+      {singleBlock ? (
+        <p className="brief-item__detail brief-item__detail--pre brief-item__detail--lead">{title}</p>
+      ) : (
+        <>
+          <p className="brief-item__title">{title}</p>
+          {body ? <p className="brief-item__detail brief-item__detail--pre">{body}</p> : null}
+        </>
+      )}
       <p className="brief-item__meta">
         {notice.author || '—'} · {formatTime(notice.updated_at || notice.created_at)}
       </p>

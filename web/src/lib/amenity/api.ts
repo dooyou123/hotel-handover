@@ -78,6 +78,33 @@ export async function fetchAmenityInventoryData(hotelId = DEFAULT_HOTEL_ID) {
   return { items, transactions };
 }
 
+const AMENITY_TRANSACTION_PAGE_SIZE = 1000;
+
+/** 화면 표시용 최근 거래 + 전체 다운로드용 페이지 조회 */
+export async function fetchAllAmenityTransactions(hotelId = DEFAULT_HOTEL_ID) {
+  const supabase = createClient();
+  const all: AmenityTransaction[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('amenity_transactions')
+      .select('*, amenities(name)')
+      .eq('hotel_id', hotelId)
+      .order('created_at', { ascending: false })
+      .range(from, from + AMENITY_TRANSACTION_PAGE_SIZE - 1);
+
+    if (error) throw error;
+
+    const batch = (data ?? []) as AmenityTransaction[];
+    all.push(...batch);
+    if (batch.length < AMENITY_TRANSACTION_PAGE_SIZE) break;
+    from += AMENITY_TRANSACTION_PAGE_SIZE;
+  }
+
+  return all;
+}
+
 export async function addAmenityTransaction(params: {
   type: AmenityTransactionType;
   amenityId: number;

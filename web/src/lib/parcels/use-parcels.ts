@@ -65,6 +65,7 @@ export function useParcels(statusFilter: ParcelStatusFilter = 'all') {
       const payload = {
         ...input,
         hotel_id: DEFAULT_HOTEL_ID,
+        checkout_date: input.checkout_date.trim() || null,
         ready_at: input.status === 'ready' ? new Date().toISOString() : null,
       };
       const { data, error } = await supabase.from('parcels').insert(payload).select('*').single();
@@ -78,8 +79,14 @@ export function useParcels(statusFilter: ParcelStatusFilter = 'all') {
     mutationFn: async ({ id, input }: { id: string; input: Partial<ParcelInput> }) => {
       const supabase = createClient();
       const patch: Record<string, unknown> = { ...input };
+      if (input.checkout_date !== undefined) {
+        patch.checkout_date = input.checkout_date.trim() || null;
+      }
       if (input.status === 'ready') {
         patch.ready_at = new Date().toISOString();
+      }
+      if (input.status === 'delivered') {
+        patch.delivered_at = new Date().toISOString();
       }
       const { data, error } = await supabase
         .from('parcels')

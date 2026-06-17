@@ -5,6 +5,7 @@ import { WORK_GROUPS, formatWorkGroupLabel } from '@/lib/constants';
 import { formatAssigneeLabel, isUnackedUrgentCard } from '@/lib/handover/card-utils';
 import { getTodayLabel } from '@/lib/handover/shift-summary';
 import type { Card, Notice } from '@/lib/handover/types';
+import { filterNoticesForFeed } from '@/lib/notices/status';
 import type { HotelEvent } from '@/lib/events/types';
 import type { TodaySchedule } from '@/lib/schedule/use-schedule';
 import { filterTodayEvents, filterTodayTodos, isTodoOverdue } from '@/lib/today/alerts';
@@ -53,7 +54,7 @@ export function HandoverTodayDashboard({
     month: todayMonth,
     includeUndatedOpenTodos: true,
   });
-  const pinnedNotices = notices.filter((n) => n.is_pinned).slice(0, 5);
+  const pinnedNotices = filterNoticesForFeed(notices).filter((n) => n.is_pinned).slice(0, 5);
 
   return (
     <div className="today-dashboard">

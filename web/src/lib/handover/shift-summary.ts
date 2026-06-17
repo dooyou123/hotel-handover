@@ -10,6 +10,7 @@ import {
   isWorkingColumn,
 } from '@/lib/handover/card-utils';
 import type { ActivityLog, Card, Notice } from '@/lib/handover/types';
+import { filterNoticesForFeed } from '@/lib/notices/status';
 
 export function isToday(value: string): boolean {
   const date = new Date(value);
@@ -63,9 +64,10 @@ export function buildShiftSummaryData(cards: Card[], notices: Notice[]): ShiftSu
   const boardDoneCount = cards.filter((card) => !isArchivedCard(card) && card.column_id === 'done').length;
   const doneToday = todayCards.filter((card) => card.column_id === 'done');
   const todayActive = todayCards.filter((card) => card.column_id !== 'done');
-  const announcements = notices.filter((notice) => notice.type === 'announcement');
+  const feedNotices = filterNoticesForFeed(notices);
+  const announcements = feedNotices.filter((notice) => notice.type === 'announcement');
   const pinnedAnnouncements = announcements.filter((notice) => notice.is_pinned);
-  const changes = notices.filter((notice) => notice.type === 'change');
+  const changes = feedNotices.filter((notice) => notice.type === 'change');
 
   return {
     todayCards,

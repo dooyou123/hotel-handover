@@ -1,12 +1,14 @@
 export type ParcelStatus = 'stored' | 'ready' | 'delivered' | 'returned';
 
+export type ParcelDirection = 'out_to_room' | 'room_to_out';
+
 export type Parcel = {
   id: string;
   hotel_id: string;
+  direction: ParcelDirection;
   room_number: string;
   guest_name: string;
-  carrier: string;
-  tracking_number: string;
+  checkout_date: string;
   storage_slot: string;
   description: string;
   status: ParcelStatus;
@@ -25,10 +27,10 @@ export type Parcel = {
 };
 
 export type ParcelInput = {
+  direction: ParcelDirection;
   room_number: string;
   guest_name: string;
-  carrier: string;
-  tracking_number: string;
+  checkout_date: string;
   storage_slot: string;
   description: string;
   status: ParcelStatus;
@@ -45,16 +47,28 @@ export const PARCEL_STATUS_LABELS: Record<ParcelStatus, string> = {
   returned: '반송',
 };
 
+export const PARCEL_DIRECTION_LABELS: Record<ParcelDirection, string> = {
+  out_to_room: 'OUT TO ROOM',
+  room_to_out: 'ROOM TO OUT',
+};
+
 export const PARCEL_OVERDUE_DAYS = 3;
 
 export function normalizeParcel(row: Record<string, unknown>): Parcel {
+  const direction = row.direction === 'room_to_out' ? 'room_to_out' : 'out_to_room';
+  const checkoutRaw = row.checkout_date;
+  const checkout_date =
+    checkoutRaw == null || checkoutRaw === ''
+      ? ''
+      : String(checkoutRaw).slice(0, 10);
+
   return {
     id: String(row.id),
     hotel_id: String(row.hotel_id),
+    direction,
     room_number: String(row.room_number ?? ''),
     guest_name: String(row.guest_name ?? ''),
-    carrier: String(row.carrier ?? ''),
-    tracking_number: String(row.tracking_number ?? ''),
+    checkout_date,
     storage_slot: String(row.storage_slot ?? ''),
     description: String(row.description ?? ''),
     status: (row.status as ParcelStatus) ?? 'stored',
@@ -73,12 +87,12 @@ export function normalizeParcel(row: Record<string, unknown>): Parcel {
   };
 }
 
-export function emptyParcelInput(author: string): ParcelInput {
+export function emptyParcelInput(author: string, direction: ParcelDirection = 'out_to_room'): ParcelInput {
   return {
+    direction,
     room_number: '',
     guest_name: '',
-    carrier: '',
-    tracking_number: '',
+    checkout_date: '',
     storage_slot: '',
     description: '',
     status: 'stored',
@@ -87,6 +101,18 @@ export function emptyParcelInput(author: string): ParcelInput {
     created_by: author,
     updated_by: author,
   };
+}
+
+export function formatParcelCheckoutDate(value: string): string {
+  if (!value.trim()) return '';
+  const date = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+  });
 }
 
 export function isParcelOverdue(parcel: Parcel, days = PARCEL_OVERDUE_DAYS, now = new Date()): boolean {
@@ -99,10 +125,10 @@ export function isParcelOverdue(parcel: Parcel, days = PARCEL_OVERDUE_DAYS, now 
 }
 
 export type ParcelSignPreview = {
+  direction: ParcelDirection;
   room_number: string;
   guest_name: string;
-  carrier: string;
+  checkout_date: string;
   storage_slot: string;
   description: string;
-  tracking_number: string;
 };

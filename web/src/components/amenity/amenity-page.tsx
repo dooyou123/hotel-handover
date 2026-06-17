@@ -6,7 +6,8 @@ import { AmenityOrderSheet } from '@/components/amenity/amenity-order-sheet';
 import { AmenityInventoryGrid } from '@/components/amenity/inventory-grid';
 import { AmenityTransactionPanel } from '@/components/amenity/transaction-panel';
 import { AmenityTransactionHistory } from '@/components/amenity/transaction-history';
-import { fetchAmenityInventoryData, subscribeAmenityChanges } from '@/lib/amenity/api';
+import { fetchAmenityInventoryData, fetchAllAmenityTransactions, subscribeAmenityChanges } from '@/lib/amenity/api';
+import { downloadAmenityTransactionsCsv } from '@/lib/amenity/export';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { todayDateString } from '@/lib/handover/shift-summary';
 import { useWorkSession } from '@/lib/handover/use-work-session';
@@ -23,6 +24,7 @@ export function AmenityPageClient() {
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   const [todoBusy, setTodoBusy] = useState(false);
+  const [downloadBusy, setDownloadBusy] = useState(false);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['amenity', DEFAULT_HOTEL_ID],
@@ -49,6 +51,23 @@ export function AmenityPageClient() {
   function showToast(message: string) {
     setToast(message);
     window.setTimeout(() => setToast(null), 2500);
+  }
+
+  async function handleDownloadHistory() {
+    setDownloadBusy(true);
+    try {
+      const rows = await fetchAllAmenityTransactions(DEFAULT_HOTEL_ID);
+      if (!rows.length) {
+        showToast('다운로드할 입출고 기록이 없습니다.');
+        return;
+      }
+      downloadAmenityTransactionsCsv(rows);
+      showToast(`${rows.length.toLocaleString()}건 CSV로 저장했습니다.`);
+    } catch {
+      showToast('기록 다운로드에 실패했습니다.');
+    } finally {
+      setDownloadBusy(false);
+    }
   }
 
   async function handleCreateTodoFromOrder() {
@@ -113,34 +132,38 @@ export function AmenityPageClient() {
           search={search}
           onSearchChange={setSearch}
           onSelect={handleSelect}
+          onDownloadHistory={() => void handleDownloadHistory()}
+          downloadBusy={downloadBusy}
         />
-        <AmenityTransactionPanel
-          items={items}
-          selectedId={selectedId}
-          author={authorLabel || session.name}
-          canTransact={hasSession}
-          busy={isFetching}
-          onSelect={handleSelect}
-          onSuccess={() => {
-            showToast('처리되었습니다.');
-            void refetch();
-          }}
-          onMinQuantitySaved={() => {
-            showToast('최소 재고가 저장되었습니다.');
-            void refetch();
-          }}
-          onError={showToast}
-        />
+        <div className="amenity-side-stack">
+          <AmenityTransactionPanel
+            items={items}
+            selectedId={selectedId}
+            author={authorLabel || session.name}
+            canTransact={hasSession}
+            busy={isFetching}
+            onSelect={handleSelect}
+            onSuccess={() => {
+              showToast('처리되었습니다.');
+              void refetch();
+            }}
+            onMinQuantitySaved={() => {
+              showToast('최소 재고가 저장되었습니다.');
+              void refetch();
+            }}
+            onError={showToast}
+          />
+          <AmenityTransactionHistory
+            variant="embedded"
+            transactions={transactions}
+            items={items}
+            author={authorLabel || session.name}
+            canEdit={hasSession}
+            selectedAmenityId={selectedId}
+            onSuccess={() => void refetch()}
+          />
+        </div>
       </div>
-
-      <AmenityTransactionHistory
-        transactions={transactions}
-        items={items}
-        author={authorLabel || session.name}
-        canEdit={hasSession}
-        onSuccess={() => void refetch()}
-        collapsible
-      />
 
       {toast ? <div className="toast">{toast}</div> : null}
     </section>

@@ -15,6 +15,8 @@ interface InventoryGridProps {
   search: string;
   onSearchChange: (value: string) => void;
   onSelect: (id: number) => void;
+  onDownloadHistory?: () => void;
+  downloadBusy?: boolean;
 }
 
 export function AmenityInventoryGrid({
@@ -23,6 +25,8 @@ export function AmenityInventoryGrid({
   search,
   onSearchChange,
   onSelect,
+  onDownloadHistory,
+  downloadBusy = false,
 }: InventoryGridProps) {
   const sorted = useMemo(() => {
     const order = { empty: 0, critical: 1, low: 2, ok: 3 };
@@ -64,15 +68,27 @@ export function AmenityInventoryGrid({
             </span>
           ) : null}
         </div>
-        <label className="amenity-search">
-          <span className="amenity-search__label">검색</span>
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="품목 검색"
-          />
-        </label>
+        <div className="amenity-toolbar__actions">
+          {onDownloadHistory ? (
+            <button
+              type="button"
+              className="btn btn--ghost btn--small"
+              onClick={onDownloadHistory}
+              disabled={downloadBusy}
+            >
+              {downloadBusy ? '다운로드 중…' : '기록 CSV'}
+            </button>
+          ) : null}
+          <label className="amenity-search">
+            <span className="amenity-search__label">검색</span>
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="품목 검색"
+            />
+          </label>
+        </div>
       </div>
 
       <div className="amenity-grid-wrap">

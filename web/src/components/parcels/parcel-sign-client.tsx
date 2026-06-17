@@ -12,6 +12,7 @@ import {
   translateParcelSignApiError,
   type ParcelSignLocale,
 } from '@/lib/parcels/sign-i18n';
+import { formatParcelCheckoutDate } from '@/lib/parcels/types';
 import { SignaturePad, type SignaturePadHandle } from '@/components/parcels/signature-pad';
 
 type ParcelSignClientProps = {
@@ -209,10 +210,10 @@ export function ParcelSignClient({ token, initialLocale = null }: ParcelSignClie
         </header>
 
         <dl className="parcel-sign__meta">
-          {preview.carrier ? (
+          {preview.checkout_date ? (
             <>
-              <dt>{t.carrier}</dt>
-              <dd>{preview.carrier}</dd>
+              <dt>{t.checkout}</dt>
+              <dd>{formatParcelCheckoutDate(preview.checkout_date)}</dd>
             </>
           ) : null}
           {preview.storage_slot ? (
@@ -225,12 +226,6 @@ export function ParcelSignClient({ token, initialLocale = null }: ParcelSignClie
             <>
               <dt>{t.description}</dt>
               <dd>{preview.description}</dd>
-            </>
-          ) : null}
-          {preview.tracking_number ? (
-            <>
-              <dt>{t.tracking}</dt>
-              <dd>{preview.tracking_number}</dd>
             </>
           ) : null}
         </dl>

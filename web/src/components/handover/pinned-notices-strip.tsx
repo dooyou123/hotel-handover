@@ -4,13 +4,14 @@ import Link from 'next/link';
 import { formatExpiryLabel } from '@/lib/handover/shift-summary';
 import { noticeTypeShort } from '@/lib/handover/notice-utils';
 import type { Notice } from '@/lib/handover/types';
+import { filterNoticesForFeed } from '@/lib/notices/status';
 
 type PinnedNoticesStripProps = {
   notices: Notice[];
 };
 
 export function PinnedNoticesStrip({ notices }: PinnedNoticesStripProps) {
-  const pinned = notices.filter((notice) => notice.is_pinned);
+  const pinned = filterNoticesForFeed(notices).filter((notice) => notice.is_pinned);
   if (!pinned.length) return null;
 
   return (

@@ -11,6 +11,7 @@ import {
   formatNoticeExpiryAlertDetail,
   getNoticeExpiryUrgency,
 } from '@/lib/notices/expiry';
+import { filterNoticesForFeed } from '@/lib/notices/status';
 import type { Card, Notice } from '@/lib/handover/types';
 
 export type TickerItem = {
@@ -26,6 +27,7 @@ function cardBody(card: Card): string {
 
 export function buildTickerItems(notices: Notice[], cards: Card[]): TickerItem[] {
   const items: TickerItem[] = [];
+  const activeNotices = filterNoticesForFeed(notices);
 
   for (const card of cards.filter(isUnackedUrgentCard)) {
     items.push({
@@ -72,7 +74,7 @@ export function buildTickerItems(notices: Notice[], cards: Card[]): TickerItem[]
     });
   }
 
-  for (const notice of filterNoticesExpiringSoon(notices, 7)) {
+  for (const notice of filterNoticesExpiringSoon(activeNotices, 7)) {
     const urgency = getNoticeExpiryUrgency(notice);
     items.push({
       id: `notice-expiry-${notice.id}`,
@@ -82,7 +84,7 @@ export function buildTickerItems(notices: Notice[], cards: Card[]): TickerItem[]
     });
   }
 
-  for (const notice of notices.filter((n) => n.is_pinned)) {
+  for (const notice of activeNotices.filter((n) => n.is_pinned)) {
     const line = notice.content.split('\n')[0]?.trim() ?? '';
     if (!line) continue;
     items.push({

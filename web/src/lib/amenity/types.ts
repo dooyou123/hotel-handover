@@ -62,3 +62,12 @@ export function formatAmenityDateTime(value: string) {
     minute: '2-digit',
   });
 }
+
+export function formatAmenityDateTimeShort(value: string) {
+  return new Date(value).toLocaleString('ko-KR', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}

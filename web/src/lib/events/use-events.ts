@@ -6,7 +6,14 @@ import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
 import { subscribeHotelEventsRealtime } from '@/lib/events/events-realtime';
 import { monthDateRange } from '@/lib/schedule/month-range';
-import type { HotelEvent, HotelEventInput } from '@/lib/events/types';
+import type { HotelEvent, HotelEventInput, HotelEventPatch } from '@/lib/events/types';
+
+function normalizeEvent(row: Record<string, unknown>): HotelEvent {
+  return {
+    ...(row as HotelEvent),
+    completed_at: (row.completed_at as string | null) ?? null,
+  };
+}
 
 async function fetchMonthEvents(month: string): Promise<HotelEvent[]> {
   const supabase = createClient();
@@ -20,7 +27,7 @@ async function fetchMonthEvents(month: string): Promise<HotelEvent[]> {
     .order('event_date')
     .order('start_time', { ascending: true, nullsFirst: false });
   if (error) throw error;
-  return (data ?? []) as HotelEvent[];
+  return (data ?? []).map((row) => normalizeEvent(row as Record<string, unknown>));
 }
 
 export function useMonthEvents(month: string) {
@@ -44,17 +51,33 @@ export function useMonthEvents(month: string) {
         .select('*')
         .single();
       if (error) throw error;
-      return data as HotelEvent;
+      return normalizeEvent(data as Record<string, unknown>);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hotel-events'] }),
   });
 
   const updateEvent = useMutation({
-    mutationFn: async ({ id, input }: { id: string; input: HotelEventInput }) => {
+    mutationFn: async ({ id, input }: { id: string; input: HotelEventPatch }) => {
       const supabase = createClient();
       const { data, error } = await supabase.from('hotel_events').update(input).eq('id', id).select('*').single();
       if (error) throw error;
-      return data as HotelEvent;
+      return normalizeEvent(data as Record<string, unknown>);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hotel-events'] }),
+  });
+
+  const toggleEventComplete = useMutation({
+    mutationFn: async (event: HotelEvent) => {
+      const supabase = createClient();
+      const completed_at = event.completed_at ? null : new Date().toISOString();
+      const { data, error } = await supabase
+        .from('hotel_events')
+        .update({ completed_at })
+        .eq('id', event.id)
+        .select('*')
+        .single();
+      if (error) throw error;
+      return normalizeEvent(data as Record<string, unknown>);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hotel-events'] }),
   });
@@ -74,6 +97,7 @@ export function useMonthEvents(month: string) {
     error: query.error,
     createEvent,
     updateEvent,
+    toggleEventComplete,
     deleteEvent,
   };
 }

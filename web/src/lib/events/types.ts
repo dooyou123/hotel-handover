@@ -11,6 +11,7 @@ export type HotelEvent = {
   end_time: string | null;
   category: string;
   author: string;
+  completed_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -23,4 +24,8 @@ export type HotelEventInput = {
   end_time: string | null;
   category: string;
   author: string;
+};
+
+export type HotelEventPatch = Partial<HotelEventInput> & {
+  completed_at?: string | null;
 };

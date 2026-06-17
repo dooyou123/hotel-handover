@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { SESSION_STORAGE_KEY, WORK_GROUPS, formatSessionLabel } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
-import { StaffXpBadge } from '@/components/layout/staff-xp-badge';
 import { UserMenu } from '@/components/layout/user-menu';
 
 type SessionState = {
@@ -99,8 +98,6 @@ export function SessionBar({ email }: SessionBarProps) {
           ))}
         </select>
       </div>
-
-      {session.name ? <StaffXpBadge staffName={session.name} /> : null}
 
       {email ? <UserMenu email={email} onSignOut={signOut} /> : null}
     </div>

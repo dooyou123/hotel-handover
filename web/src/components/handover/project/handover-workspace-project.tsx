@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import type { ShiftSummaryData } from '@/lib/handover/shift-summary';
 import type { Card, HandoverViewMode, QuickFilter, WorkSession } from '@/lib/handover/types';
 import type { HotelEvent } from '@/lib/events/types';
@@ -138,8 +139,52 @@ export function HandoverWorkspaceProject({
   onToggleTodo,
   onOpenEvent,
 }: HandoverWorkspaceProjectProps) {
+  const isBriefView = viewMode === 'brief';
+  const panelViewMode = isBriefView ? 'board' : viewMode;
+
+  useEffect(() => {
+    if (!isBriefView) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isBriefView]);
+
   return (
     <div className="project-handover">
+      {isBriefView ? (
+        <div className="handover-brief-fullscreen" role="dialog" aria-modal="true" aria-label="교대 인계">
+          <header className="handover-brief-fullscreen__bar">
+            <button
+              type="button"
+              className="handover-brief-fullscreen__back"
+              onClick={() => onViewModeChange('board')}
+            >
+              ← 인수인계 목록
+            </button>
+            <p className="handover-brief-fullscreen__title">교대 인계</p>
+          </header>
+          <div className="handover-brief-fullscreen__body">
+            <HandoverShiftBriefProject
+              summary={summaryData}
+              todos={todos}
+              events={events}
+              session={session}
+              authorLabel={authorLabel}
+              requireSession={requireSession}
+              onAcknowledge={onAcknowledge}
+              onOpenCard={onOpenCard}
+              onOpenTodo={onOpenTodo}
+              onOpenEvent={onOpenEvent}
+              onShiftHistory={onShiftHistory}
+              onActivityLog={onActivity}
+              onToast={onToast}
+            />
+          </div>
+        </div>
+      ) : null}
+
       <div className="project-handover__split">
         <div className="project-handover__main">
           <div className="project-handover__main-head">
@@ -163,23 +208,7 @@ export function HandoverWorkspaceProject({
             />
           </div>
           <div className="project-handover__main-body">
-            {viewMode === 'brief' ? (
-              <HandoverShiftBriefProject
-                summary={summaryData}
-                todos={todos}
-                events={events}
-                session={session}
-                authorLabel={authorLabel}
-                requireSession={requireSession}
-                onAcknowledge={onAcknowledge}
-                onOpenCard={onOpenCard}
-                onOpenTodo={onOpenTodo}
-                onOpenEvent={onOpenEvent}
-                onShiftHistory={onShiftHistory}
-                onActivityLog={onActivity}
-                onToast={onToast}
-              />
-            ) : viewMode === 'archive' ? (
+            {panelViewMode === 'archive' ? (
               <HandoverArchiveProject
                 cards={archivedCards}
                 isLoading={archivedLoading}
@@ -191,7 +220,7 @@ export function HandoverWorkspaceProject({
                 onOpenCard={onOpenCard}
                 onRestore={onRestoreFromArchive}
               />
-            ) : viewMode === 'room' ? (
+            ) : panelViewMode === 'room' ? (
               <RoomView cards={visibleCards} onOpenCard={onOpenCard} />
             ) : (
               <HandoverListProject
@@ -225,23 +254,14 @@ export function HandoverWorkspaceProject({
         </div>
 
         <HandoverAsideProject
-          summaryData={summaryData}
-          cards={cards}
           todos={todos}
-          events={events}
-          alerts={alerts}
-          quickFilter={quickFilter}
-          onQuickFilterChange={onQuickFilterChange}
           onShiftStart={onShiftStart}
           onShiftEnd={onShiftEnd}
           onOpenShiftBrief={onOpenShiftBrief}
           onShiftHistory={onShiftHistory}
           onActivity={onActivity}
-          onAlertClick={onAlertClick}
-          onOpenCard={onOpenCard}
           onOpenTodo={onOpenTodo}
           onOpenEvent={onOpenEvent}
-          onAcknowledge={onAcknowledge}
           onToggleTodo={onToggleTodo}
         />
       </div>

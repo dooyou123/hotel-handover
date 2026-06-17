@@ -23,6 +23,7 @@ type NoticeDrawerProps = {
   onSave: (input: NoticeInput, id?: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onTogglePin?: (notice: Notice) => Promise<void>;
+  onToggleComplete?: (notice: Notice) => Promise<void>;
   onCreateHandover?: (notice: Notice) => void;
   activeStaffNames?: string[];
   currentStaffName?: string;
@@ -40,6 +41,7 @@ export function NoticeDrawer({
   onSave,
   onDelete,
   onTogglePin,
+  onToggleComplete,
   onCreateHandover,
   activeStaffNames = [],
   currentStaffName = '',
@@ -50,7 +52,9 @@ export function NoticeDrawer({
     author: '',
     is_pinned: false,
     expires_at: null,
+    completed_at: null,
   });
+  const [createAsCompleted, setCreateAsCompleted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { confirm } = useConfirmDialog();
@@ -83,7 +87,9 @@ export function NoticeDrawer({
         author: notice.author,
         is_pinned: notice.is_pinned,
         expires_at: notice.expires_at,
+        completed_at: notice.completed_at,
       });
+      setCreateAsCompleted(Boolean(notice.completed_at));
     } else if (mode === 'create') {
       setForm({
         type: defaultType,
@@ -91,7 +97,9 @@ export function NoticeDrawer({
         author: authorLabel,
         is_pinned: false,
         expires_at: null,
+        completed_at: null,
       });
+      setCreateAsCompleted(false);
     }
     setError(null);
   }, [open, mode, notice, defaultType, authorLabel]);
@@ -111,7 +119,23 @@ export function NoticeDrawer({
     setSaving(true);
     setError(null);
     try {
-      await onSave({ ...form, content: form.content.trim(), author: form.author.trim() || authorLabel }, notice?.id);
+      const completed_at =
+        mode === 'create'
+          ? createAsCompleted
+            ? new Date().toISOString()
+            : null
+          : createAsCompleted
+            ? notice?.completed_at ?? new Date().toISOString()
+            : null;
+      await onSave(
+        {
+          ...form,
+          content: form.content.trim(),
+          author: form.author.trim() || authorLabel,
+          completed_at,
+        },
+        notice?.id,
+      );
       if (mode === 'edit') onModeChange('read');
       else onClose();
     } catch (caught) {
@@ -146,6 +170,7 @@ export function NoticeDrawer({
       <div className="drawer-panel__chips">
         <span className={`drawer-chip drawer-chip--notice-${notice.type}`}>{noticeTypeLabel(notice.type)}</span>
         {notice.is_pinned ? <span className="drawer-chip">📌 고정</span> : null}
+        {notice.completed_at ? <span className="drawer-chip drawer-chip--done">완료</span> : null}
         {formatExpiryLabel(notice.expires_at) ? (
           <span
             className={`drawer-chip${
@@ -223,6 +248,14 @@ export function NoticeDrawer({
             />
             <span>📌 상단 고정</span>
           </label>
+          <label className="field field--checkbox field--full">
+            <input
+              type="checkbox"
+              checked={createAsCompleted}
+              onChange={(event) => setCreateAsCompleted(event.target.checked)}
+            />
+            <span>완료된 항목으로 등록</span>
+          </label>
         </div>
       </section>
       {error ? <p className="amenity-alert drawer-section__error">{error}</p> : null}
@@ -245,6 +278,11 @@ export function NoticeDrawer({
         {notice ? (
           <button type="button" className="notice-drawer__tool" onClick={() => onModeChange('edit')}>
             수정
+          </button>
+        ) : null}
+        {notice && onToggleComplete ? (
+          <button type="button" className="notice-drawer__tool" onClick={() => void onToggleComplete(notice)}>
+            {notice.completed_at ? '완료 취소' : '완료 처리'}
           </button>
         ) : null}
         {notice && onTogglePin ? (

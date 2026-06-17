@@ -711,41 +711,6 @@ html[data-ui='project'] .app-ticker__more:hover {
   background: color-mix(in srgb, var(--surface) 92%, var(--primary) 8%);
 }
 
-/* 직원 XP 배지 */
-html[data-ui='project'] .staff-xp-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.2rem 0.55rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface);
-  min-width: 4.5rem;
-}
-
-html[data-ui='project'] .staff-xp-badge__level {
-  font-size: 0.72rem;
-  font-weight: 800;
-  color: var(--primary);
-  white-space: nowrap;
-}
-
-html[data-ui='project'] .staff-xp-badge__bar {
-  display: block;
-  width: 2.5rem;
-  height: 4px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--border) 80%, transparent);
-  overflow: hidden;
-}
-
-html[data-ui='project'] .staff-xp-badge__fill {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--primary);
-}
-
 /* 카드 활동 타임라인 */
 html[data-ui='project'] .card-activity-timeline__list {
   list-style: none;

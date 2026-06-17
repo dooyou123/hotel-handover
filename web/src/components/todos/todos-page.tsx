@@ -23,7 +23,7 @@ import {
 import { describeRecurrence } from '@/lib/todos/recurrence';
 import { useTodos } from '@/lib/todos/use-todos';
 import { formatEventTimeRange, mergeWorkScheduleItems, type WorkScheduleItem } from '@/lib/work-items/merge';
-import { isDoneTodoHiddenFromList, isPastHotelEvent } from '@/lib/work-items/schedule-filters';
+import { isDoneTodoHiddenFromList, isPastOrCompletedHotelEvent } from '@/lib/work-items/schedule-filters';
 import { TodoModal } from './todo-modal';
 
 function formatDueDate(value: string | null): string {
@@ -67,6 +67,7 @@ export function TodosPageClient() {
     isLoading: eventsLoading,
     createEvent,
     updateEvent,
+    toggleEventComplete,
     deleteEvent,
   } = useMonthEvents(month);
   const [filter, setFilter] = useState<TodoFilter>('open');
@@ -106,7 +107,12 @@ export function TodosPageClient() {
   }, [todos, filter, session.name]);
 
   const { activeItems, pastEvents } = useMemo(() => {
-    const eventsForList = filter === 'done' || filter === 'mine' ? [] : events;
+    const eventsForList =
+      filter === 'done'
+        ? events.filter((event) => Boolean(event.completed_at))
+        : filter === 'mine'
+          ? []
+          : events;
     const merged = mergeWorkScheduleItems({
       todos: filteredTodos,
       events: eventsForList,
@@ -121,7 +127,7 @@ export function TodosPageClient() {
     const pastEvents: HotelEvent[] = [];
 
     for (const item of merged) {
-      if (item.kind === 'event' && isPastHotelEvent(item.event)) {
+      if (item.kind === 'event' && isPastOrCompletedHotelEvent(item.event)) {
         pastEvents.push(item.event);
       } else {
         activeItems.push(item);
@@ -232,6 +238,12 @@ export function TodosPageClient() {
     }
   }
 
+  async function handleToggleEvent(event: HotelEvent) {
+    if (!requireSession('일정 완료')) return;
+    await toggleEventComplete.mutateAsync(event);
+    showToast(event.completed_at ? '일정을 다시 열었습니다.' : '일정을 완료했습니다.');
+  }
+
   async function handleDeleteEvent(id: string) {
     await deleteEvent.mutateAsync(id);
     showToast('일정을 삭제했습니다.');
@@ -339,11 +351,23 @@ export function TodosPageClient() {
                     {activeItems.map((item) => {
                       if (item.kind === 'event') {
                         const event = item.event;
+                        const isDone = Boolean(event.completed_at);
                         return (
-                          <li key={`event-${event.id}`} className="todo-list__item todo-list__item--event">
+                          <li
+                            key={`event-${event.id}`}
+                            className={`todo-list__item todo-list__item--event${isDone ? ' is-done' : ''}`}
+                          >
                             <span className="todo-list__kind" aria-hidden>
                               일정
                             </span>
+                            <button
+                              type="button"
+                              className="todo-list__check"
+                              aria-label={isDone ? '완료 취소' : '완료'}
+                              onClick={() => void handleToggleEvent(event)}
+                            >
+                              {isDone ? '✓' : ''}
+                            </button>
                             <button
                               type="button"
                               className="todo-list__body"
@@ -457,14 +481,24 @@ export function TodosPageClient() {
                     </button>
                     {pastEventsExpanded ? (
                       <ul className="todo-list todo-list--past">
-                        {pastEvents.map((event) => (
+                        {pastEvents.map((event) => {
+                          const isDone = Boolean(event.completed_at);
+                          return (
                           <li
                             key={`past-event-${event.id}`}
-                            className="todo-list__item todo-list__item--event is-past"
+                            className={`todo-list__item todo-list__item--event is-past${isDone ? ' is-done' : ''}`}
                           >
                             <span className="todo-list__kind" aria-hidden>
                               일정
                             </span>
+                            <button
+                              type="button"
+                              className="todo-list__check"
+                              aria-label={isDone ? '완료 취소' : '완료'}
+                              onClick={() => void handleToggleEvent(event)}
+                            >
+                              {isDone ? '✓' : ''}
+                            </button>
                             <button
                               type="button"
                               className="todo-list__body"
@@ -488,7 +522,8 @@ export function TodosPageClient() {
                               </span>
                             </button>
                           </li>
-                        ))}
+                          );
+                        })}
                       </ul>
                     ) : null}
                   </div>

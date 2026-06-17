@@ -5,12 +5,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
 import { subscribeNoticesRealtime } from '@/lib/supabase/handover-realtime';
-import { todayDateString } from '@/lib/handover/shift-summary';
 import type { Notice, NoticeInput, NoticeType } from '@/lib/handover/types';
 
-function isActiveNotice(notice: Notice): boolean {
-  if (!notice.expires_at) return true;
-  return notice.expires_at >= todayDateString();
+function normalizeNotice(row: Record<string, unknown>): Notice {
+  return {
+    ...(row as Notice),
+    completed_at: (row.completed_at as string | null) ?? null,
+  };
 }
 
 export async function fetchNotices(): Promise<Notice[]> {
@@ -23,7 +24,7 @@ export async function fetchNotices(): Promise<Notice[]> {
     .order('updated_at', { ascending: false });
 
   if (error) throw error;
-  return (data ?? []).filter(isActiveNotice) as Notice[];
+  return (data ?? []).map((row) => normalizeNotice(row as Record<string, unknown>));
 }
 
 export function useNotices() {
@@ -43,7 +44,7 @@ export function useNotices() {
         .select('*')
         .single();
       if (error) throw error;
-      return data as Notice;
+      return normalizeNotice(data as Record<string, unknown>);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
   });
@@ -53,7 +54,7 @@ export function useNotices() {
       const supabase = createClient();
       const { data, error } = await supabase.from('notices').update(input).eq('id', id).select('*').single();
       if (error) throw error;
-      return data as Notice;
+      return normalizeNotice(data as Record<string, unknown>);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
   });
@@ -77,7 +78,23 @@ export function useNotices() {
         .select('*')
         .single();
       if (error) throw error;
-      return data as Notice;
+      return normalizeNotice(data as Record<string, unknown>);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  const toggleComplete = useMutation({
+    mutationFn: async (notice: Notice) => {
+      const supabase = createClient();
+      const completed_at = notice.completed_at ? null : new Date().toISOString();
+      const { data, error } = await supabase
+        .from('notices')
+        .update({ completed_at })
+        .eq('id', notice.id)
+        .select('*')
+        .single();
+      if (error) throw error;
+      return normalizeNotice(data as Record<string, unknown>);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
   });
@@ -89,6 +106,7 @@ export function useNotices() {
     updateNotice,
     deleteNotice,
     togglePin,
+    toggleComplete,
   };
 }
 

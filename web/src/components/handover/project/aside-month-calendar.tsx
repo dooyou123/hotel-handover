@@ -26,18 +26,28 @@ function formatSelectedDateLabel(date: string): string {
   return parsed.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
 }
 
+function sortByDone<T>(items: T[], isDone: (item: T) => boolean): T[] {
+  return [...items].sort((a, b) => Number(isDone(a)) - Number(isDone(b)));
+}
+
 type AsideMonthCalendarProps = {
   todos?: Todo[];
   onOpenEvent?: (event: HotelEvent) => void;
   onOpenTodo?: (todo: Todo) => void;
+  onToggleTodo?: (todo: Todo) => void;
 };
 
-export function AsideMonthCalendar({ todos = [], onOpenEvent, onOpenTodo }: AsideMonthCalendarProps) {
+export function AsideMonthCalendar({
+  todos = [],
+  onOpenEvent,
+  onOpenTodo,
+  onToggleTodo,
+}: AsideMonthCalendarProps) {
   const today = todayDateString();
   const todayMonth = today.slice(0, 7);
   const [month, setMonth] = useState(() => todayMonth);
   const [selectedDate, setSelectedDate] = useState(today);
-  const { events } = useMonthEvents(month);
+  const { events, toggleEventComplete } = useMonthEvents(month);
 
   const dayCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -52,12 +62,20 @@ export function AsideMonthCalendar({ todos = [], onOpenEvent, onOpenTodo }: Asid
   }, [events, todos, month]);
 
   const selectedEvents = useMemo(
-    () => events.filter((event) => event.event_date === selectedDate),
+    () =>
+      sortByDone(
+        events.filter((event) => event.event_date === selectedDate),
+        (event) => Boolean(event.completed_at),
+      ),
     [events, selectedDate],
   );
 
   const selectedTodos = useMemo(
-    () => todos.filter((todo) => todo.due_date === selectedDate),
+    () =>
+      sortByDone(
+        todos.filter((todo) => todo.due_date === selectedDate),
+        (todo) => todo.status === 'done',
+      ),
     [todos, selectedDate],
   );
 
@@ -87,6 +105,10 @@ export function AsideMonthCalendar({ todos = [], onOpenEvent, onOpenTodo }: Asid
   }, [month, today]);
 
   const selectedCount = selectedEvents.length + selectedTodos.length;
+
+  async function handleToggleEvent(event: HotelEvent) {
+    await toggleEventComplete.mutateAsync(event);
+  }
 
   return (
     <section className="aside-card aside-card--calendar">
@@ -152,30 +174,56 @@ export function AsideMonthCalendar({ todos = [], onOpenEvent, onOpenTodo }: Asid
 
         {selectedCount ? (
           <ul className="aside-month-cal__day-list">
-            {selectedEvents.map((event) => (
-              <li key={`event-${event.id}`}>
-                <button type="button" className="aside-month-cal__day-item" onClick={() => onOpenEvent?.(event)}>
-                  <span className="aside-month-cal__day-item-kind aside-month-cal__day-item-kind--event">
-                    {event.category || '일정'}
-                  </span>
-                  <span className="aside-month-cal__day-item-body">
-                    <strong>{event.title}</strong>
-                    <time>{formatEventTimeRange(event.start_time, event.end_time)}</time>
-                  </span>
-                </button>
-              </li>
-            ))}
-            {selectedTodos.map((todo) => (
-              <li key={`todo-${todo.id}`}>
-                <button type="button" className="aside-month-cal__day-item" onClick={() => onOpenTodo?.(todo)}>
-                  <span className="aside-month-cal__day-item-kind aside-month-cal__day-item-kind--todo">할일</span>
-                  <span className="aside-month-cal__day-item-body">
-                    <strong>{todo.title}</strong>
-                    <span>{todo.status === 'done' ? '완료' : '미완료'}</span>
-                  </span>
-                </button>
-              </li>
-            ))}
+            {selectedEvents.map((event) => {
+              const isDone = Boolean(event.completed_at);
+              return (
+                <li key={`event-${event.id}`} className={isDone ? 'is-done' : ''}>
+                  <div className="aside-month-cal__day-row">
+                    <button
+                      type="button"
+                      className={`aside-month-cal__check${isDone ? ' is-checked' : ''}`}
+                      aria-label={isDone ? '완료 취소' : '완료'}
+                      onClick={() => void handleToggleEvent(event)}
+                    >
+                      {isDone ? '✓' : ''}
+                    </button>
+                    <button type="button" className="aside-month-cal__day-item" onClick={() => onOpenEvent?.(event)}>
+                      <span className="aside-month-cal__day-item-kind aside-month-cal__day-item-kind--event">
+                        {event.category || '일정'}
+                      </span>
+                      <span className="aside-month-cal__day-item-body">
+                        <strong>{event.title}</strong>
+                        <time>{formatEventTimeRange(event.start_time, event.end_time)}</time>
+                      </span>
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+            {selectedTodos.map((todo) => {
+              const isDone = todo.status === 'done';
+              return (
+                <li key={`todo-${todo.id}`} className={isDone ? 'is-done' : ''}>
+                  <div className="aside-month-cal__day-row">
+                    <button
+                      type="button"
+                      className={`aside-month-cal__check${isDone ? ' is-checked' : ''}`}
+                      aria-label={isDone ? '완료 취소' : '완료'}
+                      onClick={() => onToggleTodo?.(todo)}
+                    >
+                      {isDone ? '✓' : ''}
+                    </button>
+                    <button type="button" className="aside-month-cal__day-item" onClick={() => onOpenTodo?.(todo)}>
+                      <span className="aside-month-cal__day-item-kind aside-month-cal__day-item-kind--todo">할일</span>
+                      <span className="aside-month-cal__day-item-body">
+                        <strong>{todo.title}</strong>
+                        <span>{isDone ? '완료' : '미완료'}</span>
+                      </span>
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p className="aside-month-cal__empty">선택한 날짜에 등록된 일정이 없습니다.</p>
