@@ -94,9 +94,12 @@ export const APP_NAV = [
   { href: '/reviews', label: '리뷰', category: 'ops' as const },
   { href: '/guest-notices', label: '고객 안내', category: 'ops' as const },
   { href: '/transport', label: '택시 예약', category: 'ops' as const },
+  { href: '/parcels', label: '택배 · 우편', category: 'ops' as const },
   { href: '/facility', label: '시설 현황', category: 'ops' as const },
   { href: '/rate-confirm', label: '객실료 컨펌', category: 'ops' as const },
   { href: '/stats', label: '통계', category: 'insight' as const },
+  { href: '/insights/floor', label: '층별 히트맵', category: 'insight' as const },
+  { href: '/board', label: '라이브 보드', category: 'insight' as const },
   { href: '/settings', label: '설정', category: 'system' as const },
 ] as const;
 

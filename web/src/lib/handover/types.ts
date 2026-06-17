@@ -51,6 +51,7 @@ export type Card = {
   linked_todo_id: string | null;
   first_response_at?: string | null;
   created_by?: string | null;
+  snoozed_until?: string | null;
   created_at: string;
   updated_at: string;
   card_acknowledgments: CardAcknowledgment[];

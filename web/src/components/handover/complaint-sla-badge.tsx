@@ -12,8 +12,8 @@ export function ComplaintSlaBadge({ card }: ComplaintSlaBadgeProps) {
   if (!sla) return null;
 
   return (
-    <span className={`complaint-sla complaint-sla--${sla.status}`} title={sla.label}>
-      SLA · {sla.label}
+    <span className={`complaint-sla complaint-sla--${sla.status}`} title={`컴플레인 처리 기한 · ${sla.label}`}>
+      {sla.label}
     </span>
   );
 }

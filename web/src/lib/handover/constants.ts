@@ -65,6 +65,8 @@ export const QUICK_FILTERS = [
   { id: 'unacked', label: '미확인 긴급' },
   { id: 'due-overdue', label: '마감 지남' },
   { id: 'due-soon', label: '1시간 내 마감' },
+  { id: 'stale', label: '오래됨' },
+  { id: 'hold-long', label: '보류 오래됨' },
   { id: 'mine', label: '내 담당' },
   { id: 'roomclean', label: '룸클린' },
   { id: '시설', label: '시설' },

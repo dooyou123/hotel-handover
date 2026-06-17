@@ -60,6 +60,7 @@ export type ShiftBriefContentProps = {
   showFooter?: boolean;
   showPrint?: boolean;
   className?: string;
+  hkDayNotes?: { previous: string; next: string } | null;
 };
 
 function BriefCardItem({
@@ -345,6 +346,7 @@ export function ShiftBriefContent({
   showFooter = true,
   showPrint = false,
   className = '',
+  hkDayNotes = null,
 }: ShiftBriefContentProps) {
   const todayMonth = new Date().toISOString().slice(0, 7);
   const todayWorkItems = mergeWorkScheduleItems({
@@ -359,6 +361,8 @@ export function ShiftBriefContent({
     summary.urgentActive.length > 0 ||
     summary.progressActive.length > 0 ||
     summary.holdActive.length > 0 ||
+    summary.staleActive.length > 0 ||
+    summary.longHoldActive.length > 0 ||
     summary.pinnedAnnouncements.length > 0 ||
     summary.changes.length > 0 ||
     pendingNegativeReviews.length > 0 ||
@@ -366,7 +370,8 @@ export function ShiftBriefContent({
     todayWorkItems.length > 0 ||
     pendingTaxi.length > 0 ||
     todayShiftLogs.length > 0 ||
-    todayLogs.length > 0;
+    todayLogs.length > 0 ||
+    Boolean(hkDayNotes);
 
   return (
     <div className={`shift-brief ${className}`.trim()}>
@@ -426,6 +431,12 @@ export function ShiftBriefContent({
         <span className={`brief-chip${summary.holdActive.length ? ' brief-chip--warn' : ''}`}>
           보류 <strong>{summary.holdActive.length}</strong>
         </span>
+        <span className={`brief-chip${summary.staleActive.length ? ' brief-chip--warn' : ''}`}>
+          오래됨 <strong>{summary.staleActive.length}</strong>
+        </span>
+        <span className={`brief-chip${summary.longHoldActive.length ? ' brief-chip--warn' : ''}`}>
+          보류 오래됨 <strong>{summary.longHoldActive.length}</strong>
+        </span>
         <span className={`brief-chip${checklist.incomplete ? ' brief-chip--warn' : ''}`}>
           체크리스트 미완료 <strong>{checklist.incomplete}</strong>
         </span>
@@ -447,6 +458,26 @@ export function ShiftBriefContent({
         <p className="empty-state">인계 내용을 불러오는 중…</p>
       ) : (
         <div className="shift-brief__sections">
+          {hkDayNotes ? (
+            <section className="brief-section">
+              <h2>하우스키핑 전달 메모</h2>
+              <div className="brief-section__list">
+                {hkDayNotes.previous ? (
+                  <article className="brief-item">
+                    <p className="brief-item__meta">어제 미완료·특이</p>
+                    <p className="brief-item__title">{hkDayNotes.previous}</p>
+                  </article>
+                ) : null}
+                {hkDayNotes.next ? (
+                  <article className="brief-item">
+                    <p className="brief-item__meta">내일 단체·행사</p>
+                    <p className="brief-item__title">{hkDayNotes.next}</p>
+                  </article>
+                ) : null}
+              </div>
+            </section>
+          ) : null}
+
           {summary.unackedUrgent.length ? (
             <section className="brief-section brief-section--alert">
               <h2>1. 미확인 긴급 — 지금 확인</h2>

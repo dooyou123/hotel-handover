@@ -7,63 +7,152 @@ import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
 
 type Listener = () => void;
 
+type PostgresBinding = {
+  event: '*';
+  schema: 'public';
+  table: string;
+  filter?: string;
+};
+
 type ChannelPool = {
   channel: RealtimeChannel | null;
   listeners: Set<Listener>;
+  subscribed: boolean;
+  closing: boolean;
+  retryTimer: ReturnType<typeof setTimeout> | null;
+  channelName: string;
+  bindings: PostgresBinding[];
 };
 
-const cardsPool: ChannelPool = { channel: null, listeners: new Set() };
-const noticesPool: ChannelPool = { channel: null, listeners: new Set() };
+const cardsPool: ChannelPool = {
+  channel: null,
+  listeners: new Set(),
+  subscribed: false,
+  closing: false,
+  retryTimer: null,
+  channelName: 'handover-cards',
+  bindings: [
+    {
+      event: '*',
+      schema: 'public',
+      table: 'cards',
+      filter: `hotel_id=eq.${DEFAULT_HOTEL_ID}`,
+    },
+    { event: '*', schema: 'public', table: 'card_acknowledgments' },
+    { event: '*', schema: 'public', table: 'card_comments' },
+    { event: '*', schema: 'public', table: 'card_attachments' },
+  ],
+};
+
+const noticesPool: ChannelPool = {
+  channel: null,
+  listeners: new Set(),
+  subscribed: false,
+  closing: false,
+  retryTimer: null,
+  channelName: 'handover-notices',
+  bindings: [
+    {
+      event: '*',
+      schema: 'public',
+      table: 'notices',
+      filter: `hotel_id=eq.${DEFAULT_HOTEL_ID}`,
+    },
+  ],
+};
 
 function notify(pool: ChannelPool) {
   pool.listeners.forEach((listener) => listener());
 }
 
-function teardownPool(supabase: SupabaseClient, pool: ChannelPool) {
-  if (pool.channel) {
-    supabase.removeChannel(pool.channel);
-    pool.channel = null;
+function clearRetry(pool: ChannelPool) {
+  if (pool.retryTimer) {
+    clearTimeout(pool.retryTimer);
+    pool.retryTimer = null;
   }
 }
 
-function ensureCardsChannel(supabase: SupabaseClient) {
-  if (poolHasChannel(cardsPool)) return;
+function removePoolChannel(supabase: SupabaseClient, pool: ChannelPool): Promise<void> {
+  const channel = pool.channel;
+  pool.channel = null;
+  pool.subscribed = false;
+  if (!channel) return Promise.resolve();
 
-  cardsPool.channel = supabase
-    .channel('handover-cards')
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'cards', filter: `hotel_id=eq.${DEFAULT_HOTEL_ID}` },
-      () => notify(cardsPool),
-    )
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'card_acknowledgments' }, () =>
-      notify(cardsPool),
-    )
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'card_comments' }, () => notify(cardsPool))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'card_attachments' }, () => notify(cardsPool))
-    .subscribe();
+  pool.closing = true;
+  return Promise.resolve(supabase.removeChannel(channel)).finally(() => {
+    pool.closing = false;
+  });
+}
+
+function teardownPool(supabase: SupabaseClient, pool: ChannelPool) {
+  clearRetry(pool);
+  void removePoolChannel(supabase, pool);
+}
+
+function scheduleReconnect(supabase: SupabaseClient, pool: ChannelPool) {
+  if (pool.listeners.size === 0 || pool.retryTimer || pool.closing) return;
+  pool.retryTimer = setTimeout(() => {
+    pool.retryTimer = null;
+    ensurePoolChannel(supabase, pool);
+  }, 3000);
+}
+
+function ensurePoolChannel(supabase: SupabaseClient, pool: ChannelPool) {
+  if (pool.subscribed && pool.channel) return;
+  if (pool.closing) {
+    scheduleReconnect(supabase, pool);
+    return;
+  }
+
+  clearRetry(pool);
+
+  if (pool.channel) {
+    void removePoolChannel(supabase, pool).then(() => {
+      if (pool.listeners.size > 0) ensurePoolChannel(supabase, pool);
+    });
+    return;
+  }
+
+  let channel = supabase.channel(pool.channelName);
+  for (const binding of pool.bindings) {
+    channel = channel.on('postgres_changes', binding, () => notify(pool));
+  }
+
+  pool.channel = channel;
+  channel.subscribe((status) => {
+    if (pool.closing) return;
+
+    if (status === 'SUBSCRIBED') {
+      pool.subscribed = true;
+      return;
+    }
+
+    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+      pool.subscribed = false;
+      pool.channel = null;
+      scheduleReconnect(supabase, pool);
+      return;
+    }
+
+    if (status === 'CLOSED' && pool.listeners.size > 0) {
+      pool.subscribed = false;
+      pool.channel = null;
+      scheduleReconnect(supabase, pool);
+    }
+  });
+}
+
+function ensureCardsChannel(supabase: SupabaseClient) {
+  ensurePoolChannel(supabase, cardsPool);
 }
 
 function ensureNoticesChannel(supabase: SupabaseClient) {
-  if (poolHasChannel(noticesPool)) return;
-
-  noticesPool.channel = supabase
-    .channel('handover-notices')
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'notices', filter: `hotel_id=eq.${DEFAULT_HOTEL_ID}` },
-      () => notify(noticesPool),
-    )
-    .subscribe();
-}
-
-function poolHasChannel(pool: ChannelPool): boolean {
-  return pool.channel !== null;
+  ensurePoolChannel(supabase, noticesPool);
 }
 
 export function invalidateCardQueries(queryClient: QueryClient) {
-  queryClient.invalidateQueries({ queryKey: ['cards', DEFAULT_HOTEL_ID] });
-  queryClient.invalidateQueries({ queryKey: ['archived-cards', DEFAULT_HOTEL_ID] });
+  void queryClient.refetchQueries({ queryKey: ['cards', DEFAULT_HOTEL_ID], type: 'active' });
+  void queryClient.refetchQueries({ queryKey: ['archived-cards', DEFAULT_HOTEL_ID], type: 'active' });
 }
 
 export function subscribeCardsRealtime(queryClient: QueryClient): () => void {
@@ -84,7 +173,7 @@ export function subscribeCardsRealtime(queryClient: QueryClient): () => void {
 export function subscribeNoticesRealtime(queryClient: QueryClient): () => void {
   const supabase = createClient();
   const listener = () => {
-    queryClient.invalidateQueries({ queryKey: ['notices', DEFAULT_HOTEL_ID] });
+    void queryClient.refetchQueries({ queryKey: ['notices', DEFAULT_HOTEL_ID], type: 'active' });
   };
 
   noticesPool.listeners.add(listener);
@@ -95,5 +184,14 @@ export function subscribeNoticesRealtime(queryClient: QueryClient): () => void {
     if (noticesPool.listeners.size === 0) {
       teardownPool(supabase, noticesPool);
     }
+  };
+}
+
+export function subscribeHandoverRealtime(queryClient: QueryClient): () => void {
+  const unsubscribeCards = subscribeCardsRealtime(queryClient);
+  const unsubscribeNotices = subscribeNoticesRealtime(queryClient);
+  return () => {
+    unsubscribeCards();
+    unsubscribeNotices();
   };
 }

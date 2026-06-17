@@ -8,16 +8,21 @@ import { AmenityTransactionPanel } from '@/components/amenity/transaction-panel'
 import { AmenityTransactionHistory } from '@/components/amenity/transaction-history';
 import { fetchAmenityInventoryData, subscribeAmenityChanges } from '@/lib/amenity/api';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
+import { todayDateString } from '@/lib/handover/shift-summary';
 import { useWorkSession } from '@/lib/handover/use-work-session';
+import { useTodos } from '@/lib/todos/use-todos';
+import { buildAmenityOrderLines, buildAmenityOrderText } from '@/lib/amenity/order-sheet';
 
 export function AmenityPageClient() {
-  const { session, authorLabel } = useWorkSession();
+  const { session, authorLabel, requireSession } = useWorkSession();
+  const { createTodo } = useTodos();
   const queryClient = useQueryClient();
   const hasSession = Boolean(session.shift && session.group && session.name);
 
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState<string | null>(null);
+  const [todoBusy, setTodoBusy] = useState(false);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['amenity', DEFAULT_HOTEL_ID],
@@ -46,6 +51,31 @@ export function AmenityPageClient() {
     window.setTimeout(() => setToast(null), 2500);
   }
 
+  async function handleCreateTodoFromOrder() {
+    if (!requireSession('할일 등록')) return;
+    const orderItems = data?.items ?? [];
+    const lines = buildAmenityOrderLines(orderItems);
+    if (!lines.length) return;
+    setTodoBusy(true);
+    try {
+      await createTodo.mutateAsync({
+        title: `어메니티 발주 (${lines.length}품목)`,
+        description: buildAmenityOrderText(lines),
+        due_date: todayDateString(),
+        priority: 'today',
+        assignee_shift: session.group || session.shift,
+        assignee_name: session.name,
+        author: authorLabel,
+      });
+      showToast('업무 일정에 할일을 등록했습니다.');
+      void queryClient.invalidateQueries({ queryKey: ['todos', DEFAULT_HOTEL_ID] });
+    } catch {
+      showToast('할일 등록에 실패했습니다.');
+    } finally {
+      setTodoBusy(false);
+    }
+  }
+
   if (isLoading) {
     return <p className="empty-state">데이터 불러오는 중…</p>;
   }
@@ -69,7 +99,12 @@ export function AmenityPageClient() {
         <p className="amenity-page__hint">「지금 근무」 설정 후 입출고 가능</p>
       ) : null}
 
-      <AmenityOrderSheet items={items} onToast={showToast} />
+      <AmenityOrderSheet
+        items={items}
+        onToast={showToast}
+        onCreateTodo={() => void handleCreateTodoFromOrder()}
+        createTodoBusy={todoBusy}
+      />
 
       <div className="amenity-page__workspace">
         <AmenityInventoryGrid

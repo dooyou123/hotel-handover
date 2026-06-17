@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isCardDueSoon, isCardOverdue, isCommentEdited, splitTextBySearchQuery, canDeleteCard } from '@/lib/handover/card-utils';
+import { isCardDueSoon, isCardOverdue, isCommentEdited, splitTextBySearchQuery, canDeleteCard, findDuplicateCards, titlesAreSimilar, isCardSnoozed, getStaleLevel, getHoldStaleLevel, isStaleCard, isLongHoldCard, needsComplaintFirstResponse } from '@/lib/handover/card-utils';
 import {
   getTickerActionLabel,
   getTickerItemHref,
@@ -847,6 +847,138 @@ test('card due soon and overdue helpers', () => {
   assert.equal(isCardDueSoon({ ...base, due_at: new Date(now + 30 * 60_000).toISOString() }), true);
   assert.equal(isCardDueSoon({ ...base, due_at: new Date(now + 2 * 3600_000).toISOString() }), false);
   assert.equal(isCardOverdue({ ...base, column_id: 'done', due_at: new Date(now - 60_000).toISOString() }), false);
+  assert.equal(
+    isCardOverdue({
+      ...base,
+      due_at: new Date(now - 60_000).toISOString(),
+      snoozed_until: new Date(now + 60_000).toISOString(),
+    }),
+    false,
+  );
+  assert.equal(isCardSnoozed({ ...base, snoozed_until: new Date(now + 60_000).toISOString() }, now), true);
+  assert.equal(isCardSnoozed({ ...base, snoozed_until: new Date(now - 60_000).toISOString() }, now), false);
+});
+
+test('titlesAreSimilar and findDuplicateCards', () => {
+  assert.equal(titlesAreSimilar('301 냉장고 고장', '301 냉장고 고장'), true);
+  assert.equal(titlesAreSimilar('냉장고 소음', '냉장고 소음 확인'), true);
+  assert.equal(titlesAreSimilar('조식 추가', '체크아웃 연장'), false);
+
+  const cards = [
+    {
+      id: 'a',
+      column_id: 'progress' as const,
+      archived_at: null,
+      room: '301',
+      title: '냉장고 소음',
+      hotel_id: 'h',
+      priority: 'today' as const,
+      category: '기타',
+      details: '',
+      resolution: '',
+      next_action: '',
+      author: '',
+      assignee_shift: '',
+      assignee_name: '',
+      sort_order: 0,
+      linked_todo_id: null,
+      created_at: '',
+      updated_at: '',
+      due_at: null,
+      card_acknowledgments: [],
+      card_comments: [],
+      card_attachments: [],
+    },
+    {
+      id: 'b',
+      column_id: 'done' as const,
+      archived_at: null,
+      room: '301',
+      title: '냉장고 소음 완료',
+      hotel_id: 'h',
+      priority: 'today' as const,
+      category: '기타',
+      details: '',
+      resolution: '',
+      next_action: '',
+      author: '',
+      assignee_shift: '',
+      assignee_name: '',
+      sort_order: 0,
+      linked_todo_id: null,
+      created_at: '',
+      updated_at: '',
+      due_at: null,
+      card_acknowledgments: [],
+      card_comments: [],
+      card_attachments: [],
+    },
+  ];
+
+  const dupes = findDuplicateCards(cards, { room: '301', title: '냉장고 소음 확인' });
+  assert.equal(dupes.length, 1);
+  assert.equal(dupes[0]?.id, 'a');
+  assert.equal(findDuplicateCards(cards, { room: '301', title: '냉장고 소음 확인', excludeCardId: 'a' }).length, 0);
+});
+
+test('stale and long hold helpers', () => {
+  const now = Date.now();
+  const progressBase = {
+    column_id: 'progress' as const,
+    hotel_id: 'h',
+    priority: 'today' as const,
+    category: '기타',
+    room: '',
+    title: 't',
+    details: '',
+    resolution: '',
+    next_action: '',
+    author: '',
+    assignee_shift: '',
+    assignee_name: '',
+    sort_order: 0,
+    archived_at: null,
+    linked_todo_id: null,
+    created_at: new Date(now - 5 * 3_600_000).toISOString(),
+    updated_at: new Date(now - 5 * 3_600_000).toISOString(),
+    due_at: null,
+    card_acknowledgments: [],
+    card_comments: [],
+    card_attachments: [],
+    id: 'stale-1',
+  };
+
+  assert.equal(getStaleLevel(progressBase, now), 'mid');
+  assert.equal(getStaleLevel({ ...progressBase, updated_at: new Date(now - 13 * 3_600_000).toISOString() }, now), 'high');
+  assert.equal(getStaleLevel({ ...progressBase, column_id: 'hold' }, now), '');
+  assert.equal(isStaleCard(progressBase, now), true);
+
+  const holdBase = {
+    ...progressBase,
+    id: 'hold-1',
+    column_id: 'hold' as const,
+    updated_at: new Date(now - 25 * 3_600_000).toISOString(),
+  };
+  assert.equal(getHoldStaleLevel(holdBase, now), 'mid');
+  assert.equal(getHoldStaleLevel({ ...holdBase, updated_at: new Date(now - 50 * 3_600_000).toISOString() }, now), 'high');
+  assert.equal(isLongHoldCard(holdBase, now), true);
+
+  assert.equal(
+    needsComplaintFirstResponse({
+      ...progressBase,
+      category: '컴플레인',
+      first_response_at: null,
+    }),
+    true,
+  );
+  assert.equal(
+    needsComplaintFirstResponse({
+      ...progressBase,
+      category: '컴플레인',
+      first_response_at: new Date(now).toISOString(),
+    }),
+    false,
+  );
 });
 
 test('ticker navigation hrefs', () => {
@@ -941,4 +1073,250 @@ test('unread pinned notice count', () => {
   const reads = [{ notice_id: 'n1', staff_name: 'Kim' } as { notice_id: string; staff_name: string }];
   assert.equal(unreadPinnedCount(pinnedNotices(notices as never), reads as never, 'Kim'), 0);
   assert.equal(unreadPinnedCount(pinnedNotices(notices as never), reads as never, 'Lee'), 1);
+});
+
+test('notice expiry urgency within 7 days', () => {
+  const {
+    daysUntilNoticeExpiry,
+    getNoticeExpiryUrgency,
+    filterNoticesExpiringSoon,
+    formatNoticeExpiryAlertDetail,
+  } = require('@/lib/notices/expiry') as typeof import('@/lib/notices/expiry');
+
+  const today = '2026-06-08';
+  assert.equal(daysUntilNoticeExpiry('2026-06-08', today), 0);
+  assert.equal(getNoticeExpiryUrgency({ expires_at: '2026-06-08' }, today), 'today');
+  assert.equal(getNoticeExpiryUrgency({ expires_at: '2026-06-11' }, today), 'soon');
+  assert.equal(getNoticeExpiryUrgency({ expires_at: '2026-06-15' }, today), 'week');
+  assert.equal(getNoticeExpiryUrgency({ expires_at: '2026-06-20' }, today), null);
+  assert.equal(
+    filterNoticesExpiringSoon(
+      [
+        { expires_at: '2026-06-10' },
+        { expires_at: '2026-06-20' },
+        { expires_at: null },
+      ] as import('@/lib/handover/types').Notice[],
+    ).length,
+    1,
+  );
+  assert.equal(
+    formatNoticeExpiryAlertDetail({ expires_at: '2026-06-09' } as import('@/lib/handover/types').Notice, today),
+    '내일 만료',
+  );
+});
+
+test('hk handover draft card input', () => {
+  const {
+    canCreateHandoverFromStatusNote,
+    cardInputFromHkStatusNote,
+    cardInputFromHkSpecialRoom,
+  } = require('@/lib/housekeeping/handover-draft') as typeof import('@/lib/housekeeping/handover-draft');
+
+  assert.equal(canCreateHandoverFromStatusNote('hk_out_of_order'), true);
+  assert.equal(canCreateHandoverFromStatusNote('hk_house_use'), false);
+
+  const fromNote = cardInputFromHkStatusNote('hk_out_of_order', '1502 O.O', 'A조 · Kim');
+  assert.match(fromNote.title ?? '', /1502/);
+  assert.match(fromNote.details ?? '', /하우스키핑/);
+
+  const fromRoom = cardInputFromHkSpecialRoom(
+    {
+      room_number: '1207',
+      is_vip: true,
+      is_long_stay: false,
+      early_checkin: '07:00',
+      notes: '조용한 객실 요청',
+    },
+    'A조 · Kim',
+  );
+  assert.match(fromRoom.title ?? '', /1207/);
+  assert.match(fromRoom.title ?? '', /VIP/);
+});
+
+test('transport needs input within 30 minutes', () => {
+  const {
+    transportNeedsInput,
+    transportNeedsInputMissingLabels,
+    isTransportNeedsInputImminent,
+    filterTransportNeedsInput,
+  } = require('@/lib/transport/alerts') as typeof import('@/lib/transport/alerts');
+
+  const now = new Date('2026-06-08T09:40:00');
+  const incomplete = {
+    id: '1',
+    status: 'pending',
+    booking_date: '2026-06-08',
+    pickup_time: '10:00:00',
+    room_number: '',
+    guest_name: '',
+    vehicle_number: '',
+  } as import('@/lib/transport/types').TransportBooking;
+  const complete = {
+    ...incomplete,
+    id: '2',
+    room_number: '1207',
+    guest_name: '홍길동',
+    vehicle_number: '12가3456',
+  } as import('@/lib/transport/types').TransportBooking;
+
+  assert.equal(transportNeedsInput(incomplete), true);
+  assert.deepEqual(transportNeedsInputMissingLabels(incomplete), ['객실', '게스트', '차량번호']);
+  assert.equal(transportNeedsInput(complete), false);
+  assert.equal(isTransportNeedsInputImminent(incomplete, 30, now), true);
+  assert.equal(isTransportNeedsInputImminent(complete, 30, now), false);
+  assert.equal(filterTransportNeedsInput([incomplete, complete]).length, 1);
+});
+
+test('room search recent stores up to 5 unique terms', () => {
+  const { rememberRoomSearch, loadRecentRoomSearches } =
+    require('@/lib/room-search/recent') as typeof import('@/lib/room-search/recent');
+
+  const storage = new Map<string, string>();
+  const original = globalThis.sessionStorage;
+  Object.defineProperty(globalThis, 'sessionStorage', {
+    configurable: true,
+    value: {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value);
+      },
+      removeItem: (key: string) => {
+        storage.delete(key);
+      },
+    },
+  });
+  const originalWindow = globalThis.window;
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: globalThis,
+  });
+
+  try {
+    rememberRoomSearch('1502');
+    rememberRoomSearch('키오스크');
+    rememberRoomSearch('1502');
+    rememberRoomSearch('홍길동');
+    rememberRoomSearch('세프로');
+    rememberRoomSearch('공항');
+    rememberRoomSearch('VIP');
+    const recent = loadRecentRoomSearches();
+    assert.equal(recent[0], 'VIP');
+    assert.equal(recent.length, 5);
+    assert.ok(!recent.includes('1502') || recent.indexOf('1502') > 0);
+  } finally {
+    Object.defineProperty(globalThis, 'sessionStorage', { configurable: true, value: original });
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: originalWindow });
+  }
+});
+
+test('parcel delivery token hash is stable', () => {
+  const { generateDeliveryToken, hashDeliveryToken, buildParcelSignUrl } =
+    require('@/lib/parcels/tokens') as typeof import('@/lib/parcels/tokens');
+
+  const token = 'test-token-value';
+  assert.equal(hashDeliveryToken(token), hashDeliveryToken(token));
+  assert.notEqual(hashDeliveryToken('a'), hashDeliveryToken('b'));
+
+  const generated = generateDeliveryToken();
+  assert.ok(generated.length >= 32);
+  assert.match(buildParcelSignUrl('https://hotel.example.com', generated), /^https:\/\/hotel\.example\.com\/parcels\/sign\//);
+});
+
+test('parcel overdue helper', () => {
+  const { isParcelOverdue } = require('@/lib/parcels/types') as typeof import('@/lib/parcels/types');
+
+  const now = new Date('2026-06-08T12:00:00');
+  const recent = {
+    status: 'stored',
+    received_at: '2026-06-07T10:00:00Z',
+  } as import('@/lib/parcels/types').Parcel;
+  const old = {
+    status: 'ready',
+    received_at: '2026-06-01T10:00:00Z',
+  } as import('@/lib/parcels/types').Parcel;
+  const done = {
+    status: 'delivered',
+    received_at: '2026-06-01T10:00:00Z',
+  } as import('@/lib/parcels/types').Parcel;
+
+  assert.equal(isParcelOverdue(recent, 3, now), false);
+  assert.equal(isParcelOverdue(old, 3, now), true);
+  assert.equal(isParcelOverdue(done, 3, now), false);
+});
+
+test('parseRoomFloor extracts hotel floors', () => {
+  const { parseRoomFloor } = require('@/lib/insights/room-floor') as typeof import('@/lib/insights/room-floor');
+
+  assert.equal(parseRoomFloor('1202'), 12);
+  assert.equal(parseRoomFloor('416'), 4);
+  assert.equal(parseRoomFloor('1302'), 13);
+  assert.equal(parseRoomFloor(''), null);
+});
+
+test('buildFloorHeatmap aggregates by floor', () => {
+  const { buildFloorHeatmap } = require('@/lib/insights/floor-heatmap') as typeof import('@/lib/insights/floor-heatmap');
+
+  const now = new Date('2026-06-08T12:00:00').getTime();
+  const result = buildFloorHeatmap({
+    lookbackDays: 7,
+    now,
+    cards: [
+      {
+        id: 'c-complaint',
+        room: '1207',
+        category: '컴플레인',
+        title: '에어컨 소음',
+        details: '',
+        created_at: '2026-06-07T10:00:00Z',
+      },
+      {
+        id: 'c-facility',
+        room: '1202',
+        category: '시설',
+        title: '샤워기 수압',
+        details: '',
+        created_at: '2026-06-06T10:00:00Z',
+      },
+    ] as import('@/lib/handover/types').Card[],
+    reviews: [
+      {
+        id: 'r1',
+        room_number: '1207',
+        sentiment: 'negative',
+        content_ko: '방이 너무 시끄러웠습니다',
+        content_original: '',
+        is_active: true,
+        created_at: '2026-06-07T11:00:00Z',
+      },
+    ] as import('@/lib/reviews/types').GuestReview[],
+  });
+
+  const floor12 = result.cells.find((cell) => cell.floor === 12);
+  assert.ok(floor12);
+  assert.ok((floor12?.totalScore ?? 0) > 0);
+  assert.equal(floor12?.complaintCount, 1);
+  assert.equal(floor12?.negativeReviewCount, 1);
+  assert.equal(floor12?.recentEvents.length, 3);
+  assert.ok(floor12?.recentEvents.some((event) => event.title.includes('에어컨')));
+});
+
+test('buildLiveBoardFeed groups urgent and warn items', () => {
+  const { buildLiveBoardFeed } = require('@/lib/live-board/build-feed') as typeof import('@/lib/live-board/build-feed');
+
+  const feed = buildLiveBoardFeed({
+    notices: [],
+    cards: [
+      {
+        id: 'c1',
+        priority: 'urgent',
+        column_id: 'progress',
+        room: '1207',
+        title: '키오스크 이상',
+        card_acknowledgments: [],
+      },
+    ] as import('@/lib/handover/types').Card[],
+  });
+
+  assert.ok(feed.summaries.length > 0);
+  assert.ok(feed.items.some((item) => item.id.startsWith('unacked-')));
 });

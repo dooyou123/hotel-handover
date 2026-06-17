@@ -33,6 +33,20 @@ export function HandoverSummaryNova({
     ...(data.holdActive.length > 0
       ? [{ id: 'hold', label: '보류', count: data.holdActive.length, tone: 'progress' as const }]
       : []),
+    ...(data.staleActive.length > 0
+      ? [{ id: 'stale', label: '오래됨', count: data.staleActive.length, tone: 'warn' as const, filter: 'stale' as const }]
+      : []),
+    ...(data.longHoldActive.length > 0
+      ? [
+          {
+            id: 'hold-long',
+            label: '보류 오래됨',
+            count: data.longHoldActive.length,
+            tone: 'warn' as const,
+            filter: 'hold-long' as const,
+          },
+        ]
+      : []),
     { id: 'done', label: '완료', count: data.boardDoneCount, tone: 'done' },
     { id: 'all', label: '전체', count: totalCount, tone: 'all', filter: 'all' },
   ];

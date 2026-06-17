@@ -46,7 +46,7 @@ export async function fetchCards(): Promise<Card[]> {
   return enrichCardList(cards);
 }
 
-async function fetchArchivedCards(): Promise<Card[]> {
+export async function fetchArchivedCards(): Promise<Card[]> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from('cards')
@@ -72,6 +72,8 @@ export function useCards() {
   const query = useQuery({
     queryKey,
     queryFn: fetchCards,
+    refetchInterval: 20_000,
+    refetchIntervalInBackground: true,
   });
 
   useEffect(() => subscribeCardsRealtime(queryClient), [queryClient]);
@@ -103,7 +105,11 @@ export function useCards() {
       input,
     }: {
       id: string;
-      input: Partial<CardInput> & { linked_todo_id?: string | null };
+      input: Partial<CardInput> & {
+        linked_todo_id?: string | null;
+        snoozed_until?: string | null;
+        first_response_at?: string | null;
+      };
     }) => {
       const supabase = createClient();
       const { data, error } = await supabase
@@ -267,6 +273,21 @@ export function useCards() {
     onSuccess: () => invalidateCardQueriesLocal(queryClient),
   });
 
+  const archiveCardsByIds = useMutation({
+    mutationFn: async (ids: string[]) => {
+      if (!ids.length) return;
+      const supabase = createClient();
+      const { error } = await supabase
+        .from('cards')
+        .update({ archived_at: new Date().toISOString() })
+        .in('id', ids)
+        .eq('column_id', 'done')
+        .is('archived_at', null);
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateCardQueriesLocal(queryClient),
+  });
+
   const restoreFromArchive = useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient();
@@ -291,6 +312,7 @@ export function useCards() {
     uploadAttachment,
     deleteAttachment,
     archiveDone,
+    archiveCardsByIds,
     restoreFromArchive,
   };
 }

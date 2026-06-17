@@ -1,5 +1,6 @@
 import { SHIFTS } from '@/lib/constants';
 import { filterNoticesByChannel, type NoticeChannelId } from '@/lib/notices/channels';
+import { isNoticeExpiringSoon } from '@/lib/notices/expiry';
 import type { Notice } from '@/lib/handover/types';
 
 export type NoticeShiftFilter = 'all' | (typeof SHIFTS)[number] | '관리자' | 'other';
@@ -13,7 +14,13 @@ export const NOTICE_SHIFT_FILTERS: { id: NoticeShiftFilter; label: string }[] = 
   { id: 'other', label: '기타' },
 ];
 
+export const NOTICE_EXPIRY_FILTERS: { id: NoticeExpiryFilter; label: string }[] = [
+  { id: 'all', label: '전체' },
+  { id: 'renewal', label: '만료 임박 7일' },
+];
+
 export type NoticeBoardView = 'list' | 'table';
+export type NoticeExpiryFilter = 'all' | 'renewal';
 
 export function filterNoticesForBoard(
   notices: Notice[],
@@ -21,9 +28,14 @@ export function filterNoticesForBoard(
     channelId: NoticeChannelId;
     searchQuery: string;
     shiftFilter: NoticeShiftFilter;
+    expiryFilter?: NoticeExpiryFilter;
   },
 ): Notice[] {
   let result = filterNoticesByChannel(notices, options.channelId);
+
+  if (options.expiryFilter === 'renewal') {
+    result = result.filter((notice) => isNoticeExpiringSoon(notice, 7));
+  }
 
   const query = options.searchQuery.trim().toLowerCase();
   if (query) {

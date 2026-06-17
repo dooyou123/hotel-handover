@@ -59,6 +59,16 @@ type HandoverWorkspaceProjectProps = {
   onHold: (cardId: string) => void;
   onResume: (cardId: string) => void;
   onAssignChange: (cardId: string, assigneeName: string) => void;
+  onSnooze: (cardId: string) => void;
+  onUnsnooze: (cardId: string) => void;
+  onRecordFirstResponse: (cardId: string) => void;
+  onBulkMarkDone: (cardIds: string[]) => Promise<void>;
+  onBulkHold: (cardIds: string[]) => Promise<void>;
+  onBulkAssign: (cardIds: string[], assigneeName: string) => Promise<void>;
+  onBulkSnooze: (cardIds: string[]) => Promise<void>;
+  onBulkUnassign: (cardIds: string[]) => Promise<void>;
+  onBulkResume: (cardIds: string[]) => Promise<void>;
+  onBulkArchive: (cardIds: string[]) => Promise<void>;
   onShowUnacked: () => void;
   onAlertClick: (id: string) => void;
   onOpenTodo: (todo: Todo) => void;
@@ -112,6 +122,16 @@ export function HandoverWorkspaceProject({
   onHold,
   onResume,
   onAssignChange,
+  onSnooze,
+  onUnsnooze,
+  onRecordFirstResponse,
+  onBulkMarkDone,
+  onBulkHold,
+  onBulkAssign,
+  onBulkSnooze,
+  onBulkUnassign,
+  onBulkResume,
+  onBulkArchive,
   onShowUnacked,
   onAlertClick,
   onOpenTodo,
@@ -178,6 +198,7 @@ export function HandoverWorkspaceProject({
                 cards={visibleCards}
                 searchQuery={searchQuery}
                 staffNames={staffNames}
+                isManager={isManager}
                 onOpenCard={onOpenCard}
                 onOpenCardComments={onOpenCardComments}
                 onAddComment={onAddComment}
@@ -188,6 +209,16 @@ export function HandoverWorkspaceProject({
                 onHold={onHold}
                 onResume={onResume}
                 onAssignChange={onAssignChange}
+                onSnooze={onSnooze}
+                onUnsnooze={onUnsnooze}
+                onRecordFirstResponse={onRecordFirstResponse}
+                onBulkMarkDone={onBulkMarkDone}
+                onBulkHold={onBulkHold}
+                onBulkAssign={onBulkAssign}
+                onBulkSnooze={onBulkSnooze}
+                onBulkUnassign={onBulkUnassign}
+                onBulkResume={onBulkResume}
+                onBulkArchive={onBulkArchive}
               />
             )}
           </div>

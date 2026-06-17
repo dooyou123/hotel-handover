@@ -29,6 +29,7 @@ import {
 import { HkChangedRoomCard } from '@/components/housekeeping/hk-changed-room-card';
 import { HkInHousePanel } from '@/components/housekeeping/hk-in-house-panel';
 import { HkStatusNotesFields } from '@/components/housekeeping/hk-status-notes-fields';
+import type { HkStatusNoteKey } from '@/lib/housekeeping/types';
 
 type HkReportDashboardProps = {
   workDateLabel: string;
@@ -38,6 +39,7 @@ type HkReportDashboardProps = {
   previousDayNotes: string;
   nextDayNotes: string;
   statusNotes: HkStatusNotes;
+  onCreateHandoverFromStatusNote?: (key: HkStatusNoteKey) => void;
   summary: {
     twinCount: number;
     tripleCount: number;
@@ -69,6 +71,7 @@ export function HkReportDashboard({
   previousDayNotes,
   nextDayNotes,
   statusNotes,
+  onCreateHandoverFromStatusNote,
   summary,
   findBedRoomIndex,
 }: HkReportDashboardProps) {
@@ -252,7 +255,12 @@ export function HkReportDashboard({
             <h3>객실 상태 · 전달</h3>
             <p>H/U · Comp · VIP · O.O · 장기 숙박 · 정비 유의 · 퇴근 후 DELIVERY</p>
           </div>
-          <HkStatusNotesFields value={statusNotes} onChange={() => {}} readOnly />
+          <HkStatusNotesFields
+            value={statusNotes}
+            onChange={() => {}}
+            readOnly
+            onCreateHandover={onCreateHandoverFromStatusNote}
+          />
         </section>
       ) : null}
 

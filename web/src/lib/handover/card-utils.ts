@@ -55,14 +55,20 @@ export function cardHasKeyword(card: Card): boolean {
 }
 
 export function isCardOverdue(card: Card): boolean {
-  if (!card.due_at || card.column_id === 'done' || isHoldCard(card)) return false;
+  if (!card.due_at || card.column_id === 'done' || isHoldCard(card) || isCardSnoozed(card)) return false;
   return new Date(card.due_at).getTime() < Date.now();
 }
 
 const DEFAULT_DUE_SOON_MS = 3_600_000;
+export const CARD_SNOOZE_MS = 2 * 3_600_000;
+
+export function isCardSnoozed(card: Card, at = Date.now()): boolean {
+  if (!card.snoozed_until) return false;
+  return new Date(card.snoozed_until).getTime() > at;
+}
 
 export function isCardDueSoon(card: Card, withinMs = DEFAULT_DUE_SOON_MS): boolean {
-  if (!card.due_at || card.column_id === 'done' || isHoldCard(card)) return false;
+  if (!card.due_at || card.column_id === 'done' || isHoldCard(card) || isCardSnoozed(card)) return false;
   const due = new Date(card.due_at).getTime();
   const now = Date.now();
   return due >= now && due - now <= withinMs;
@@ -72,14 +78,62 @@ export function isCardDueActive(card: Card): boolean {
   return Boolean(card.due_at && card.column_id !== 'done' && !isHoldCard(card));
 }
 
-export function getStaleLevel(card: Card): '' | 'mid' | 'high' {
-  if (card.column_id === 'done' || isHoldCard(card)) return '';
+export const STALE_MID_HOURS = 4;
+export const STALE_HIGH_HOURS = 12;
+export const HOLD_STALE_MID_HOURS = 24;
+export const HOLD_STALE_HIGH_HOURS = 48;
+
+export function getStaleLevel(card: Card, at = Date.now()): '' | 'mid' | 'high' {
+  if (card.column_id === 'done' || isArchivedCard(card) || isHoldCard(card)) return '';
   const date = new Date(card.updated_at || card.created_at);
   if (Number.isNaN(date.getTime())) return '';
-  const hours = (Date.now() - date.getTime()) / 3_600_000;
-  if (hours >= 12) return 'high';
-  if (hours >= 4) return 'mid';
+  const hours = (at - date.getTime()) / 3_600_000;
+  if (hours >= STALE_HIGH_HOURS) return 'high';
+  if (hours >= STALE_MID_HOURS) return 'mid';
   return '';
+}
+
+export function getHoldStaleLevel(card: Card, at = Date.now()): '' | 'mid' | 'high' {
+  if (!isHoldCard(card) || isArchivedCard(card)) return '';
+  const date = new Date(card.updated_at || card.created_at);
+  if (Number.isNaN(date.getTime())) return '';
+  const hours = (at - date.getTime()) / 3_600_000;
+  if (hours >= HOLD_STALE_HIGH_HOURS) return 'high';
+  if (hours >= HOLD_STALE_MID_HOURS) return 'mid';
+  return '';
+}
+
+export function isStaleCard(card: Card, at = Date.now()): boolean {
+  return getStaleLevel(card, at) !== '';
+}
+
+export function isLongHoldCard(card: Card, at = Date.now()): boolean {
+  return getHoldStaleLevel(card, at) !== '';
+}
+
+export function formatStaleBadge(level: 'mid' | 'high'): string {
+  return level === 'high'
+    ? `방치 ${STALE_HIGH_HOURS}시간 이상`
+    : `방치 ${STALE_MID_HOURS}시간 이상`;
+}
+
+export function formatHoldStaleBadge(level: 'mid' | 'high'): string {
+  return level === 'high'
+    ? `보류 ${HOLD_STALE_HIGH_HOURS}시간 이상`
+    : `보류 ${HOLD_STALE_MID_HOURS}시간 이상`;
+}
+
+export function needsComplaintFirstResponse(card: Card): boolean {
+  return (
+    card.category === '컴플레인' &&
+    !card.first_response_at &&
+    card.column_id !== 'done' &&
+    !isArchivedCard(card)
+  );
+}
+
+export function isBulkArchivableCard(card: Card): boolean {
+  return card.column_id === 'done' && !isArchivedCard(card);
 }
 
 export function cardMatchesMine(card: Card, session: WorkSession): boolean {
@@ -206,6 +260,12 @@ export function filterCards(
     if (options.quickFilter === 'due-soon') {
       return isCardDueSoon(card);
     }
+    if (options.quickFilter === 'stale') {
+      return isStaleCard(card);
+    }
+    if (options.quickFilter === 'hold-long') {
+      return isLongHoldCard(card);
+    }
     if (options.quickFilter !== 'all' && options.quickFilter) {
       return card.category === options.quickFilter;
     }
@@ -228,6 +288,52 @@ export function formatAssigneeLabel(card: Card): string {
   if (card.assignee_shift) return formatAssigneeGroupLabel(card.assignee_shift);
   if (card.assignee_name) return card.assignee_name;
   return '';
+}
+
+export function isActiveHandoverCard(card: Card): boolean {
+  return card.column_id !== 'done' && !card.archived_at;
+}
+
+function normalizeMatchText(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, '');
+}
+
+export function titlesAreSimilar(a: string, b: string): boolean {
+  const left = normalizeMatchText(a);
+  const right = normalizeMatchText(b);
+  if (!left || !right) return false;
+  if (left === right) return true;
+  const shorter = left.length <= right.length ? left : right;
+  const longer = left.length > right.length ? left : right;
+  if (shorter.length >= 4 && longer.includes(shorter)) return true;
+  const wordsA = a.toLowerCase().split(/\s+/).filter((word) => word.length >= 2);
+  const wordsB = new Set(b.toLowerCase().split(/\s+/).filter((word) => word.length >= 2));
+  if (!wordsA.length || !wordsB.size) return false;
+  const overlap = wordsA.filter((word) => wordsB.has(word)).length;
+  const ratio = overlap / Math.max(wordsA.length, wordsB.size);
+  return overlap >= 2 && ratio >= 0.6;
+}
+
+export function findDuplicateCards(
+  cards: Card[],
+  input: { room: string; title: string; excludeCardId?: string },
+): Card[] {
+  const title = input.title.trim();
+  if (title.length < 2) return [];
+
+  const roomKey = normalizeRoomKey(input.room);
+  return cards.filter((card) => {
+    if (input.excludeCardId && card.id === input.excludeCardId) return false;
+    if (!isActiveHandoverCard(card)) return false;
+    if (normalizeRoomKey(card.room) !== roomKey) return false;
+    return titlesAreSimilar(card.title, title);
+  });
+}
+
+export function formatSnoozeUntil(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
 }
 
 export function canDeleteCard(

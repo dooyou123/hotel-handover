@@ -18,7 +18,9 @@ import { useWorkSession } from '@/lib/handover/use-work-session';
 import {
   filterNoticesForBoard,
   NOTICE_SHIFT_FILTERS,
+  NOTICE_EXPIRY_FILTERS,
   type NoticeBoardView,
+  type NoticeExpiryFilter,
   type NoticeShiftFilter,
 } from '@/lib/notices/filter';
 import {
@@ -41,10 +43,13 @@ export function NoticesPageClient() {
 
   const channelParam = searchParams.get('channel');
   const initialChannel: NoticeChannelId = isNoticeChannelId(channelParam) ? channelParam : 'all';
+  const initialExpiryFilter: NoticeExpiryFilter =
+    searchParams.get('renewal') === '1' ? 'renewal' : 'all';
 
   const [channelId, setChannelId] = useState<NoticeChannelId>(initialChannel);
   const [searchQuery, setSearchQuery] = useState('');
   const [shiftFilter, setShiftFilter] = useState<NoticeShiftFilter>('all');
+  const [expiryFilter, setExpiryFilter] = useState<NoticeExpiryFilter>(initialExpiryFilter);
   const [boardView, setBoardView] = useState<NoticeBoardView>('list');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<NoticeDrawerMode>('read');
@@ -76,8 +81,9 @@ export function NoticesPageClient() {
         channelId,
         searchQuery,
         shiftFilter,
+        expiryFilter,
       }),
-    [notices, channelId, searchQuery, shiftFilter],
+    [notices, channelId, searchQuery, shiftFilter, expiryFilter],
   );
 
   const pinnedNotices = useMemo(
@@ -299,6 +305,21 @@ export function NoticesPageClient() {
             />
           </div>
 
+          <div className="project-board__shift-filters" role="tablist" aria-label="유효기간 필터">
+            {NOTICE_EXPIRY_FILTERS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={expiryFilter === item.id}
+                className={`project-board__shift project-board__shift--expiry${expiryFilter === item.id ? ' is-active' : ''}`}
+                onClick={() => setExpiryFilter(item.id)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
           <div className="project-board__shift-filters" role="tablist" aria-label="교대 필터">
             {NOTICE_SHIFT_FILTERS.map((item) => (
               <button
@@ -489,7 +510,9 @@ export function NoticesPageClient() {
           )
         ) : (
           <div className="empty-state">
-            {searchQuery || shiftFilter !== 'all' ? '검색·필터 조건에 맞는 글이 없습니다.' : '등록된 글이 없습니다.'}
+            {searchQuery || shiftFilter !== 'all' || expiryFilter !== 'all'
+              ? '검색·필터 조건에 맞는 글이 없습니다.'
+              : '등록된 글이 없습니다.'}
           </div>
         )}
       </section>

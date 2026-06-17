@@ -1,14 +1,19 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { todayDateString } from '@/lib/handover/shift-summary';
 import { useWorkSession } from '@/lib/handover/use-work-session';
 import { dashboardPeriodRange } from '@/lib/taxi/dashboard';
 import { pickupDateTime } from '@/lib/taxi/format';
 import { fetchTaxiWhatsAppRecipient } from '@/lib/taxi/settings';
 import { buildWhatsAppMessage, openWhatsApp } from '@/lib/taxi/whatsapp';
+import {
+  filterTransportNeedsInput,
+  filterTransportNeedsInputImminent,
+} from '@/lib/transport/alerts';
 import type { TransportBooking, TransportBookingInput, TransportStatus } from '@/lib/transport/types';
 import { formatSupabaseClientError } from '@/lib/supabase/env';
 import { useTransportBookings } from '@/lib/transport/use-transport';
@@ -19,11 +24,12 @@ import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useIsManager } from '@/lib/handover/use-cards';
 
 type TaxiTab = 'list' | 'dashboard';
-type StatusFilter = 'all' | 'pending' | 'completed' | 'cancelled' | 'done_cancelled';
+type StatusFilter = 'all' | 'pending' | 'needs_input' | 'completed' | 'cancelled' | 'done_cancelled';
 
 const STATUS_FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: 'all', label: '전체' },
   { value: 'pending', label: '진행중' },
+  { value: 'needs_input', label: '입력 필요' },
   { value: 'completed', label: '완료' },
   { value: 'cancelled', label: '취소' },
   { value: 'done_cancelled', label: '완료·취소' },
@@ -36,16 +42,20 @@ function addDays(date: string, days: number): string {
 }
 
 export function TransportPageClient() {
+  const searchParams = useSearchParams();
   const { authorLabel, requireSession } = useWorkSession();
   const { confirm } = useConfirmDialog();
   const { data: isManager = false } = useIsManager();
   const today = todayDateString();
 
+  const initialStatusFilter: StatusFilter =
+    searchParams.get('filter') === 'needs_input' ? 'needs_input' : 'all';
+
   const [tab, setTab] = useState<TaxiTab>('list');
   const [fromDate, setFromDate] = useState(today);
   const [toDate, setToDate] = useState(() => addDays(today, 90));
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialStatusFilter);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<TransportBooking | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -61,12 +71,20 @@ export function TransportPageClient() {
     queryFn: () => fetchTaxiWhatsAppRecipient(),
   });
 
+  useEffect(() => {
+    if (searchParams.get('filter') === 'needs_input') {
+      setStatusFilter('needs_input');
+    }
+  }, [searchParams]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = [...bookings];
 
     if (statusFilter === 'pending') {
       list = list.filter((b) => b.status === 'pending');
+    } else if (statusFilter === 'needs_input') {
+      list = filterTransportNeedsInput(list);
     } else if (statusFilter === 'completed') {
       list = list.filter((b) => b.status === 'completed');
     } else if (statusFilter === 'cancelled') {
@@ -89,14 +107,20 @@ export function TransportPageClient() {
   }, [bookings, search, statusFilter]);
 
   const statusCounts = useMemo(() => {
-    const counts = { all: bookings.length, pending: 0, completed: 0, cancelled: 0 };
+    const counts = { all: bookings.length, pending: 0, needs_input: 0, completed: 0, cancelled: 0 };
     for (const b of bookings) {
       if (b.status === 'pending') counts.pending += 1;
       else if (b.status === 'completed') counts.completed += 1;
       else if (b.status === 'cancelled') counts.cancelled += 1;
     }
+    counts.needs_input = filterTransportNeedsInput(bookings).length;
     return counts;
   }, [bookings]);
+
+  const imminentNeedsInputCount = useMemo(
+    () => filterTransportNeedsInputImminent(bookings).length,
+    [bookings],
+  );
 
   function showToast(msg: string) {
     setToast(msg);
@@ -314,6 +338,7 @@ export function TransportPageClient() {
                     let count: number | null = null;
                     if (opt.value === 'all') count = statusCounts.all;
                     else if (opt.value === 'pending') count = statusCounts.pending;
+                    else if (opt.value === 'needs_input') count = statusCounts.needs_input;
                     else if (opt.value === 'completed') count = statusCounts.completed;
                     else if (opt.value === 'cancelled') count = statusCounts.cancelled;
                     else if (opt.value === 'done_cancelled') {
@@ -327,7 +352,9 @@ export function TransportPageClient() {
                           statusFilter === opt.value ? ' is-active' : ''
                         }${
                           opt.value === 'completed' ? ' segmented-control__btn--positive' : ''
-                        }${opt.value === 'cancelled' ? ' segmented-control__btn--negative' : ''}`}
+                        }${opt.value === 'cancelled' ? ' segmented-control__btn--negative' : ''}${
+                          opt.value === 'needs_input' ? ' segmented-control__btn--warning' : ''
+                        }`}
                         onClick={() => setStatusFilter(opt.value)}
                       >
                         {opt.label}
@@ -337,6 +364,21 @@ export function TransportPageClient() {
                   })}
                 </div>
               </div>
+
+              {imminentNeedsInputCount > 0 ? (
+                <p className="taxi-page__needs-input-banner" role="status">
+                  30분 이내 픽업 {imminentNeedsInputCount}건 — 객실·게스트·차량번호를 확인해 주세요.
+                  {statusFilter !== 'needs_input' ? (
+                    <button
+                      type="button"
+                      className="taxi-page__needs-input-link"
+                      onClick={() => setStatusFilter('needs_input')}
+                    >
+                      입력 필요만 보기
+                    </button>
+                  ) : null}
+                </p>
+              ) : null}
             </div>
 
             {isLoading ? (

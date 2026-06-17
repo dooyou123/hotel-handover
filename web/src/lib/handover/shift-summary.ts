@@ -3,6 +3,8 @@ import {
   isActiveCard,
   isArchivedCard,
   isHoldCard,
+  isLongHoldCard,
+  isStaleCard,
   isUnackedUrgentCard,
   isUrgentPriorityCard,
   isWorkingColumn,
@@ -36,6 +38,8 @@ export type ShiftSummaryData = {
   urgentActive: Card[];
   progressActive: Card[];
   holdActive: Card[];
+  staleActive: Card[];
+  longHoldActive: Card[];
   boardDoneCount: number;
   doneToday: Card[];
   announcements: Notice[];
@@ -54,6 +58,8 @@ export function buildShiftSummaryData(cards: Card[], notices: Notice[]): ShiftSu
       card.priority !== 'urgent',
   );
   const holdActive = cards.filter((card) => !isArchivedCard(card) && isHoldCard(card));
+  const staleActive = cards.filter((card) => !isArchivedCard(card) && isStaleCard(card));
+  const longHoldActive = cards.filter((card) => !isArchivedCard(card) && isLongHoldCard(card));
   const boardDoneCount = cards.filter((card) => !isArchivedCard(card) && card.column_id === 'done').length;
   const doneToday = todayCards.filter((card) => card.column_id === 'done');
   const todayActive = todayCards.filter((card) => card.column_id !== 'done');
@@ -68,6 +74,8 @@ export function buildShiftSummaryData(cards: Card[], notices: Notice[]): ShiftSu
     urgentActive,
     progressActive,
     holdActive,
+    staleActive,
+    longHoldActive,
     boardDoneCount,
     doneToday,
     announcements,

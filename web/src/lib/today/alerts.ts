@@ -1,9 +1,11 @@
-import { isCardDueSoon, isCardOverdue } from '@/lib/handover/card-utils';
+import { isCardDueSoon, isCardOverdue, isLongHoldCard, isStaleCard } from '@/lib/handover/card-utils';
+import { filterNoticesExpiringSoon } from '@/lib/notices/expiry';
 import { isToday } from '@/lib/handover/shift-summary';
-import type { Card } from '@/lib/handover/types';
+import type { Card, Notice } from '@/lib/handover/types';
 import type { HotelEvent } from '@/lib/events/types';
 import type { Todo } from '@/lib/todos/types';
 import type { TransportBooking } from '@/lib/transport/types';
+import { filterTransportNeedsInputImminent } from '@/lib/transport/alerts';
 
 export type TodayAlertItem = {
   id: string;
@@ -28,6 +30,8 @@ export function buildTodayAlerts(input: {
   cards?: Card[];
   todos: Todo[];
   events: HotelEvent[];
+  notices?: Notice[];
+  transportBookings?: TransportBooking[];
 }): TodayAlertItem[] {
   const alerts: TodayAlertItem[] = [];
   const overdueTodos = input.todos.filter(isTodoOverdue);
@@ -36,6 +40,10 @@ export function buildTodayAlerts(input: {
   const activeCards = input.cards ?? [];
   const overdueCards = activeCards.filter(isCardOverdue);
   const dueSoonCards = activeCards.filter((c) => isCardDueSoon(c) && !isCardOverdue(c));
+  const staleCards = activeCards.filter(isStaleCard);
+  const longHoldCards = activeCards.filter(isLongHoldCard);
+  const expiringNotices = filterNoticesExpiringSoon(input.notices ?? [], 7);
+  const taxiNeedsInput = filterTransportNeedsInputImminent(input.transportBookings ?? []);
 
   if (input.unackedUrgent.length) {
     alerts.push({
@@ -59,6 +67,38 @@ export function buildTodayAlerts(input: {
       label: '1시간 내 마감',
       detail: `${dueSoonCards.length}건`,
       tone: 'warn',
+    });
+  }
+  if (staleCards.length) {
+    alerts.push({
+      id: 'stale-cards',
+      label: '오래 방치',
+      detail: `${staleCards.length}건`,
+      tone: 'warn',
+    });
+  }
+  if (longHoldCards.length) {
+    alerts.push({
+      id: 'hold-long-cards',
+      label: '보류 오래됨',
+      detail: `${longHoldCards.length}건`,
+      tone: 'warn',
+    });
+  }
+  if (expiringNotices.length) {
+    alerts.push({
+      id: 'notice-expiry',
+      label: '게시판 만료 임박',
+      detail: `${expiringNotices.length}건`,
+      tone: 'warn',
+    });
+  }
+  if (taxiNeedsInput.length) {
+    alerts.push({
+      id: 'taxi-needs-input',
+      label: '택시 입력 필요',
+      detail: `${taxiNeedsInput.length}건`,
+      tone: 'urgent',
     });
   }
   if (overdueTodos.length) {

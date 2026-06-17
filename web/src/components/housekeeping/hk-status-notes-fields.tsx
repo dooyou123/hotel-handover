@@ -5,14 +5,21 @@ import {
   type HkStatusNoteKey,
   type HkStatusNotes,
 } from '@/lib/housekeeping/types';
+import { canCreateHandoverFromStatusNote } from '@/lib/housekeeping/handover-draft';
 
 type HkStatusNotesFieldsProps = {
   value: HkStatusNotes;
   onChange: (next: HkStatusNotes) => void;
   readOnly?: boolean;
+  onCreateHandover?: (key: HkStatusNoteKey) => void;
 };
 
-export function HkStatusNotesFields({ value, onChange, readOnly = false }: HkStatusNotesFieldsProps) {
+export function HkStatusNotesFields({
+  value,
+  onChange,
+  readOnly = false,
+  onCreateHandover,
+}: HkStatusNotesFieldsProps) {
   function updateField(key: HkStatusNoteKey, text: string) {
     onChange({ ...value, [key]: text });
   }
@@ -25,7 +32,18 @@ export function HkStatusNotesFields({ value, onChange, readOnly = false }: HkSta
       <div className="hk-status-notes hk-status-notes--readonly">
         {filled.map((field) => (
           <article key={field.key} className="hk-status-notes__item">
-            <h4>{field.label}</h4>
+            <div className="hk-status-notes__item-head">
+              <h4>{field.label}</h4>
+              {onCreateHandover && canCreateHandoverFromStatusNote(field.key) ? (
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--xs hk-status-notes__handover"
+                  onClick={() => onCreateHandover(field.key)}
+                >
+                  인수인계
+                </button>
+              ) : null}
+            </div>
             <p>{value[field.key]}</p>
           </article>
         ))}
@@ -36,18 +54,29 @@ export function HkStatusNotesFields({ value, onChange, readOnly = false }: HkSta
   return (
     <div className="hk-status-notes">
       {HK_STATUS_NOTE_FIELDS.map((field) => (
-        <label
+        <div
           key={field.key}
-          className={`field hk-status-notes__field${'fullWidth' in field && field.fullWidth ? ' field--full' : ''}`}
+          className={`hk-status-notes__row${'fullWidth' in field && field.fullWidth ? ' hk-status-notes__row--full' : ''}`}
         >
-          <span>{field.label}</span>
-          <textarea
-            rows={'fullWidth' in field && field.fullWidth ? 3 : 2}
-            value={value[field.key]}
-            onChange={(e) => updateField(field.key, e.target.value)}
-            placeholder={field.hint}
-          />
-        </label>
+          <label className="field hk-status-notes__field">
+            <span>{field.label}</span>
+            <textarea
+              rows={'fullWidth' in field && field.fullWidth ? 3 : 2}
+              value={value[field.key]}
+              onChange={(e) => updateField(field.key, e.target.value)}
+              placeholder={field.hint}
+            />
+          </label>
+          {onCreateHandover && canCreateHandoverFromStatusNote(field.key) && value[field.key].trim() ? (
+            <button
+              type="button"
+              className="btn btn--ghost btn--small hk-status-notes__handover"
+              onClick={() => onCreateHandover(field.key)}
+            >
+              인수인계
+            </button>
+          ) : null}
+        </div>
       ))}
     </div>
   );

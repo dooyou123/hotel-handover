@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CARD_COLUMN_OPTIONS,
   CATEGORY_OPTIONS,
@@ -18,7 +18,7 @@ import {
   saveCardCreateDraft,
   type CardFormSnapshot,
 } from '@/lib/handover/card-draft';
-import { parseDueAt, toDateInputValue, toTimeInputValue, canDeleteCard } from '@/lib/handover/card-utils';
+import { parseDueAt, toDateInputValue, toTimeInputValue, canDeleteCard, findDuplicateCards } from '@/lib/handover/card-utils';
 import { WORK_GROUPS, formatWorkGroupLabel } from '@/lib/constants';
 import type { Card, CardAttachment, CardInput, ColumnId, Priority } from '@/lib/handover/types';
 import type { Todo } from '@/lib/todos/types';
@@ -27,6 +27,7 @@ import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { CardCommentComposer } from './card-comment-composer';
 import { CardCommentItem } from './card-comment-item';
 import type { SimilarHistoryHit } from '@/lib/handover/similar-history';
+import { CardDuplicateWarning } from './card-duplicate-warning';
 import { CardSimilarHistory } from './card-similar-history';
 import { CardActivityTimeline } from './card-activity-timeline';
 import { RoutineTemplateBar } from './routine-template-bar';
@@ -46,6 +47,7 @@ type CardModalProps = {
   staffNames: string[];
   isManager: boolean;
   currentUserId?: string | null;
+  activeCards?: Card[];
   onClose: () => void;
   onSave: (input: CardInput, id?: string, options?: { pendingFiles?: File[] }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
@@ -55,6 +57,7 @@ type CardModalProps = {
   onUploadAttachment?: (cardId: string, file: File) => Promise<void>;
   onDeleteAttachment?: (attachment: CardAttachment) => Promise<void>;
   onCreateTodo?: () => void | Promise<void>;
+  onRecordFirstResponse?: () => void | Promise<void>;
   onSwitchToFull?: () => void;
   requireSession?: (action: string) => boolean;
 };
@@ -86,6 +89,7 @@ export function CardModal({
   staffNames,
   isManager,
   currentUserId = null,
+  activeCards = [],
   onClose,
   onSave,
   onDelete,
@@ -95,6 +99,7 @@ export function CardModal({
   onUploadAttachment,
   onDeleteAttachment,
   onCreateTodo,
+  onRecordFirstResponse,
   onSwitchToFull,
   requireSession,
 }: CardModalProps) {
@@ -265,6 +270,16 @@ export function CardModal({
     return () => window.clearTimeout(timer);
   }, [open, card, form, dueDate, dueTime]);
 
+  const duplicateCards = useMemo(
+    () =>
+      findDuplicateCards(activeCards, {
+        room: form.room,
+        title: form.title,
+        excludeCardId: card?.id,
+      }),
+    [activeCards, form.room, form.title, card?.id],
+  );
+
   if (!open) return null;
 
   async function handleSubmit(event: React.FormEvent) {
@@ -282,6 +297,20 @@ export function CardModal({
     if ((dueDate.trim() || dueTime.trim()) && !dueAt) {
       setError('마감 날짜·시간 형식이 올바르지 않습니다.');
       return;
+    }
+
+    if (duplicateCards.length) {
+      const ok = await confirm({
+        title: '유사한 카드가 있습니다',
+        message: `같은 객실·비슷한 제목의 진행 중 카드 ${duplicateCards.length}건이 있습니다.`,
+        detail: duplicateCards
+          .slice(0, 2)
+          .map((item) => `${item.room ? `${item.room} · ` : ''}${item.title}`)
+          .join('\n'),
+        confirmLabel: '그래도 등록',
+        tone: 'warning',
+      });
+      if (!ok) return;
     }
 
     setSaving(true);
@@ -461,6 +490,7 @@ export function CardModal({
           onChange={(event) => setForm({ ...form, title: event.target.value })}
         />
       </label>
+      <CardDuplicateWarning duplicates={duplicateCards} />
       <label className="field">
         <span>상세</span>
         <textarea
@@ -716,6 +746,11 @@ export function CardModal({
   const formFooter = (
     <div className="modal__footer">
       <div className="modal__footer-left">
+        {card && onRecordFirstResponse ? (
+          <button type="button" onClick={() => void onRecordFirstResponse()} className="btn btn--ghost">
+            첫 응대 완료
+          </button>
+        ) : null}
         {card && canDelete ? (
           <button type="button" onClick={handleDelete} disabled={saving} className="btn btn--danger">
             삭제

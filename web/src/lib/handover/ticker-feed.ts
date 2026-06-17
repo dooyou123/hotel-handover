@@ -1,5 +1,16 @@
-import { isCardDueSoon, isCardOverdue, isUnackedUrgentCard } from '@/lib/handover/card-utils';
-import { noticeTypeShort } from '@/lib/handover/notice-utils';
+import {
+  isCardDueSoon,
+  isCardOverdue,
+  isLongHoldCard,
+  isStaleCard,
+  isUnackedUrgentCard,
+} from '@/lib/handover/card-utils';
+import { noticeListTitle, noticeTypeShort } from '@/lib/handover/notice-utils';
+import {
+  filterNoticesExpiringSoon,
+  formatNoticeExpiryAlertDetail,
+  getNoticeExpiryUrgency,
+} from '@/lib/notices/expiry';
 import type { Card, Notice } from '@/lib/handover/types';
 
 export type TickerItem = {
@@ -40,6 +51,34 @@ export function buildTickerItems(notices: Notice[], cards: Card[]): TickerItem[]
       label: '곧 마감',
       body: cardBody(card),
       tone: 'warn',
+    });
+  }
+
+  for (const card of cards.filter(isStaleCard)) {
+    items.push({
+      id: `stale-${card.id}`,
+      label: '오래 방치',
+      body: cardBody(card),
+      tone: 'warn',
+    });
+  }
+
+  for (const card of cards.filter(isLongHoldCard)) {
+    items.push({
+      id: `hold-long-${card.id}`,
+      label: '보류 오래됨',
+      body: cardBody(card),
+      tone: 'warn',
+    });
+  }
+
+  for (const notice of filterNoticesExpiringSoon(notices, 7)) {
+    const urgency = getNoticeExpiryUrgency(notice);
+    items.push({
+      id: `notice-expiry-${notice.id}`,
+      label: urgency === 'today' ? '공지 오늘 만료' : '공지 만료 임박',
+      body: `${noticeListTitle(notice.content)} · ${formatNoticeExpiryAlertDetail(notice)}`,
+      tone: urgency === 'today' ? 'urgent' : 'warn',
     });
   }
 

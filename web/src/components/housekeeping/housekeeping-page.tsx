@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import {
@@ -42,6 +43,12 @@ import {
 } from '@/lib/housekeeping/types';
 import { todayDateString } from '@/lib/handover/shift-summary';
 import { readWorkSession, useWorkSession } from '@/lib/handover/use-work-session';
+import {
+  cardInputFromHkSpecialRoom,
+  cardInputFromHkStatusNote,
+  stashHkHandoverDraft,
+} from '@/lib/housekeeping/handover-draft';
+import type { HkStatusNoteKey } from '@/lib/housekeeping/types';
 import { HkBedTypeBadge } from '@/components/housekeeping/hk-bed-type-badge';
 import { HkChangedRoomCard } from '@/components/housekeeping/hk-changed-room-card';
 import { HkInHousePanel } from '@/components/housekeeping/hk-in-house-panel';
@@ -123,6 +130,7 @@ function sortBedRoomsByNumber(a: HousekeepingBedDraft, b: HousekeepingBedDraft):
 }
 
 export function HousekeepingPageClient() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { authorLabel, requireSession } = useWorkSession();
   const { confirm } = useConfirmDialog();
@@ -239,6 +247,27 @@ export function HousekeepingPageClient() {
   function showToast(msg: string) {
     setToast(msg);
     window.setTimeout(() => setToast(null), 2500);
+  }
+
+  function openHandoverDraft(input: ReturnType<typeof cardInputFromHkStatusNote>) {
+    if (!requireSession('인수인계 등록')) return;
+    stashHkHandoverDraft(input);
+    router.push('/handover?newFromHk=1');
+  }
+
+  function handleCreateHandoverFromStatusNote(key: HkStatusNoteKey) {
+    const text = form.statusNotes[key];
+    if (!text.trim()) return;
+    openHandoverDraft(cardInputFromHkStatusNote(key, text, authorLabel));
+  }
+
+  function handleCreateHandoverFromSpecialRoom(index: number) {
+    const room = form.specialRooms[index];
+    if (!room?.room_number.trim()) {
+      showToast('객실 번호를 입력해 주세요.');
+      return;
+    }
+    openHandoverDraft(cardInputFromHkSpecialRoom(room, authorLabel));
   }
 
   function updateForm(patch: Partial<FormState>) {
@@ -505,6 +534,7 @@ export function HousekeepingPageClient() {
               previousDayNotes={form.previous_day_notes}
               nextDayNotes={form.next_day_notes}
               statusNotes={form.statusNotes}
+              onCreateHandoverFromStatusNote={handleCreateHandoverFromStatusNote}
               summary={bedChangeSummary}
               findBedRoomIndex={findBedRoomIndexForFloor}
             />
@@ -579,7 +609,11 @@ export function HousekeepingPageClient() {
               <p>H/U · Comp · VIP/선정비 · O.O · 장기 숙박 · 정비 유의 · 퇴근 후 DELIVERY · 기타</p>
             </div>
           </div>
-          <HkStatusNotesFields value={form.statusNotes} onChange={updateStatusNotes} />
+          <HkStatusNotesFields
+            value={form.statusNotes}
+            onChange={updateStatusNotes}
+            onCreateHandover={handleCreateHandoverFromStatusNote}
+          />
         </article>
 
         <article className="schedule-panel housekeeping-panel">
@@ -814,6 +848,7 @@ export function HousekeepingPageClient() {
                   <th>VIP</th>
                   <th>장박</th>
                   <th>비고</th>
+                  <th aria-label="인수인계" />
                   <th aria-label="삭제" />
                 </tr>
               </thead>
@@ -865,6 +900,14 @@ export function HousekeepingPageClient() {
                       />
                     </td>
                     <td className="housekeeping-table__actions">
+                      <button
+                        type="button"
+                        className="btn btn--ghost btn--small"
+                        onClick={() => handleCreateHandoverFromSpecialRoom(index)}
+                        disabled={!room.room_number.trim()}
+                      >
+                        인수인계
+                      </button>
                       <button
                         type="button"
                         className="btn btn--ghost btn--small btn--danger"

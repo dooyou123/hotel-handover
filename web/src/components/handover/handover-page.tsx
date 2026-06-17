@@ -6,7 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { cardSummaryLabel, logActivity } from '@/lib/handover/activity';
-import { filterCards, isArchivedCard } from '@/lib/handover/card-utils';
+import { filterCards, isArchivedCard, CARD_SNOOZE_MS, isCardDueActive, needsComplaintFirstResponse } from '@/lib/handover/card-utils';
 import { cardInputFromNotice } from '@/lib/handover/notice-to-card';
 import { buildShiftSummaryData, todayDateString } from '@/lib/handover/shift-summary';
 import { useNotices } from '@/lib/handover/use-notices';
@@ -25,6 +25,8 @@ import type { HotelEvent, HotelEventInput } from '@/lib/events/types';
 import { awardStaffXp } from '@/lib/staff/award-xp';
 import type { XpRewardKey } from '@/lib/staff/xp';
 import { buildTodayAlerts, filterTodayEvents, filterTodayTodos } from '@/lib/today/alerts';
+import { consumeHkHandoverDraft } from '@/lib/housekeeping/handover-draft';
+import { useTodayTaxiBookings } from '@/lib/transport/use-transport';
 import type { Todo, TodoInput, TodoPriority } from '@/lib/todos/types';
 import { useTodos } from '@/lib/todos/use-todos';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -67,6 +69,7 @@ export function HandoverPage() {
     uploadAttachment,
     deleteAttachment,
     archiveDone,
+    archiveCardsByIds,
     restoreFromArchive,
   } = useCards();
   const {
@@ -84,6 +87,7 @@ export function HandoverPage() {
   const { confirm } = useConfirmDialog();
   const { todos, createTodo: createTodoMutation, updateTodo: updateTodoMutation, toggleTodo: toggleTodoMutation } =
     useTodos();
+  const { data: todayTaxi = [] } = useTodayTaxiBookings();
   const currentMonth = todayDateString().slice(0, 7);
   const {
     events,
@@ -142,6 +146,17 @@ export function HandoverPage() {
     router.replace('/handover', { scroll: false });
   }, [searchParams, notices, isLoading, authorLabel, router]);
 
+  useEffect(() => {
+    if (searchParams.get('newFromHk') !== '1') return;
+    const draft = consumeHkHandoverDraft();
+    if (draft) {
+      setEditingCard(null);
+      setCreateDraft(draft);
+      setModalOpen(true);
+    }
+    router.replace('/handover', { scroll: false });
+  }, [searchParams, router]);
+
   const boardCards = useMemo(
     () =>
       filterCards(cards, {
@@ -182,8 +197,10 @@ export function HandoverPage() {
         cards,
         todos,
         events,
+        notices,
+        transportBookings: todayTaxi,
       }),
-    [summaryData.unackedUrgent, cards, todos, events],
+    [summaryData.unackedUrgent, cards, todos, events, notices, todayTaxi],
   );
 
   const activeCard = editingCard
@@ -472,6 +489,112 @@ export function HandoverPage() {
     }
   }
 
+  async function handleSnoozeCard(cardId: string) {
+    const until = new Date(Date.now() + CARD_SNOOZE_MS).toISOString();
+    try {
+      await updateCard.mutateAsync({ id: cardId, input: { snoozed_until: until } });
+      showToast('2시간 동안 마감 알림을 끕니다.');
+    } catch {
+      showToast('알림 스누즈에 실패했습니다.');
+    }
+  }
+
+  async function handleUnsnoozeCard(cardId: string) {
+    try {
+      await updateCard.mutateAsync({ id: cardId, input: { snoozed_until: null } });
+      showToast('마감 알림을 다시 켰습니다.');
+    } catch {
+      showToast('알림 설정에 실패했습니다.');
+    }
+  }
+
+  async function handleBulkMarkDone(cardIds: string[]) {
+    for (const cardId of cardIds) {
+      await handleMarkDone(cardId);
+    }
+  }
+
+  async function handleBulkHold(cardIds: string[]) {
+    if (!requireSession('보류')) return;
+    for (const cardId of cardIds) {
+      await handleMoveToHold(cardId);
+    }
+  }
+
+  async function handleBulkAssign(cardIds: string[], assigneeName: string) {
+    if (!requireSession('담당 변경')) return;
+    for (const cardId of cardIds) {
+      await handleQuickAssign(cardId, assigneeName);
+    }
+  }
+
+  async function handleBulkSnooze(cardIds: string[]) {
+    for (const cardId of cardIds) {
+      const card = cards.find((item) => item.id === cardId);
+      if (card && isCardDueActive(card)) {
+        await handleSnoozeCard(cardId);
+      }
+    }
+  }
+
+  async function handleBulkUnassign(cardIds: string[]) {
+    if (!requireSession('담당 변경')) return;
+    for (const cardId of cardIds) {
+      await handleQuickAssign(cardId, '');
+    }
+  }
+
+  async function handleBulkResume(cardIds: string[]) {
+    if (!requireSession('재개')) return;
+    for (const cardId of cardIds) {
+      const card = cards.find((item) => item.id === cardId);
+      if (card?.column_id === 'hold') {
+        await handleResumeFromHold(cardId);
+      }
+    }
+  }
+
+  async function handleBulkArchive(cardIds: string[]) {
+    if (!isManager || !cardIds.length) return;
+    try {
+      await archiveCardsByIds.mutateAsync(cardIds);
+      await logActivity({
+        entityType: 'card',
+        action: 'archive_done',
+        audit: audit(),
+        summary: `선택 완료 보관 (${cardIds.length}건)`,
+      });
+      showToast(`${cardIds.length}건을 보관함으로 옮겼습니다.`);
+      refreshActivityLogs();
+      refetchArchived();
+    } catch {
+      showToast('보관에 실패했습니다.');
+    }
+  }
+
+  async function handleRecordFirstResponse(cardId: string) {
+    if (!requireSession('첫 응대')) return;
+    const card = cards.find((item) => item.id === cardId);
+    if (!card || !needsComplaintFirstResponse(card)) return;
+    try {
+      await updateCard.mutateAsync({
+        id: cardId,
+        input: { first_response_at: new Date().toISOString() },
+      });
+      await logActivity({
+        entityType: 'card',
+        entityId: cardId,
+        action: 'update',
+        audit: audit(),
+        summary: `첫 응대: ${cardSummaryLabel(card.room, card.title)}`,
+      });
+      showToast('첫 응대가 기록되었습니다.');
+      refreshActivityLogs();
+    } catch {
+      showToast('첫 응대 기록에 실패했습니다.');
+    }
+  }
+
   async function handleCreateTodoFromCard(card: Card) {
     if (!requireSession('할일 등록')) return;
     if (card.linked_todo_id) {
@@ -730,6 +853,24 @@ export function HandoverPage() {
       setViewMode('board');
       return;
     }
+    if (id === 'stale-cards') {
+      setQuickFilter('stale');
+      setViewMode('board');
+      return;
+    }
+    if (id === 'hold-long-cards') {
+      setQuickFilter('hold-long');
+      setViewMode('board');
+      return;
+    }
+    if (id === 'notice-expiry') {
+      router.push('/notices?renewal=1');
+      return;
+    }
+    if (id === 'taxi-needs-input') {
+      router.push('/transport?filter=needs_input');
+      return;
+    }
     setViewMode('board');
   };
 
@@ -782,6 +923,16 @@ export function HandoverPage() {
           onHold={handleMoveToHold}
           onResume={handleResumeFromHold}
           onAssignChange={handleQuickAssign}
+          onSnooze={handleSnoozeCard}
+          onUnsnooze={handleUnsnoozeCard}
+          onRecordFirstResponse={handleRecordFirstResponse}
+          onBulkMarkDone={handleBulkMarkDone}
+          onBulkHold={handleBulkHold}
+          onBulkAssign={handleBulkAssign}
+          onBulkSnooze={handleBulkSnooze}
+          onBulkUnassign={handleBulkUnassign}
+          onBulkResume={handleBulkResume}
+          onBulkArchive={handleBulkArchive}
           onShowUnacked={showUnacked}
           onAlertClick={handleAlertClick}
           onOpenTodo={(todo) => {
@@ -808,6 +959,7 @@ export function HandoverPage() {
         staffNames={staffNames}
         isManager={isManager}
         currentUserId={currentUserId}
+        activeCards={cards}
         onClose={closeCardModal}
         onSwitchToFull={() => setCardModalView('full')}
         onSave={handleSave}
@@ -818,6 +970,11 @@ export function HandoverPage() {
         onUploadAttachment={handleUploadAttachment}
         onDeleteAttachment={handleDeleteAttachment}
         onCreateTodo={activeCard ? () => handleCreateTodoFromCard(activeCard) : undefined}
+        onRecordFirstResponse={
+          activeCard && needsComplaintFirstResponse(activeCard)
+            ? () => handleRecordFirstResponse(activeCard.id)
+            : undefined
+        }
         requireSession={requireSession}
       />
 

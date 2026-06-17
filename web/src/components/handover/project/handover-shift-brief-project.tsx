@@ -7,6 +7,7 @@ import { cardSummaryLabel } from '@/lib/handover/activity';
 import { fetchAmenityInventoryData } from '@/lib/amenity/api';
 import { getStockStatus } from '@/lib/amenity/ui';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
+import { fetchHousekeepingReport } from '@/lib/housekeeping/api';
 import {
   buildPrintDocumentHtml,
   buildSummaryText,
@@ -28,6 +29,7 @@ import type { Card, WorkSession } from '@/lib/handover/types';
 import type { GuestReview } from '@/lib/reviews/types';
 import type { HotelEvent } from '@/lib/events/types';
 import { filterPendingTodayTaxi, filterTodayEvents, filterTodayTodos } from '@/lib/today/alerts';
+import { todayDateString } from '@/lib/handover/shift-summary';
 import type { Todo } from '@/lib/todos/types';
 import { useTodayTaxiBookings } from '@/lib/transport/use-transport';
 
@@ -74,6 +76,20 @@ export function HandoverShiftBriefProject({
     queryKey: ['amenity', DEFAULT_HOTEL_ID],
     queryFn: () => fetchAmenityInventoryData(DEFAULT_HOTEL_ID),
   });
+
+  const { data: hkBundle } = useQuery({
+    queryKey: ['housekeeping-report', DEFAULT_HOTEL_ID, todayDateString()],
+    queryFn: () => fetchHousekeepingReport(todayDateString()),
+  });
+
+  const hkDayNotes = useMemo(() => {
+    const report = hkBundle?.report;
+    if (!report) return null;
+    const previous = report.previous_day_notes?.trim() ?? '';
+    const next = report.next_day_notes?.trim() ?? '';
+    if (!previous && !next) return null;
+    return { previous, next };
+  }, [hkBundle]);
 
   const [checklist, setChecklist] = useState({ total: 0, incomplete: 0 });
   const [ackBusyId, setAckBusyId] = useState<string | null>(null);
@@ -271,6 +287,7 @@ export function HandoverShiftBriefProject({
       taxiLoading={taxiLoading}
       onOpenTodo={onOpenTodo}
       onOpenEvent={onOpenEvent}
+      hkDayNotes={hkDayNotes}
       todayShiftLogs={todayShiftLogs}
       shiftLogsLoading={logsLoading}
       onOpenShiftHistory={onShiftHistory}

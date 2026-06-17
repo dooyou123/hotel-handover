@@ -12,6 +12,11 @@ import {
 import { buildWhatsAppMessage, openWhatsApp } from '@/lib/taxi/whatsapp';
 import type { SlipLanguage } from '@/lib/taxi/slip';
 import { printReservationSlip } from '@/lib/taxi/slip';
+import {
+  isTransportNeedsInputImminent,
+  transportNeedsInput,
+  transportNeedsInputMissingLabels,
+} from '@/lib/transport/alerts';
 import { transportStatusLabel, type TransportBooking, type TransportStatus } from '@/lib/transport/types';
 
 type TaxiReservationCardProps = {
@@ -57,6 +62,9 @@ export function TaxiReservationCard({
   const isJumbo = booking.vehicle_type === '점보';
   const isToday = isPickupToday(booking);
   const isCancelled = booking.status === 'cancelled';
+  const needsInput = transportNeedsInput(booking);
+  const needsInputImminent = isTransportNeedsInputImminent(booking);
+  const missingLabels = transportNeedsInputMissingLabels(booking);
 
   function startInline(field: 'vehicle_number' | 'memo') {
     if (isCancelled) return;
@@ -89,7 +97,7 @@ export function TaxiReservationCard({
     <article
       className={`taxi-card ${cardStatusClass(booking.status, booking)}${
         isJumbo ? ' taxi-card--jumbo' : ' taxi-card--regular'
-      }`}
+      }${needsInputImminent ? ' taxi-card--needs-input' : ''}`}
     >
       <div
         className={`taxi-card__banner${
@@ -99,6 +107,9 @@ export function TaxiReservationCard({
         <div className="taxi-card__banner-meta">
           <span className="taxi-card__visual-type">{isJumbo ? '점보' : '일반'}</span>
           {countdown ? <span className="taxi-card__countdown">{countdown}</span> : null}
+          {needsInputImminent ? (
+            <span className="taxi-card__needs-input-badge">입력 필요</span>
+          ) : null}
           <span className={`taxi-card__status-pill taxi-card__status-pill--${booking.status}`}>
             {transportStatusLabel(booking.status)}
           </span>
@@ -120,6 +131,14 @@ export function TaxiReservationCard({
 
         {isPickupOverdue(booking) ? (
           <p className="taxi-card__warning">픽업 시간이 지났습니다</p>
+        ) : null}
+
+        {needsInput && !isCancelled ? (
+          <p className={`taxi-card__warning${needsInputImminent ? ' taxi-card__warning--urgent' : ''}`}>
+            {needsInputImminent
+              ? `30분 이내 픽업 — ${missingLabels.join('·')} 미입력`
+              : `필수 정보 누락: ${missingLabels.join('·')}`}
+          </p>
         ) : null}
 
         <div className="taxi-card__chips">

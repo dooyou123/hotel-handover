@@ -12,9 +12,11 @@ import type { InventoryItem } from '@/lib/amenity/types';
 type AmenityOrderSheetProps = {
   items: InventoryItem[];
   onToast?: (message: string) => void;
+  onCreateTodo?: () => void;
+  createTodoBusy?: boolean;
 };
 
-export function AmenityOrderSheet({ items, onToast }: AmenityOrderSheetProps) {
+export function AmenityOrderSheet({ items, onToast, onCreateTodo, createTodoBusy = false }: AmenityOrderSheetProps) {
   const lines = useMemo(() => buildAmenityOrderLines(items), [items]);
   const [open, setOpen] = useState(false);
 
@@ -45,6 +47,14 @@ export function AmenityOrderSheet({ items, onToast }: AmenityOrderSheetProps) {
           </button>
           <button type="button" className="btn btn--ghost btn--small" onClick={() => void handleCopy()} disabled={!lines.length}>
             복사
+          </button>
+          <button
+            type="button"
+            className="btn btn--ghost btn--small"
+            onClick={() => onCreateTodo?.()}
+            disabled={!lines.length || createTodoBusy}
+          >
+            {createTodoBusy ? '등록 중…' : '할일로 등록'}
           </button>
           <button
             type="button"

@@ -45,7 +45,7 @@ export function getComplaintSla(card: Card, now = new Date()): ComplaintSlaInfo 
     const met = elapsed <= target;
     return {
       status: met ? 'met' : 'breach',
-      label: met ? `해결 ${formatDuration(elapsed)}` : `해결 SLA 초과`,
+      label: met ? `${formatDuration(elapsed)} 내 해결` : '해결 목표 시간 초과',
       phase: 'done',
       elapsedMinutes: elapsed,
       targetMinutes: target,
@@ -62,8 +62,8 @@ export function getComplaintSla(card: Card, now = new Date()): ComplaintSlaInfo 
       status,
       label:
         status === 'breach'
-          ? `1차응답 SLA 초과 (${elapsed}분)`
-          : `1차응답 ${target - elapsed}분 남음`,
+          ? `첫 응대 지연 · ${elapsed}분 경과`
+          : `첫 응대 ${target - elapsed}분 남음`,
       phase: 'response',
       elapsedMinutes: elapsed,
       targetMinutes: target,
@@ -79,8 +79,8 @@ export function getComplaintSla(card: Card, now = new Date()): ComplaintSlaInfo 
     status,
     label:
       status === 'breach'
-        ? `해결 SLA 초과 (${formatDuration(elapsed)})`
-        : `해결 목표 ${COMPLAINT_SLA_RESOLUTION_HOURS}h · 경과 ${formatDuration(elapsed)}`,
+        ? `해결 목표 초과 · 경과 ${formatDuration(elapsed)}`
+        : `해결 목표 24시간 · 경과 ${formatDuration(elapsed)}`,
     phase: 'resolution',
     elapsedMinutes: elapsed,
     targetMinutes: target,

@@ -6,7 +6,7 @@ import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
 import type { GuestReview, GuestReviewInput } from '@/lib/reviews/types';
 
-async function fetchReviews(): Promise<GuestReview[]> {
+export async function fetchReviews(): Promise<GuestReview[]> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from('guest_reviews')
