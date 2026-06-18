@@ -52,7 +52,6 @@ export const COLUMN_LABELS: Record<ColumnId, string> = {
 export const CATEGORY_OPTIONS = [
   '시설',
   '체크인/아웃',
-  '룸이슈',
   '결제',
   '컴플레인',
   '유실물',
@@ -62,17 +61,10 @@ export const CATEGORY_OPTIONS = [
 
 export const QUICK_FILTERS = [
   { id: 'all', label: '전체' },
-  { id: 'unacked', label: '미확인 긴급' },
-  { id: 'due-overdue', label: '마감 지남' },
   { id: 'due-soon', label: '1시간 내 마감' },
-  { id: 'stale', label: '오래됨' },
   { id: 'hold-long', label: '보류 오래됨' },
   { id: 'mine', label: '내 담당' },
-  { id: 'roomclean', label: '룸클린' },
-  { id: '시설', label: '시설' },
-  { id: '결제', label: '결제' },
   { id: '컴플레인', label: '컴플레인' },
-  { id: '룸이슈', label: '룸이슈' },
 ] as const;
 
 export const HIGHLIGHT_KEYWORDS = ['119', '112', '경찰', '환불', '응급', '미수금', '소음', '컴플레인', '시설'];

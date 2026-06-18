@@ -7,6 +7,7 @@ import {
   printAmenityOrderSheet,
   type AmenityOrderLine,
 } from '@/lib/amenity/order-sheet';
+import { AMENITY_ORDER_SHEET_HINT } from '@/lib/amenity/copy';
 import type { InventoryItem } from '@/lib/amenity/types';
 
 type AmenityOrderSheetProps = {
@@ -37,7 +38,7 @@ export function AmenityOrderSheet({ items, onToast, onCreateTodo, createTodoBusy
           <h3>발주서</h3>
           <p>
             {lines.length
-              ? `권장 발주 ${lines.length}품목 · 최근 30일 출고 기준`
+              ? `권장 발주 ${lines.length}품목 · ${AMENITY_ORDER_SHEET_HINT}`
               : '현재 발주 권장 품목이 없습니다.'}
           </p>
         </div>

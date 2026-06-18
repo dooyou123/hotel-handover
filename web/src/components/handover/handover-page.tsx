@@ -6,7 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { cardSummaryLabel, logActivity } from '@/lib/handover/activity';
-import { filterCards, isArchivedCard, CARD_SNOOZE_MS, isCardDueActive, needsComplaintFirstResponse } from '@/lib/handover/card-utils';
+import { filterCards, isArchivedCard, CARD_SNOOZE_MS, isCardDueActive, needsComplaintFirstResponse, buildDuplicateCardInput } from '@/lib/handover/card-utils';
 import { cardInputFromNotice } from '@/lib/handover/notice-to-card';
 import { buildShiftSummaryData, todayDateString } from '@/lib/handover/shift-summary';
 import { useNotices } from '@/lib/handover/use-notices';
@@ -30,8 +30,8 @@ import { useTodos } from '@/lib/todos/use-todos';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { EventModal } from '@/components/schedule/event-modal';
 import { TodoModal } from '@/components/todos/todo-modal';
-import { ActivityLogModal } from './activity-log-modal';
-import { ShiftHandoverLogModal } from './shift-handover-log-modal';
+import { HandoverRecordsModal } from './handover-records-modal';
+import type { HandoverRecordsTab } from '@/lib/handover/records';
 import { CardModal } from './card-modal';
 import { ShiftHandoverModal } from './shift-handover-modal';
 import { ShiftStartConfirmModal } from './shift-start-confirm-modal';
@@ -107,8 +107,8 @@ export function HandoverPage() {
   const [editingEvent, setEditingEvent] = useState<HotelEvent | null>(null);
   const [shiftStartConfirmOpen, setShiftStartConfirmOpen] = useState(false);
   const [shiftEndModalOpen, setShiftEndModalOpen] = useState(false);
-  const [activityModalOpen, setActivityModalOpen] = useState(false);
-  const [shiftHistoryModalOpen, setShiftHistoryModalOpen] = useState(false);
+  const [recordsModalOpen, setRecordsModalOpen] = useState(false);
+  const [recordsModalTab, setRecordsModalTab] = useState<HandoverRecordsTab>('shift');
   const [staffNames, setStaffNames] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -219,6 +219,53 @@ export function HandoverPage() {
     setToast(message);
     window.setTimeout(() => setToast(null), 2500);
   }
+
+  const openRecords = useCallback((tab: HandoverRecordsTab = 'shift') => {
+    setRecordsModalTab(tab);
+    setRecordsModalOpen(true);
+  }, []);
+
+  const openCardById = useCallback(
+    (cardId: string) => {
+      const card =
+        cards.find((item) => item.id === cardId) ?? archivedCards.find((item) => item.id === cardId);
+      if (!card) {
+        showToast('카드를 찾을 수 없습니다.');
+        return;
+      }
+
+      const inActiveBoard = cards.some((item) => item.id === cardId);
+      setViewMode('board');
+
+      function flashCardElement() {
+        const el = document.getElementById(`handover-card-${cardId}`);
+        if (!el) return false;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('is-flash-highlight');
+        window.setTimeout(() => el.classList.remove('is-flash-highlight'), 2200);
+        return true;
+      }
+
+      if (inActiveBoard) {
+        setQuickFilter('all');
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (flashCardElement()) return;
+            setSearchQuery('');
+            setSearchDateFrom('');
+            setSearchDateTo('');
+            requestAnimationFrame(() => {
+              if (!flashCardElement()) showToast('목록에서 카드를 찾을 수 없습니다.');
+            });
+          });
+        });
+        return;
+      }
+
+      openEditModal(card);
+    },
+    [cards, archivedCards],
+  );
 
   function openCreateModal() {
     if (!requireSession('인수인계 추가')) return;
@@ -363,6 +410,34 @@ export function HandoverPage() {
     }
     showToast('삭제되었습니다.');
     refreshActivityLogs();
+  }
+
+  async function handleDuplicateCard(source: Card) {
+    if (!requireSession('카드 복제')) return;
+    const input = buildDuplicateCardInput(
+      source,
+      authorLabel,
+      session.group || session.shift,
+      session.name,
+    );
+    const created = await createCard.mutateAsync({
+      ...input,
+      assignee_shift: input.assignee_shift || session.group || session.shift,
+      assignee_name: input.assignee_name || session.name,
+    });
+    await logActivity({
+      entityType: 'card',
+      entityId: created.id,
+      action: 'create',
+      audit: audit(),
+      summary: `복제: ${cardSummaryLabel(created.room, created.title)}`,
+      details: { sourceId: source.id },
+    });
+    refreshActivityLogs();
+    setEditingCard(created);
+    setCardModalView('full');
+    setModalOpen(true);
+    showToast('카드를 복제했습니다.');
   }
 
   async function handleAcknowledge(cardId: string) {
@@ -756,7 +831,14 @@ export function HandoverPage() {
   async function handleUpdateComment(cardId: string, commentId: string, content: string) {
     if (!requireSession('댓글 수정')) return;
     const card = cards.find((item) => item.id === cardId);
-    await updateComment.mutateAsync({ commentId, cardId, content });
+    const target = card?.card_comments.find((comment) => comment.id === commentId);
+    await updateComment.mutateAsync({
+      commentId,
+      cardId,
+      content,
+      editorShift: session.shift,
+      editorName: session.name,
+    });
     if (card) {
       await logActivity({
         entityType: 'card',
@@ -764,7 +846,10 @@ export function HandoverPage() {
         action: 'update',
         audit: audit(),
         summary: `댓글 수정: ${cardSummaryLabel(card.room, card.title)}`,
-        details: { changes: [content] },
+        details: {
+          changes: [content],
+          original_author: target ? `${target.shift} · ${target.staff_name}` : undefined,
+        },
       });
       refreshActivityLogs();
     }
@@ -773,7 +858,13 @@ export function HandoverPage() {
   async function handleDeleteComment(cardId: string, commentId: string) {
     if (!requireSession('댓글 삭제')) return;
     const card = cards.find((item) => item.id === cardId);
-    await deleteComment.mutateAsync({ commentId, cardId });
+    const target = card?.card_comments.find((comment) => comment.id === commentId);
+    await deleteComment.mutateAsync({
+      commentId,
+      cardId,
+      deleterShift: session.shift,
+      deleterName: session.name,
+    });
     if (card) {
       await logActivity({
         entityType: 'card',
@@ -781,6 +872,10 @@ export function HandoverPage() {
         action: 'update',
         audit: audit(),
         summary: `댓글 삭제: ${cardSummaryLabel(card.room, card.title)}`,
+        details: {
+          original_author: target ? `${target.shift} · ${target.staff_name}` : undefined,
+          deleted_preview: target?.content?.slice(0, 120),
+        },
       });
       refreshActivityLogs();
     }
@@ -858,6 +953,10 @@ export function HandoverPage() {
       router.push('/transport?filter=needs_input');
       return;
     }
+    if (id === 'taxi-imminent') {
+      router.push('/transport');
+      return;
+    }
     setViewMode('board');
   };
 
@@ -891,8 +990,8 @@ export function HandoverPage() {
           onAdd={openCreateModal}
           onArchiveDone={handleArchiveDone}
           onRestoreFromArchive={handleRestoreFromArchive}
-          onActivity={() => setActivityModalOpen(true)}
-          onShiftHistory={() => setShiftHistoryModalOpen(true)}
+          onOpenRecords={openRecords}
+          onOpenCardById={openCardById}
           onOpenShiftBrief={handleOpenShiftBrief}
           authorLabel={authorLabel}
           requireSession={requireSession}
@@ -951,6 +1050,7 @@ export function HandoverPage() {
         onSwitchToFull={() => setCardModalView('full')}
         onSave={handleSave}
         onDelete={handleDelete}
+        onDuplicate={handleDuplicateCard}
         onAddComment={handleAddComment}
         onUpdateComment={handleUpdateComment}
         onDeleteComment={handleDeleteComment}
@@ -1006,8 +1106,11 @@ export function HandoverPage() {
         onComplete={showToast}
       />
 
-      <ActivityLogModal open={activityModalOpen} onClose={() => setActivityModalOpen(false)} />
-      <ShiftHandoverLogModal open={shiftHistoryModalOpen} onClose={() => setShiftHistoryModalOpen(false)} />
+      <HandoverRecordsModal
+        open={recordsModalOpen}
+        initialTab={recordsModalTab}
+        onClose={() => setRecordsModalOpen(false)}
+      />
 
       {toast ? <div className="toast toast--project">{toast}</div> : null}
     </>

@@ -1,6 +1,7 @@
 'use client';
 
 import { QUICK_FILTERS } from '@/lib/handover/constants';
+import { getNavPageMeta } from '@/lib/nav/page-meta';
 import type { HandoverViewMode, QuickFilter } from '@/lib/handover/types';
 import { HandoverSearchBar } from './handover-search-bar';
 
@@ -47,10 +48,15 @@ export function HandoverToolbarProject(props: HandoverToolbarProjectProps) {
   const isBriefView = viewMode === 'brief';
   const isListView = !isArchiveView && !isBriefView && viewMode !== 'room';
 
+  const handoverMeta = getNavPageMeta('/handover');
+
   return (
     <section className="project-handover-toolbar project-handover-toolbar--main" aria-label="인수인계 도구">
       <div className="project-handover-toolbar__row project-handover-toolbar__row--primary">
-        <h2 className="project-handover-toolbar__title">인수인계장</h2>
+        <div className="project-handover-toolbar__head">
+          <h2 className="project-handover-toolbar__title">인수인계장</h2>
+          <p className="project-handover-toolbar__desc">{handoverMeta.description}</p>
+        </div>
 
         <div className="project-handover-toolbar__view" role="tablist" aria-label="보기 방식">
           <button
@@ -131,7 +137,7 @@ export function HandoverToolbarProject(props: HandoverToolbarProjectProps) {
               className={[
                 'project-handover-toolbar__filter',
                 quickFilter === filter.id ? 'is-active' : '',
-                filter.id === 'unacked' || filter.id === 'due-overdue' || filter.id === 'due-soon'
+                filter.id === 'due-soon' || filter.id === 'hold-long'
                   ? 'project-handover-toolbar__filter--warn'
                   : '',
               ]

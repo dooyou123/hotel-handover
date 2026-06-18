@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CONTACT_DEPARTMENTS, CONTACT_FORM_DEPARTMENTS, type Contact, type ContactInput } from '@/lib/contacts/types';
 import { useContacts } from '@/lib/contacts/use-contacts';
+import { getNavPageMeta } from '@/lib/nav/page-meta';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 
 type ContactModalProps = {
@@ -177,27 +178,31 @@ function isDialable(value: string): boolean {
   return phoneHref(value) !== null;
 }
 
-function ContactValue({
+function ContactPhone({
   value,
+  label,
   onCopy,
   variant = 'primary',
 }: {
   value: string;
+  label?: string;
   onCopy: (text: string) => void;
   variant?: 'primary' | 'alt';
 }) {
-  if (!value || value === '—') return <span className="contacts-table__empty">—</span>;
-
+  if (!value) return null;
   const href = isDialable(value) ? phoneHref(value) : null;
 
   if (href) {
     return (
       <a
         href={href}
-        className={`contacts-table__link contacts-table__link--${variant}`}
+        className={`contact-card__phone contact-card__phone--${variant}`}
         onClick={(e) => e.stopPropagation()}
       >
-        {value}
+        <span className="contact-card__phone-icon" aria-hidden>
+          📞
+        </span>
+        <span>{label ?? value}</span>
       </a>
     );
   }
@@ -205,19 +210,99 @@ function ContactValue({
   return (
     <button
       type="button"
-      className={`contacts-table__copy contacts-table__copy--${variant}`}
+      className={`contact-card__copy-id contact-card__copy-id--${variant}`}
       onClick={(e) => {
         e.stopPropagation();
         void onCopy(value);
       }}
       title="클릭하여 복사"
     >
-      {value}
+      <span className="contact-card__phone-icon" aria-hidden>
+        📋
+      </span>
+      <span>{label ?? value}</span>
     </button>
   );
 }
 
-function ContactTable({
+function ContactCard({
+  contact,
+  showDepartment,
+  onEdit,
+  onTogglePin,
+  onCopy,
+}: {
+  contact: Contact;
+  showDepartment: boolean;
+  onEdit: (contact: Contact) => void;
+  onTogglePin: (contact: Contact) => void;
+  onCopy: (text: string) => void;
+}) {
+  const primaryDialable = isDialable(contact.phone);
+  const primaryHref = primaryDialable ? phoneHref(contact.phone) : null;
+
+  return (
+    <article className="contact-card contact-card--list">
+      <button
+        type="button"
+        className={`contact-card__pin${contact.is_pinned ? ' is-active' : ''}`}
+        aria-label={contact.is_pinned ? '즐겨찾기 해제' : '즐겨찾기'}
+        onClick={() => onTogglePin(contact)}
+      >
+        ⭐
+      </button>
+
+      <div className="contact-card__body">
+        <div className="contact-card__head">
+          {showDepartment ? <span className="contact-card__dept">{contact.department}</span> : null}
+          <h3 className="contact-card__name">{contact.name}</h3>
+        </div>
+
+        <div className="contact-card__phones">
+          <ContactPhone value={contact.phone} onCopy={onCopy} />
+          <ContactPhone value={contact.phone_alt} onCopy={onCopy} variant="alt" />
+        </div>
+
+        {contact.note ? (
+          <button
+            type="button"
+            className="contact-card__note"
+            onClick={() => onCopy(contact.note)}
+            title={contact.note}
+          >
+            {contact.note}
+          </button>
+        ) : null}
+      </div>
+
+      <div className="contact-card__actions">
+        {primaryHref ? (
+          <a href={primaryHref} className="contact-card__quick contact-card__quick--primary">
+            전화
+          </a>
+        ) : (
+          <button
+            type="button"
+            className="contact-card__quick contact-card__quick--primary"
+            onClick={() => onCopy(contact.phone)}
+          >
+            복사
+          </button>
+        )}
+        {primaryHref ? (
+          <button type="button" className="contact-card__quick" onClick={() => onCopy(contact.phone)}>
+            복사
+          </button>
+        ) : null}
+        <button type="button" className="contact-card__quick" onClick={() => onEdit(contact)}>
+          수정
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function ContactCardList({
   contacts,
   showDepartment,
   onEdit,
@@ -231,87 +316,23 @@ function ContactTable({
   onCopy: (text: string) => void;
 }) {
   return (
-    <div className="contacts-table-wrap">
-      <table className="contacts-table">
-        <thead>
-          <tr>
-            <th className="contacts-table__col-pin" aria-label="즐겨찾기" />
-            {showDepartment ? <th className="contacts-table__col-dept">구분</th> : null}
-            <th className="contacts-table__col-name">이름</th>
-            <th className="contacts-table__col-phone">연락처</th>
-            <th className="contacts-table__col-alt">추가</th>
-            <th className="contacts-table__col-note">메모</th>
-            <th className="contacts-table__col-actions" aria-label="작업" />
-          </tr>
-        </thead>
-        <tbody>
-          {contacts.map((contact) => (
-            <tr key={contact.id} className="contacts-table__row" onClick={() => onEdit(contact)}>
-              <td className="contacts-table__col-pin">
-                <button
-                  type="button"
-                  className={`contacts-table__pin${contact.is_pinned ? ' is-active' : ''}`}
-                  aria-label={contact.is_pinned ? '즐겨찾기 해제' : '즐겨찾기'}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onTogglePin(contact);
-                  }}
-                >
-                  ⭐
-                </button>
-              </td>
-              {showDepartment ? (
-                <td className="contacts-table__col-dept">
-                  <span className="contacts-table__dept">{contact.department}</span>
-                </td>
-              ) : null}
-              <td className="contacts-table__col-name">
-                <strong>{contact.name}</strong>
-              </td>
-              <td className="contacts-table__col-phone">
-                <ContactValue value={contact.phone} onCopy={onCopy} />
-              </td>
-              <td className="contacts-table__col-alt">
-                <ContactValue value={contact.phone_alt} onCopy={onCopy} variant="alt" />
-              </td>
-              <td className="contacts-table__col-note">
-                {contact.note ? (
-                  <button
-                    type="button"
-                    className="contacts-table__note"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void onCopy(contact.note);
-                    }}
-                    title="클릭하여 복사"
-                  >
-                    {contact.note}
-                  </button>
-                ) : (
-                  <span className="contacts-table__empty">—</span>
-                )}
-              </td>
-              <td className="contacts-table__col-actions">
-                <button
-                  type="button"
-                  className="contacts-table__edit"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEdit(contact);
-                  }}
-                >
-                  수정
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="contact-card-list">
+      {contacts.map((contact) => (
+        <ContactCard
+          key={contact.id}
+          contact={contact}
+          showDepartment={showDepartment}
+          onEdit={onEdit}
+          onTogglePin={onTogglePin}
+          onCopy={onCopy}
+        />
+      ))}
     </div>
   );
 }
 
 export function ContactsPageClient() {
+  const pageMeta = getNavPageMeta('/contacts');
   const { contacts, isLoading, createContact, updateContact, deleteContact, togglePin } = useContacts();
   const [filter, setFilter] = useState('전체');
   const [query, setQuery] = useState('');
@@ -391,8 +412,8 @@ export function ContactsPageClient() {
       <section className="contacts-page">
         <div className="contacts-page__header">
           <div>
-            <h2>외부 연락처</h2>
-            <p>목록에서 번호·ID를 눌러 전화하거나 복사하세요. 검색과 구분 필터로 빠르게 찾을 수 있습니다.</p>
+            <h2>{pageMeta.label}</h2>
+            <p>{pageMeta.description}</p>
           </div>
           <button
             type="button"
@@ -407,14 +428,19 @@ export function ContactsPageClient() {
         </div>
 
         <div className="contacts-toolbar">
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="이름·번호·메모 검색…"
-            aria-label="연락처 검색"
-          />
-          <div className="segmented-control segmented-control--wrap" aria-label="구분 필터">
+          <div className="contacts-toolbar__search">
+            <span className="contacts-toolbar__search-icon" aria-hidden>
+              ⌕
+            </span>
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="이름·번호·메모 검색…"
+              aria-label="연락처 검색"
+            />
+          </div>
+          <div className="segmented-control segmented-control--wrap contacts-toolbar__filters" aria-label="구분 필터">
             {CONTACT_DEPARTMENTS.map((dept) => {
               const count = countsByDept[dept];
               return (
@@ -444,7 +470,7 @@ export function ContactsPageClient() {
                   <h3>⭐ 즐겨찾기</h3>
                   <span>{listLayout.pinned.length}</span>
                 </header>
-                <ContactTable
+                <ContactCardList
                   contacts={listLayout.pinned}
                   showDepartment={filter === '전체'}
                   onEdit={(contact) => {
@@ -469,7 +495,7 @@ export function ContactsPageClient() {
                       <span>{section.items.length}</span>
                     </header>
                   ) : null}
-                  <ContactTable
+                  <ContactCardList
                     contacts={section.items}
                     showDepartment={false}
                     onEdit={(contact) => {

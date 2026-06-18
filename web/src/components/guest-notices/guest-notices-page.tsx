@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { GuestNoticeFrontMode } from '@/components/guest-notices/guest-notice-front-mode';
+import { getNavPageMeta } from '@/lib/nav/page-meta';
 import { useWorkSession } from '@/lib/handover/use-work-session';
 import { printGuestNotice } from '@/lib/guest-notices/print';
 import {
@@ -335,6 +336,7 @@ function GuestNoticeDrawer({
 }
 
 export function GuestNoticesPageClient() {
+  const pageMeta = getNavPageMeta('/guest-notices');
   const router = useRouter();
   const searchParams = useSearchParams();
   const frontMode = searchParams.get('mode') === 'front';
@@ -418,8 +420,8 @@ export function GuestNoticesPageClient() {
       <section className="guest-notices-page">
         <div className="guest-notices-page__header">
           <div>
-            <h2>고객 안내</h2>
-            <p>고객 안내문·공사 공지를 작성하고, 출력·확인 기록을 남깁니다.</p>
+            <h2>{pageMeta.label}</h2>
+            <p>{pageMeta.description}</p>
           </div>
           <div className="guest-notices-page__header-actions">
             <button type="button" className="btn btn--ghost" onClick={() => router.push('/guest-notices?mode=front')}>

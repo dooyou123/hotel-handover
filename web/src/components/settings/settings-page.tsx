@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CARD_COLUMN_OPTIONS, CATEGORY_OPTIONS, PRIORITY_LABELS } from '@/lib/handover/constants';
-import { CHECKLIST_SCOPE_LABELS, type ChecklistScope } from '@/lib/constants';
+import { CHECKLIST_SCOPE_LABELS, CHECKLIST_SCOPES } from '@/lib/constants';
 import { FeedbackAdminPanel } from '@/components/feedback/feedback-admin-panel';
 import { countOpenFeedback, fetchFeedbackList } from '@/lib/feedback/api';
 import { useIsManager } from '@/lib/handover/use-cards';
@@ -16,9 +16,13 @@ import {
   deactivateStaff,
   invalidateSettingsQueries,
   saveCardTemplate,
+  restoreChecklistDefinition,
+  swapChecklistSortOrder,
+  updateChecklistDefinition,
   updateStaffName,
   useCardTemplates,
   useChecklistDefinitions,
+  useInactiveChecklistDefinitions,
   useStaffList,
   type CardTemplate,
   type CardTemplateInput,
@@ -27,6 +31,7 @@ import { DataAdminPanel } from '@/components/settings/data-admin-panel';
 import { HotelOpsSettingsPanel } from '@/components/settings/hotel-ops-settings-panel';
 import { LeaveSettingsPanel } from '@/components/settings/leave-settings-panel';
 import { NavVisibilityPanel } from '@/components/settings/nav-visibility-panel';
+import { getNavPageMeta } from '@/lib/nav/page-meta';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 
 type SettingsTab = 'feedback' | 'staff' | 'checklist' | 'templates' | 'nav' | 'data';
@@ -34,7 +39,7 @@ type SettingsTab = 'feedback' | 'staff' | 'checklist' | 'templates' | 'nav' | 'd
 const SETTINGS_TABS: { id: SettingsTab; label: string; hint: string }[] = [
   { id: 'feedback', label: '개선 · 버그', hint: '직원 신고 확인' },
   { id: 'staff', label: '직원', hint: '담당자 목록' },
-  { id: 'checklist', label: '체크리스트', hint: '공통 · A/B/C' },
+  { id: 'checklist', label: '체크리스트', hint: '공통 · A~E조' },
   { id: 'templates', label: '템플릿', hint: '인수인계 빠른 입력' },
   { id: 'nav', label: '메뉴', hint: '사이드바 표시' },
   { id: 'data', label: '데이터', hint: '초기화 · 샘플' },
@@ -229,19 +234,22 @@ function TemplateModal({ open, template, onClose, onSaved }: TemplateModalProps)
 }
 
 export function SettingsPageClient() {
+  const pageMeta = getNavPageMeta('/settings');
   const queryClient = useQueryClient();
   const { data: isManager = false } = useIsManager();
   const { data: staff = [], refetch: refetchStaff } = useStaffList(true);
   const { data: checklistItems = [], refetch: refetchChecklist } = useChecklistDefinitions();
+  const { data: inactiveChecklistItems = [], refetch: refetchInactiveChecklist } =
+    useInactiveChecklistDefinitions();
   const { data: templates = [], refetch: refetchTemplates } = useCardTemplates();
 
   const [staffName, setStaffName] = useState('');
-  const [checklistDrafts, setChecklistDrafts] = useState<Record<string, string>>({
-    common: '',
-    A: '',
-    B: '',
-    C: '',
-  });
+  const [checklistDrafts, setChecklistDrafts] = useState<Record<string, string>>(
+    Object.fromEntries(CHECKLIST_SCOPES.map((scope) => [scope, ''])),
+  );
+  const [editingChecklistId, setEditingChecklistId] = useState<string | null>(null);
+  const [editingChecklistLabel, setEditingChecklistLabel] = useState('');
+  const [checklistBusyId, setChecklistBusyId] = useState<string | null>(null);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<CardTemplate | null>(null);
   const [activeTab, setActiveTab] = useState<SettingsTab>('staff');
@@ -273,6 +281,7 @@ export function SettingsPageClient() {
     invalidateSettingsQueries(queryClient);
     refetchStaff();
     refetchChecklist();
+    refetchInactiveChecklist();
     refetchTemplates();
   }
 
@@ -293,12 +302,8 @@ export function SettingsPageClient() {
       <section className="settings-page">
         <div className="settings-page__intro">
           <div>
-            <h2>설정</h2>
-            <p>
-              {isManager
-                ? '탭을 선택해 항목을 관리하세요. 한 화면에 하나씩만 표시됩니다.'
-                : '직원 목록과 인수인계 템플릿을 관리할 수 있습니다.'}
-            </p>
+            <h2>{pageMeta.label}</h2>
+            <p>{pageMeta.description}</p>
           </div>
         </div>
 
@@ -413,7 +418,8 @@ export function SettingsPageClient() {
                 <div>
                   <h3>체크리스트 항목</h3>
                   <p>
-                    <strong>공통</strong>은 전 조, <strong>A/B/C조</strong>는 해당 조만 표시됩니다.
+                    <strong>공통</strong>은 전 조, <strong>A~E조</strong>는 해당 조만 표시됩니다. 줄바꿈 후{' '}
+                    <code>[참고]</code>를 넣으면 체크 화면에 안내 문구가 표시됩니다.
                   </p>
                 </div>
                 <span className="shift-stat">
@@ -421,8 +427,10 @@ export function SettingsPageClient() {
                 </span>
               </div>
               <div className="checklist-admin-grid">
-                {(['common', 'A', 'B', 'C'] as ChecklistScope[]).map((scope) => {
-                  const scopeItems = checklistItems.filter((item) => item.work_group === scope);
+                {CHECKLIST_SCOPES.map((scope) => {
+                  const scopeItems = checklistItems
+                    .filter((item) => item.work_group === scope)
+                    .sort((a, b) => a.sort_order - b.sort_order);
                   const scopeHint =
                     scope === 'common' ? '모든 조가 함께 확인' : `${scope}조 근무자만 확인`;
 
@@ -460,27 +468,138 @@ export function SettingsPageClient() {
                         {!scopeItems.length ? (
                           <li className="staff-list__empty">항목 없음</li>
                         ) : (
-                          scopeItems.map((item) => (
-                            <li key={item.id} className="staff-list__item">
-                              <span className="staff-list__name">{item.label}</span>
+                          scopeItems.map((item, index) => (
+                            <li
+                              key={item.id}
+                              className={`staff-list__item${editingChecklistId === item.id ? ' staff-list__item--editing' : ''}`}
+                            >
+                              {editingChecklistId === item.id ? (
+                                <textarea
+                                  className="checklist-admin-edit"
+                                  value={editingChecklistLabel}
+                                  rows={3}
+                                  onChange={(e) => setEditingChecklistLabel(e.target.value)}
+                                  aria-label="체크 항목 수정"
+                                />
+                              ) : (
+                                <span className="staff-list__name checklist-admin-label">{item.label}</span>
+                              )}
                               <div className="staff-list__actions">
-                                <button
-                                  type="button"
-                                  className="btn btn--danger btn--small"
-                                  onClick={async () => {
-                                    const ok = await confirm({
-                                      title: '체크 항목 삭제',
-                                      message: `「${item.label}」 항목을 삭제할까요?`,
-                                      tone: 'danger',
-                                      confirmLabel: '삭제',
-                                    });
-                                    if (!ok) return;
-                                    await deactivateChecklistDefinition(item.id);
-                                    refreshAll();
-                                  }}
-                                >
-                                  삭제
-                                </button>
+                                {editingChecklistId === item.id ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="btn btn--primary btn--small"
+                                      disabled={!editingChecklistLabel.trim() || checklistBusyId === item.id}
+                                      onClick={async () => {
+                                        const next = editingChecklistLabel.trim();
+                                        if (!next) return;
+                                        setChecklistBusyId(item.id);
+                                        try {
+                                          await updateChecklistDefinition(item.id, { label: next });
+                                          setEditingChecklistId(null);
+                                          setEditingChecklistLabel('');
+                                          refreshAll();
+                                          showToast('항목을 수정했습니다.');
+                                        } finally {
+                                          setChecklistBusyId(null);
+                                        }
+                                      }}
+                                    >
+                                      저장
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn btn--ghost btn--small"
+                                      onClick={() => {
+                                        setEditingChecklistId(null);
+                                        setEditingChecklistLabel('');
+                                      }}
+                                    >
+                                      취소
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="btn btn--ghost btn--xs"
+                                      title="위로"
+                                      disabled={index === 0 || checklistBusyId === item.id}
+                                      onClick={async () => {
+                                        const prev = scopeItems[index - 1];
+                                        if (!prev) return;
+                                        setChecklistBusyId(item.id);
+                                        try {
+                                          await swapChecklistSortOrder(
+                                            item.id,
+                                            prev.id,
+                                            item.sort_order,
+                                            prev.sort_order,
+                                          );
+                                          refreshAll();
+                                        } finally {
+                                          setChecklistBusyId(null);
+                                        }
+                                      }}
+                                    >
+                                      ↑
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn btn--ghost btn--xs"
+                                      title="아래로"
+                                      disabled={
+                                        index === scopeItems.length - 1 || checklistBusyId === item.id
+                                      }
+                                      onClick={async () => {
+                                        const next = scopeItems[index + 1];
+                                        if (!next) return;
+                                        setChecklistBusyId(item.id);
+                                        try {
+                                          await swapChecklistSortOrder(
+                                            item.id,
+                                            next.id,
+                                            item.sort_order,
+                                            next.sort_order,
+                                          );
+                                          refreshAll();
+                                        } finally {
+                                          setChecklistBusyId(null);
+                                        }
+                                      }}
+                                    >
+                                      ↓
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn btn--ghost btn--small"
+                                      onClick={() => {
+                                        setEditingChecklistId(item.id);
+                                        setEditingChecklistLabel(item.label);
+                                      }}
+                                    >
+                                      수정
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn btn--danger btn--small"
+                                      onClick={async () => {
+                                        const ok = await confirm({
+                                          title: '체크 항목 삭제',
+                                          message: `「${item.label.split('\n')[0]}」 항목을 삭제할까요?`,
+                                          tone: 'danger',
+                                          confirmLabel: '삭제',
+                                        });
+                                        if (!ok) return;
+                                        await deactivateChecklistDefinition(item.id);
+                                        refreshAll();
+                                      }}
+                                    >
+                                      삭제
+                                    </button>
+                                  </>
+                                )}
                               </div>
                             </li>
                           ))
@@ -490,6 +609,35 @@ export function SettingsPageClient() {
                   );
                 })}
               </div>
+              {inactiveChecklistItems.length ? (
+                <div className="checklist-admin-archived">
+                  <h4>삭제된 항목</h4>
+                  <p>실수로 삭제한 체크 항목을 복구할 수 있습니다.</p>
+                  <ul className="staff-list">
+                    {inactiveChecklistItems.map((item) => (
+                      <li key={item.id} className="staff-list__item">
+                        <span className="staff-list__name checklist-admin-label">
+                          [{CHECKLIST_SCOPE_LABELS[item.work_group as keyof typeof CHECKLIST_SCOPE_LABELS] ?? item.work_group}]{' '}
+                          {item.label.split('\n')[0]}
+                        </span>
+                        <div className="staff-list__actions">
+                          <button
+                            type="button"
+                            className="btn btn--ghost btn--small"
+                            onClick={async () => {
+                              await restoreChecklistDefinition(item.id);
+                              refreshAll();
+                              showToast('체크 항목을 복구했습니다.');
+                            }}
+                          >
+                            복구
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </article>
           ) : null}
 

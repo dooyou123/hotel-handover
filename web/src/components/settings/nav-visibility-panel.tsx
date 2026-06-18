@@ -95,7 +95,10 @@ export function NavVisibilityPanel({ onSaved }: NavVisibilityPanelProps) {
                   checked={visible}
                   onChange={(event) => toggleHref(item.href, event.target.checked)}
                 />
-                <span className="nav-visibility-row__label">{item.label}</span>
+                <span className="nav-visibility-row__body">
+                  <span className="nav-visibility-row__label">{item.label}</span>
+                  <span className="nav-visibility-row__desc">{item.description}</span>
+                </span>
                 <span className="nav-visibility-row__path">{item.href}</span>
               </label>
             </li>

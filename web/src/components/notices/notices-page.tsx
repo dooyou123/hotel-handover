@@ -21,10 +21,25 @@ import {
   type NoticeBoardView,
 } from '@/lib/notices/filter';
 import { isNoticeCompleted } from '@/lib/notices/status';
+import { getNavPageMeta } from '@/lib/nav/page-meta';
 import type { Notice, NoticeInput, NoticeType } from '@/lib/handover/types';
 import { NoticeDrawer, type NoticeDrawerMode } from './notice-drawer';
 
+function NoticeExpiryBadge({ expiresAt }: { expiresAt: string | null }) {
+  const expiry = formatExpiryLabel(expiresAt);
+  if (!expiry) return null;
+  return (
+    <span className={`project-board__expiry${expiry.soon ? ' is-soon' : ''}`}>
+      <span className="project-board__expiry-icon" aria-hidden>
+        📅
+      </span>
+      <span>{expiry.text}</span>
+    </span>
+  );
+}
+
 export function NoticesPageClient() {
+  const pageMeta = getNavPageMeta('/notices');
   const router = useRouter();
   const searchParams = useSearchParams();
   const invalidateNoticeReads = useInvalidateNoticeReads();
@@ -252,8 +267,8 @@ export function NoticesPageClient() {
       <section className="project-board">
         <header className="project-board__head">
           <div>
-            <h1>업무 게시판</h1>
-            <p>공지와 업무 변경을 남기고, 교대 간 확인합니다.</p>
+            <h1>{pageMeta.label}</h1>
+            <p>{pageMeta.description}</p>
           </div>
           <button type="button" className="btn btn--primary" onClick={() => openCompose()}>
             + 글쓰기
@@ -357,7 +372,6 @@ export function NoticesPageClient() {
                 </thead>
                 <tbody>
                   {filtered.map((notice) => {
-                    const expiry = formatExpiryLabel(notice.expires_at);
                     const isDone = isNoticeCompleted(notice);
                     return (
                       <tr
@@ -396,10 +410,8 @@ export function NoticesPageClient() {
                           </time>
                         </td>
                         <td>
-                          {expiry ? (
-                            <span className={`project-board__expiry${expiry.soon ? ' is-soon' : ''}`}>
-                              {expiry.text}
-                            </span>
+                          {notice.expires_at ? (
+                            <NoticeExpiryBadge expiresAt={notice.expires_at} />
                           ) : (
                             '—'
                           )}
@@ -431,7 +443,6 @@ export function NoticesPageClient() {
           ) : (
             <ul className="project-board__list">
               {filtered.map((notice) => {
-                const expiry = formatExpiryLabel(notice.expires_at);
                 const isDone = isNoticeCompleted(notice);
                 return (
                   <li
@@ -447,11 +458,7 @@ export function NoticesPageClient() {
                         </span>
                         {isDone ? <span className="project-board__status project-board__status--done">완료</span> : null}
                         {notice.is_pinned ? <span className="project-board__pin">고정</span> : null}
-                        {expiry ? (
-                          <span className={`project-board__expiry${expiry.soon ? ' is-soon' : ''}`}>
-                            {expiry.text}
-                          </span>
-                        ) : null}
+                        <NoticeExpiryBadge expiresAt={notice.expires_at} />
                       </div>
                       <p className="project-board__title">{noticeListTitle(notice.content)}</p>
                       <p className="project-board__preview">
@@ -469,31 +476,40 @@ export function NoticesPageClient() {
                         type="button"
                         className={`project-board__complete-btn${isDone ? ' is-done' : ''}`}
                         title={isDone ? '완료 취소' : '완료 처리'}
+                        aria-label={isDone ? '완료 취소' : '완료 처리'}
                         onClick={(event) => {
                           event.stopPropagation();
                           void handleToggleComplete(notice);
                         }}
                       >
-                        {isDone ? '✓' : '○'}
+                        <span className="project-board__action-icon" aria-hidden>
+                          {isDone ? '✓' : '☐'}
+                        </span>
                       </button>
                       <button
                         type="button"
                         className="project-board__handover-btn"
-                        title="인수인계로 등록"
+                        title="인수인계 초안 만들기"
+                        aria-label="인수인계 초안 만들기"
                         onClick={(event) => {
                           event.stopPropagation();
                           handleCreateHandover(notice);
                         }}
                       >
-                        →
+                        <span className="project-board__action-icon" aria-hidden>
+                          📋
+                        </span>
                       </button>
                       <button
                         type="button"
                         className={`project-board__pin-btn${notice.is_pinned ? ' is-active' : ''}`}
-                        title={notice.is_pinned ? '고정 해제' : '고정'}
+                        title={notice.is_pinned ? '고정 해제' : '상단 고정'}
+                        aria-label={notice.is_pinned ? '고정 해제' : '상단 고정'}
                         onClick={(event) => handleTogglePin(notice, event)}
                       >
-                        📌
+                        <span className="project-board__action-icon" aria-hidden>
+                          📌
+                        </span>
                       </button>
                     </div>
                   </li>

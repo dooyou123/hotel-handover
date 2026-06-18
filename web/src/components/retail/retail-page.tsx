@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
+import { getNavPageMeta } from '@/lib/nav/page-meta';
 import { useWorkSession } from '@/lib/handover/use-work-session';
 import {
   closeRetailPeriod,
@@ -55,6 +56,7 @@ function differenceClass(diff: number): string {
 }
 
 export function RetailPageClient() {
+  const pageMeta = getNavPageMeta('/retail');
   const { authorLabel, requireSession, session } = useWorkSession();
   const { confirm } = useConfirmDialog();
   const queryClient = useQueryClient();
@@ -209,10 +211,8 @@ export function RetailPageClient() {
     <section className="retail-page">
       <header className="retail-page__header schedule-panel">
         <div className="retail-page__headline">
-          <h2 className="retail-page__title">판매상품 재고</h2>
-          <p className="retail-page__desc">
-            월초에 지난달 판매·무료배포·입고를 입력하고, 실사 수량과 맞춰 마감합니다.
-          </p>
+          <h2 className="retail-page__title">{pageMeta.label}</h2>
+          <p className="retail-page__desc">{pageMeta.description}</p>
         </div>
         <div className="retail-page__month-nav">
           <button

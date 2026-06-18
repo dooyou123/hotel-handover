@@ -1,5 +1,6 @@
 import { ACTION_LABELS } from '@/lib/handover/activity';
 import { COLUMN_LABELS } from '@/lib/handover/constants';
+import { formatAsideRecordTime } from '@/lib/handover/shift-ui-state';
 import type { ActivityLog } from '@/lib/handover/types';
 
 export const ENTITY_LABELS: Record<string, string> = {
@@ -94,4 +95,46 @@ export function formatActivityDetail(log: ActivityLog): string {
 
   if (typeof log.details.reason === 'string') return log.details.reason;
   return '';
+}
+
+export type ActivityVisualTone =
+  | 'comment'
+  | 'update'
+  | 'create'
+  | 'delete'
+  | 'move'
+  | 'default';
+
+export type ActivityVisual = {
+  icon: string;
+  tone: ActivityVisualTone;
+  shortLabel: string;
+};
+
+export function activityVisual(log: ActivityLog): ActivityVisual {
+  const badge = activityBadgeLabel(log);
+  if (badge === '댓글') return { icon: '💬', tone: 'comment', shortLabel: '댓글' };
+  if (badge === '수정') return { icon: '✏️', tone: 'update', shortLabel: '수정' };
+  if (badge === '추가') return { icon: '➕', tone: 'create', shortLabel: '추가' };
+  if (badge === '삭제') return { icon: '🗑', tone: 'delete', shortLabel: '삭제' };
+  if (badge === '완료' || badge === '이동') return { icon: '✓', tone: 'move', shortLabel: badge };
+  return { icon: '•', tone: 'default', shortLabel: badge };
+}
+
+/** 피드 제목 — 객실·카드 제목 등 핵심 대상 */
+export function activityPreviewTitle(log: ActivityLog): string {
+  const target = activityTargetLabel(log.summary);
+  if (target) return target;
+  return log.summary.replace(/^(추가|수정|삭제|완료|댓글|이동|공지|보관|복원):\s*/, '').trim() || log.summary;
+}
+
+export function activityPreviewTooltip(log: ActivityLog): string {
+  const title = activityPreviewTitle(log);
+  const detail = formatActivityDetail(log);
+  const headline = formatActivityHeadline(log);
+  return [title, headline !== title ? headline : '', detail].filter(Boolean).join('\n');
+}
+
+export function activityPreviewMeta(log: ActivityLog): string {
+  return `${formatActivityActor(log)} · ${formatAsideRecordTime(log.created_at)}`;
 }

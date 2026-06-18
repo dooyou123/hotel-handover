@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 import { addAmenityTransaction, adjustAmenityInventory, updateAmenityMinQuantity } from '@/lib/amenity/api';
+import { AMENITY_MODE_HINTS } from '@/lib/amenity/copy';
 import { orderBoxItemCount } from '@/lib/amenity/reorder';
 import type { AmenityTransactionType, InventoryItem } from '@/lib/amenity/types';
 import { getStockStatus, STOCK_BADGE_CLASS, STOCK_LABELS } from '@/lib/amenity/ui';
@@ -186,6 +187,7 @@ export function AmenityTransactionPanel({
             </button>
           ))}
         </div>
+        <p className="amenity-side-panel__mode-hint">{AMENITY_MODE_HINTS[mode]}</p>
 
         <label className="field">
           <span>{isCountMode ? '실제 개수' : '수량 (개)'}</span>

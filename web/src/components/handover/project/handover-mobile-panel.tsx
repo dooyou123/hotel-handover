@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { isUnackedUrgentCard } from '@/lib/handover/card-utils';
 import { getTodayLabel } from '@/lib/handover/shift-summary';
+import type { HandoverRecordsTab } from '@/lib/handover/records';
 import type { ShiftSummaryData } from '@/lib/handover/shift-summary';
 import type { Card, QuickFilter } from '@/lib/handover/types';
 import type { HotelEvent } from '@/lib/events/types';
@@ -27,8 +28,7 @@ type HandoverMobilePanelProps = {
   onShiftStart: () => void;
   onShiftEnd: () => void;
   onOpenShiftBrief: () => void;
-  onShiftHistory: () => void;
-  onActivity: () => void;
+  onOpenRecords: (tab: HandoverRecordsTab) => void;
   onAlertClick: (id: string) => void;
   onOpenCard: (card: Card) => void;
   onOpenTodo: (todo: Todo) => void;
@@ -55,8 +55,7 @@ export function HandoverMobilePanel({
   onShiftStart,
   onShiftEnd,
   onOpenShiftBrief,
-  onShiftHistory,
-  onActivity,
+  onOpenRecords,
   onAlertClick,
   onOpenCard,
   onOpenTodo,
@@ -384,15 +383,12 @@ export function HandoverMobilePanel({
               <button type="button" className="handover-mobile__action" onClick={() => runAndClose(onOpenShiftBrief)}>
                 교대 인계
               </button>
-              <button type="button" className="handover-mobile__action" onClick={() => runAndClose(onShiftHistory)}>
-                교대 기록
-              </button>
               <button
                 type="button"
                 className="handover-mobile__action handover-mobile__action--wide"
-                onClick={() => runAndClose(onActivity)}
+                onClick={() => runAndClose(() => onOpenRecords('shift'))}
               >
-                변경 기록
+                기록 보기
               </button>
             </footer>
           </section>

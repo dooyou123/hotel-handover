@@ -302,10 +302,12 @@ export function TodoModal({
             <label className="field field--full">
               <span>메모</span>
               <textarea
-                rows={3}
+                rows={4}
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
+                placeholder="실무 메모는 Enter로 줄바꿈하거나 1. 2.로 번호를 매겨 주세요."
               />
+              <span className="field-hint">줄바꿈과 번호 목록은 목록 화면에 그대로 표시됩니다.</span>
             </label>
           </div>
 

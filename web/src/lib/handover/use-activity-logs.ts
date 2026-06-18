@@ -4,6 +4,10 @@ import { useEffect } from 'react';
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
+import {
+  defaultShiftHandoverFilters,
+  type ShiftHandoverFilters,
+} from '@/lib/handover/records';
 import { todayDateString } from '@/lib/handover/shift-summary';
 import type { ActivityLog, ShiftHandover, ShiftHandoverType } from '@/lib/handover/types';
 import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
@@ -138,11 +142,24 @@ export async function fetchTodayActivityLogs(limit = 200): Promise<ActivityLog[]
   return logs.filter((log) => log.created_at.startsWith(today));
 }
 
-function shiftHandoversQueryKey(scope: 'today' | 'recent', limit: number) {
-  return ['shift-handovers', DEFAULT_HOTEL_ID, scope, limit] as const;
+export function useTodayActivityLogs(limit = 50, enabled = true) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => subscribeActivityLogs(queryClient), [queryClient]);
+
+  return useQuery({
+    queryKey: ['activity-logs-today', DEFAULT_HOTEL_ID, limit] as const,
+    queryFn: () => fetchTodayActivityLogs(limit),
+    enabled,
+    staleTime: 15_000,
+  });
 }
 
-async function fetchShiftHandovers(limit: number, todayOnly: boolean): Promise<ShiftHandover[]> {
+function shiftHandoversQueryKey(limit: number, filters: ShiftHandoverFilters) {
+  return ['shift-handovers', DEFAULT_HOTEL_ID, limit, filters] as const;
+}
+
+async function fetchShiftHandovers(limit: number, filters: ShiftHandoverFilters): Promise<ShiftHandover[]> {
   const supabase = createClient();
   let query = supabase
     .from('shift_handovers')
@@ -151,35 +168,60 @@ async function fetchShiftHandovers(limit: number, todayOnly: boolean): Promise<S
     .order('handover_at', { ascending: false })
     .limit(limit);
 
-  if (todayOnly) {
+  const workDate = filters.workDate.trim();
+  if (workDate) {
+    query = query.eq('work_date', workDate);
+  } else if (filters.todayOnly) {
     query = query.eq('work_date', todayDateString());
+  }
+
+  if (filters.shift !== 'all') {
+    query = query.eq('shift', filters.shift);
   }
 
   const { data, error } = await query;
   if (error) throw error;
-  return (data ?? []) as ShiftHandover[];
+
+  const rows = (data ?? []) as ShiftHandover[];
+  const q = filters.query.trim().toLowerCase();
+  if (!q) return rows;
+
+  return rows.filter((record) => {
+    const haystack = [record.staff_name, record.shift, record.notes, record.handover_type]
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(q);
+  });
 }
 
 export async function fetchTodayShiftHandovers(limit = 50): Promise<ShiftHandover[]> {
-  return fetchShiftHandovers(limit, true);
+  return fetchShiftHandovers(limit, defaultShiftHandoverFilters());
 }
 
-export function useShiftHandovers(options?: { limit?: number; todayOnly?: boolean; enabled?: boolean }) {
+export function useShiftHandovers(options?: {
+  limit?: number;
+  todayOnly?: boolean;
+  filters?: ShiftHandoverFilters;
+  enabled?: boolean;
+}) {
   const limit = options?.limit ?? 80;
-  const todayOnly = options?.todayOnly ?? false;
   const enabled = options?.enabled ?? true;
-  const scope = todayOnly ? 'today' : 'recent';
+  const filters =
+    options?.filters ??
+    (options?.todayOnly === false
+      ? { todayOnly: false, workDate: '', shift: 'all', query: '' }
+      : defaultShiftHandoverFilters());
 
   return useQuery({
-    queryKey: shiftHandoversQueryKey(scope, limit),
-    queryFn: () => fetchShiftHandovers(limit, todayOnly),
+    queryKey: shiftHandoversQueryKey(limit, filters),
+    queryFn: () => fetchShiftHandovers(limit, filters),
     enabled,
     staleTime: 15_000,
   });
 }
 
 export function useTodayShiftHandovers(limit = 50) {
-  return useShiftHandovers({ limit, todayOnly: true });
+  return useShiftHandovers({ limit, filters: defaultShiftHandoverFilters() });
 }
 
 export async function logShiftHandover(input: {

@@ -1,5 +1,6 @@
 import type { HotelEvent } from '@/lib/events/types';
 import type { Todo } from '@/lib/todos/types';
+import { eventOverlapsMonth } from '@/lib/events/event-dates';
 
 export type WorkScheduleItem =
   | { kind: 'todo'; todo: Todo; sortAt: string }
@@ -38,7 +39,7 @@ export function mergeWorkScheduleItems(input: {
   }
 
   for (const event of events) {
-    if (isInMonth(event.event_date, month)) {
+    if (eventOverlapsMonth(event, month)) {
       items.push({ kind: 'event', event, sortAt: eventSortAt(event) });
     }
   }

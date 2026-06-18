@@ -170,7 +170,7 @@ export async function deleteAmenityTransaction(params: {
   if (error) throw new Error(parseAmenityError(error));
 }
 
-/** 실사 수량에 맞춰 입고/출고 거래를 자동 생성합니다. */
+/** 실사 수량에 맞춰 실사 거래를 생성합니다. */
 export async function adjustAmenityInventory(params: {
   amenityId: number;
   actualQuantity: number;
@@ -180,21 +180,24 @@ export async function adjustAmenityInventory(params: {
   hotelId?: string;
 }) {
   const actual = Math.max(0, Math.floor(params.actualQuantity));
-  const diff = actual - params.currentQuantity;
-  if (diff === 0) return null;
+  if (actual === params.currentQuantity) return null;
 
+  const supabase = createClient();
+  const hotelId = params.hotelId ?? DEFAULT_HOTEL_ID;
   const note =
     params.memo?.trim() ||
     `재고조정 — 실사 ${actual.toLocaleString()}개 (시스템 ${params.currentQuantity.toLocaleString()}개)`;
 
-  return addAmenityTransaction({
-    type: diff > 0 ? '입고' : '출고',
-    amenityId: params.amenityId,
-    quantity: Math.abs(diff),
-    author: params.author,
-    memo: note,
-    hotelId: params.hotelId,
+  const { data, error } = await supabase.rpc('add_amenity_audit_transaction', {
+    p_hotel_id: hotelId,
+    p_amenity_id: params.amenityId,
+    p_actual_quantity: actual,
+    p_author: params.author,
+    p_memo: note,
   });
+
+  if (error) throw new Error(parseAmenityError(error));
+  return data as AmenityTransaction;
 }
 
 export async function updateAmenityMinQuantity(amenityId: number, minQuantity: number, hotelId = DEFAULT_HOTEL_ID) {

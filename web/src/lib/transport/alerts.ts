@@ -76,9 +76,32 @@ export function formatTodayTaxiBarText(booking: TransportBooking, now = new Date
     return '시간이 지났습니다. 택시 예약을 확인해주세요.';
   }
 
-  const parts: string[] = ['택시 예약'];
+  const parts: string[] = [];
+  if (isUpcomingTransportAlert(booking, TRANSPORT_ALERT_WINDOW_MINUTES, now)) {
+    const mins = minutesUntilPickup(booking, now);
+    parts.push(mins <= 0 ? '지금 픽업' : `${mins}분 후 픽업`);
+  } else {
+    parts.push('택시 예약');
+  }
   if (booking.room_number) parts.push(`${booking.room_number}호`);
   if (booking.guest_name) parts.push(booking.guest_name);
   if (booking.destination) parts.push(`→ ${booking.destination}`);
   return parts.join(' · ');
+}
+
+export function sortTodayTaxiBarBookings(
+  bookings: TransportBooking[],
+  now = new Date(),
+): TransportBooking[] {
+  return [...bookings].sort((a, b) => {
+    const aOverdue = isPickupOverdue(a, now);
+    const bOverdue = isPickupOverdue(b, now);
+    if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
+
+    const aImminent = isUpcomingTransportAlert(a, TRANSPORT_ALERT_WINDOW_MINUTES, now);
+    const bImminent = isUpcomingTransportAlert(b, TRANSPORT_ALERT_WINDOW_MINUTES, now);
+    if (aImminent !== bImminent) return aImminent ? -1 : 1;
+
+    return a.pickup_time.localeCompare(b.pickup_time);
+  });
 }

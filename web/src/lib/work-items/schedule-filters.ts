@@ -1,5 +1,6 @@
 import type { HotelEvent } from '@/lib/events/types';
 import type { Todo } from '@/lib/todos/types';
+import { getEventEndDate } from '@/lib/events/event-dates';
 
 export const DONE_TODO_HIDE_AFTER_DAYS = 7;
 
@@ -27,10 +28,10 @@ export function isDoneTodoHiddenFromList(
 }
 
 export function isPastHotelEvent(
-  event: Pick<HotelEvent, 'event_date'>,
+  event: Pick<HotelEvent, 'event_date' | 'end_date'>,
   today = todayDateString(),
 ): boolean {
-  return event.event_date < today;
+  return getEventEndDate(event) < today;
 }
 
 export function isCompletedHotelEvent(
@@ -40,7 +41,7 @@ export function isCompletedHotelEvent(
 }
 
 export function isPastOrCompletedHotelEvent(
-  event: Pick<HotelEvent, 'event_date' | 'completed_at'>,
+  event: Pick<HotelEvent, 'event_date' | 'end_date' | 'completed_at'>,
   today = todayDateString(),
 ): boolean {
   return isPastHotelEvent(event, today) || isCompletedHotelEvent(event);

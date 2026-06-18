@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import {
   fetchChecklistForShift,
+  completeChecklistScope,
   resetChecklistCompletions,
   toggleChecklistItem,
   type ChecklistItemView,
@@ -12,6 +13,7 @@ import {
 import { useWorkSession } from '@/lib/handover/use-work-session';
 import { createClient } from '@/lib/supabase/client';
 import { DEFAULT_HOTEL_ID, formatShiftChecklistTitle } from '@/lib/constants';
+import { getNavPageMeta } from '@/lib/nav/page-meta';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { NightRegisterPanel } from '@/components/checklist/night-register-panel';
 import { ChecklistProgressBar } from '@/components/checklist/checklist-progress-bar';
@@ -51,6 +53,9 @@ function ChecklistColumn({
   onToggle,
   onReset,
   resetBusy,
+  onCompleteAll,
+  completeBusy,
+  highlightItemId,
 }: {
   title: string;
   done: number;
@@ -60,7 +65,11 @@ function ChecklistColumn({
   onToggle: (itemId: string) => void;
   onReset?: () => void;
   resetBusy?: boolean;
+  onCompleteAll?: () => void;
+  completeBusy?: boolean;
+  highlightItemId?: string | null;
 }) {
+  const incomplete = total - done;
   return (
     <section className="checklist-section">
       <div className="checklist-section__header">
@@ -71,6 +80,16 @@ function ChecklistColumn({
           ) : null}
         </div>
         <div className="checklist-section__actions">
+          {onCompleteAll && incomplete > 0 ? (
+            <button
+              type="button"
+              className="checklist-section__complete-all"
+              onClick={onCompleteAll}
+              disabled={completeBusy}
+            >
+              {completeBusy ? '처리 중…' : `미완료 ${incomplete}건 체크`}
+            </button>
+          ) : null}
           {onReset && done > 0 ? (
             <button
               type="button"
@@ -89,7 +108,10 @@ function ChecklistColumn({
           items.map((item) => (
             <label
               key={item.id}
-              className={`checklist-item checklist-item--page${item.completed ? ' is-done' : ''}`}
+              id={`checklist-item-${item.id}`}
+              className={`checklist-item checklist-item--page${item.completed ? ' is-done' : ''}${
+                highlightItemId === item.id ? ' is-focus' : ''
+              }`}
             >
               <input type="checkbox" checked={item.completed} onChange={() => onToggle(item.id)} />
               <span className="checklist-item__body">
@@ -111,6 +133,7 @@ function ChecklistColumn({
 }
 
 export function ChecklistPageClient() {
+  const pageMeta = getNavPageMeta('/checklist');
   const { session, requireSession, authorLabel } = useWorkSession();
   const { confirm } = useConfirmDialog();
   const [toast, setToast] = useState<string | null>(null);
@@ -119,6 +142,14 @@ export function ChecklistPageClient() {
   const shift = session.shift || group;
   const ready = Boolean(group);
   const [resettingScope, setResettingScope] = useState<'common' | string | null>(null);
+  const [completingScope, setCompletingScope] = useState<'common' | string | null>(null);
+  const [showIncompleteOnly, setShowIncompleteOnly] = useState(false);
+  const [highlightItemId, setHighlightItemId] = useState<string | null>(null);
+  const lastScrolledItemId = useRef<string | null>(null);
+
+  const clearHighlight = useCallback(() => {
+    window.setTimeout(() => setHighlightItemId(null), 1600);
+  }, []);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['checklist', DEFAULT_HOTEL_ID, shift, group],
@@ -140,6 +171,53 @@ export function ChecklistPageClient() {
     };
   }, [queryClient, shift, group, ready]);
 
+  const incompleteIds = useMemo(() => {
+    if (!ready || !data?.items?.length) return [];
+    const commonItems = data.items.filter((item) => item.work_group === 'common');
+    const groupItems = data.items.filter((item) => item.work_group === group);
+    return [...commonItems, ...groupItems].filter((item) => !item.completed).map((item) => item.id);
+  }, [data?.items, group, ready]);
+
+  const scrollToNextIncomplete = useCallback(() => {
+    if (!incompleteIds.length) {
+      setToast('모든 항목을 완료했습니다.');
+      window.setTimeout(() => setToast(null), 2200);
+      return;
+    }
+
+    const lastId = lastScrolledItemId.current;
+    const lastIndex = lastId ? incompleteIds.indexOf(lastId) : -1;
+    const nextId =
+      lastIndex >= 0 && lastIndex < incompleteIds.length - 1
+        ? incompleteIds[lastIndex + 1]
+        : incompleteIds[0];
+
+    lastScrolledItemId.current = nextId;
+    setHighlightItemId(nextId);
+    clearHighlight();
+
+    window.requestAnimationFrame(() => {
+      document.getElementById(`checklist-item-${nextId}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    });
+  }, [clearHighlight, incompleteIds]);
+
+  useEffect(() => {
+    if (!ready) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'n' && event.key !== 'N') return;
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+      event.preventDefault();
+      scrollToNextIncomplete();
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [ready, scrollToNextIncomplete]);
+
   async function handleToggle(itemId: string) {
     if (!requireSession('체크')) {
       refetch();
@@ -150,6 +228,29 @@ export function ChecklistPageClient() {
       queryClient.setQueryData(['checklist', DEFAULT_HOTEL_ID, shift, group], result);
     } catch {
       refetch();
+    }
+  }
+
+  async function handleCompleteAll(scope: 'common' | string, label: string, count: number) {
+    if (!requireSession('체크')) return;
+    const ok = await confirm({
+      title: `${label} 일괄 체크`,
+      message: `미완료 ${count}건을 모두 체크합니다. 계속할까요?`,
+      tone: 'warning',
+      confirmLabel: '모두 체크',
+    });
+    if (!ok) return;
+
+    setCompletingScope(scope);
+    try {
+      const result = await completeChecklistScope(scope, shift, group, session.name);
+      queryClient.setQueryData(['checklist', DEFAULT_HOTEL_ID, shift, group], result);
+      setToast(`${label} 미완료 ${count}건을 체크했습니다.`);
+      window.setTimeout(() => setToast(null), 2200);
+    } catch {
+      refetch();
+    } finally {
+      setCompletingScope(null);
     }
   }
 
@@ -188,6 +289,15 @@ export function ChecklistPageClient() {
   const commonDone = commonItems.filter((item) => item.completed).length;
   const groupDone = groupItems.filter((item) => item.completed).length;
   const completed = items.filter((item) => item.completed).length;
+  const incompleteCount = items.length - completed;
+
+  const displayCommonItems = showIncompleteOnly
+    ? commonItems.filter((item) => !item.completed)
+    : commonItems;
+  const displayGroupItems = showIncompleteOnly
+    ? groupItems.filter((item) => !item.completed)
+    : groupItems;
+
   const metaText = data?.work_date
     ? `${formatWorkDate(data.work_date)} · ${group}조 · ${
         items.length ? `${completed}/${items.length} 완료` : '등록된 항목 없음'
@@ -198,11 +308,8 @@ export function ChecklistPageClient() {
     <section className="checklist-page">
       <div className="checklist-page__header">
         <div>
-          <h2>Shift Check List</h2>
-          <p>
-            현재 조({formatShiftChecklistTitle(group)}) 항목을 순서대로 확인합니다. Excel Shift Check List와
-            동일한 A·B·C조 체크리스트{group === 'C' ? ' · C조는 하단 야간 마감·레지스터 메모를 함께 기록합니다' : ''}입니다.
-          </p>
+          <h2>{pageMeta.label}</h2>
+          <p>{pageMeta.description}</p>
         </div>
         <Link href="/settings" className="btn btn--ghost">
           항목 관리
@@ -214,6 +321,26 @@ export function ChecklistPageClient() {
       {items.length > 0 ? (
         <div className="checklist-page__progress">
           <ChecklistProgressBar done={completed} total={items.length} label="오늘 체크리스트 완료도" />
+          <div className="checklist-page__tools">
+            <button
+              type="button"
+              className={`checklist-page__filter${showIncompleteOnly ? ' is-active' : ''}`}
+              onClick={() => setShowIncompleteOnly((prev) => !prev)}
+              aria-pressed={showIncompleteOnly}
+            >
+              미완료만 보기
+              {incompleteCount > 0 ? ` (${incompleteCount})` : ''}
+            </button>
+            <button
+              type="button"
+              className="btn btn--outline btn--small"
+              onClick={scrollToNextIncomplete}
+              disabled={!incompleteCount}
+              title="키보드 N"
+            >
+              다음 미완료 ↓ (N)
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -246,22 +373,40 @@ export function ChecklistPageClient() {
               title="공통 확인"
               done={commonDone}
               total={commonItems.length}
-              items={commonItems}
-              emptyText="공통 항목이 없습니다. 설정에서 추가하세요."
+              items={displayCommonItems}
+              emptyText={
+                showIncompleteOnly && commonDone === commonItems.length
+                  ? '공통 항목을 모두 완료했습니다.'
+                  : '공통 항목이 없습니다. 설정에서 추가하세요.'
+              }
               onToggle={handleToggle}
+              onCompleteAll={() =>
+                void handleCompleteAll('common', '공통 확인', commonItems.length - commonDone)
+              }
+              completeBusy={completingScope === 'common'}
               onReset={() => void handleReset('common', '공통 확인')}
               resetBusy={resettingScope === 'common'}
+              highlightItemId={highlightItemId}
             />
           ) : null}
           <ChecklistColumn
             title={formatShiftChecklistTitle(group)}
             done={groupDone}
             total={groupItems.length}
-            items={groupItems}
-            emptyText={`${formatShiftChecklistTitle(group)} 항목이 없습니다.`}
+            items={displayGroupItems}
+            emptyText={
+              showIncompleteOnly && groupDone === groupItems.length
+                ? `${formatShiftChecklistTitle(group)} 항목을 모두 완료했습니다.`
+                : `${formatShiftChecklistTitle(group)} 항목이 없습니다.`
+            }
             onToggle={handleToggle}
+            onCompleteAll={() =>
+              void handleCompleteAll(group, formatShiftChecklistTitle(group), groupItems.length - groupDone)
+            }
+            completeBusy={completingScope === group}
             onReset={() => void handleReset(group, formatShiftChecklistTitle(group))}
             resetBusy={resettingScope === group}
+            highlightItemId={highlightItemId}
           />
         </div>
       )}

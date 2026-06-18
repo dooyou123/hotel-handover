@@ -225,13 +225,31 @@ export function useCards() {
   });
 
   const updateComment = useMutation({
-    mutationFn: async ({ commentId, cardId, content }: { commentId: string; cardId: string; content: string }) => {
+    mutationFn: async ({
+      commentId,
+      cardId,
+      content,
+      editorShift,
+      editorName,
+    }: {
+      commentId: string;
+      cardId: string;
+      content: string;
+      editorShift: string;
+      editorName: string;
+    }) => {
       const supabase = createClient();
       const now = new Date().toISOString();
       const { error } = await supabase
         .from('card_comments')
-        .update({ content, updated_at: now })
-        .eq('id', commentId);
+        .update({
+          content,
+          updated_at: now,
+          edited_by_shift: editorShift,
+          edited_by_name: editorName,
+        })
+        .eq('id', commentId)
+        .is('deleted_at', null);
       if (error) throw error;
       await supabase.from('cards').update({ updated_at: now }).eq('id', cardId);
     },
@@ -239,11 +257,30 @@ export function useCards() {
   });
 
   const deleteComment = useMutation({
-    mutationFn: async ({ commentId, cardId }: { commentId: string; cardId: string }) => {
+    mutationFn: async ({
+      commentId,
+      cardId,
+      deleterShift,
+      deleterName,
+    }: {
+      commentId: string;
+      cardId: string;
+      deleterShift: string;
+      deleterName: string;
+    }) => {
       const supabase = createClient();
-      const { error } = await supabase.from('card_comments').delete().eq('id', commentId);
+      const now = new Date().toISOString();
+      const { error } = await supabase
+        .from('card_comments')
+        .update({
+          deleted_at: now,
+          deleted_by_shift: deleterShift,
+          deleted_by_name: deleterName,
+        })
+        .eq('id', commentId)
+        .is('deleted_at', null);
       if (error) throw error;
-      await supabase.from('cards').update({ updated_at: new Date().toISOString() }).eq('id', cardId);
+      await supabase.from('cards').update({ updated_at: now }).eq('id', cardId);
     },
     onSuccess: () => invalidateCardQueriesLocal(queryClient),
   });

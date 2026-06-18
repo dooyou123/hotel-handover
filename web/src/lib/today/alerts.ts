@@ -2,11 +2,13 @@ import { isCardDueSoon, isCardOverdue, isLongHoldCard, isStaleCard } from '@/lib
 import { filterNoticesExpiringSoon } from '@/lib/notices/expiry';
 import { filterNoticesForFeed } from '@/lib/notices/status';
 import { isToday } from '@/lib/handover/shift-summary';
+import { isDateInEventRange } from '@/lib/events/event-dates';
+import { isCompletedHotelEvent, todayDateString } from '@/lib/work-items/schedule-filters';
 import type { Card, Notice } from '@/lib/handover/types';
 import type { HotelEvent } from '@/lib/events/types';
 import type { Todo } from '@/lib/todos/types';
 import type { TransportBooking } from '@/lib/transport/types';
-import { filterTransportNeedsInputImminent } from '@/lib/transport/alerts';
+import { filterTransportNeedsInputImminent, filterUpcomingTransportAlerts } from '@/lib/transport/alerts';
 
 export type TodayAlertItem = {
   id: string;
@@ -37,7 +39,9 @@ export function buildTodayAlerts(input: {
   const alerts: TodayAlertItem[] = [];
   const overdueTodos = input.todos.filter(isTodoOverdue);
   const dueTodayTodos = input.todos.filter((t) => isTodoDueToday(t) && !isTodoOverdue(t));
-  const todayVipEvents = input.events.filter((e) => isToday(`${e.event_date}T12:00:00`) && e.category === 'VIP');
+  const todayVipEvents = input.events.filter(
+    (e) => isDateInEventRange(todayDateString(), e) && e.category === 'VIP',
+  );
   const activeCards = input.cards ?? [];
   const overdueCards = activeCards.filter(isCardOverdue);
   const dueSoonCards = activeCards.filter((c) => isCardDueSoon(c) && !isCardOverdue(c));
@@ -45,6 +49,7 @@ export function buildTodayAlerts(input: {
   const longHoldCards = activeCards.filter(isLongHoldCard);
   const expiringNotices = filterNoticesExpiringSoon(filterNoticesForFeed(input.notices ?? []), 7);
   const taxiNeedsInput = filterTransportNeedsInputImminent(input.transportBookings ?? []);
+  const taxiImminent = filterUpcomingTransportAlerts(input.transportBookings ?? []);
 
   if (input.unackedUrgent.length) {
     alerts.push({
@@ -94,6 +99,14 @@ export function buildTodayAlerts(input: {
       tone: 'warn',
     });
   }
+  if (taxiImminent.length) {
+    alerts.push({
+      id: 'taxi-imminent',
+      label: '택시 곧 출발',
+      detail: `${taxiImminent.length}건 · 30분 이내`,
+      tone: 'urgent',
+    });
+  }
   if (taxiNeedsInput.length) {
     alerts.push({
       id: 'taxi-needs-input',
@@ -134,10 +147,9 @@ export function filterTodayTodos(todos: Todo[]): Todo[] {
   return todos.filter((t) => t.status === 'open' && (isTodoDueToday(t) || isTodoOverdue(t) || !t.due_date));
 }
 
-import { isCompletedHotelEvent } from '@/lib/work-items/schedule-filters';
-
 export function filterTodayEvents(events: HotelEvent[]): HotelEvent[] {
-  return events.filter((e) => isToday(`${e.event_date}T12:00:00`) && !isCompletedHotelEvent(e));
+  const today = todayDateString();
+  return events.filter((e) => isDateInEventRange(today, e) && !isCompletedHotelEvent(e));
 }
 
 /** 오늘 픽업·미완료(취소 제외) 택시 예약 — 인계·사이드바 공통 */

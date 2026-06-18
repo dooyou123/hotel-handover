@@ -1,4 +1,4 @@
-export type AmenityTransactionType = '입고' | '출고';
+export type AmenityTransactionType = '입고' | '출고' | '실사';
 
 export interface Amenity {
   id: number;
@@ -27,6 +27,8 @@ export interface AmenityTransaction {
   total_items: number;
   author: string;
   memo: string;
+  audit_before?: number | null;
+  audit_after?: number | null;
   amenities?: Pick<Amenity, 'name'>;
 }
 
@@ -48,7 +50,11 @@ export function getEffectiveStockForEdit(
 
   let qty = target.quantity;
   if (editing && editing.amenity_id === targetAmenityId) {
-    qty += editing.type === '출고' ? editing.total_items : -editing.total_items;
+    if (editing.type === '실사') {
+      if (editing.audit_before != null) qty = editing.audit_before;
+    } else {
+      qty += editing.type === '출고' ? editing.total_items : -editing.total_items;
+    }
   }
   return qty;
 }

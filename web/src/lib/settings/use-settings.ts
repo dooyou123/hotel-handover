@@ -75,6 +75,23 @@ export function useChecklistDefinitions() {
   });
 }
 
+export function useInactiveChecklistDefinitions() {
+  return useQuery({
+    queryKey: ['checklist-definitions-inactive', DEFAULT_HOTEL_ID],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('checklist_items')
+        .select('id, label, sort_order, work_group')
+        .eq('hotel_id', DEFAULT_HOTEL_ID)
+        .eq('is_active', false)
+        .order('sort_order');
+      if (error) throw error;
+      return (data ?? []) as ChecklistItemDef[];
+    },
+  });
+}
+
 export function useCardTemplates() {
   return useQuery({
     queryKey: ['card-templates', DEFAULT_HOTEL_ID],
@@ -140,6 +157,40 @@ export async function deactivateChecklistDefinition(id: string) {
   if (error) throw error;
 }
 
+export async function updateChecklistDefinition(
+  id: string,
+  patch: { label?: string; work_group?: string; sort_order?: number },
+) {
+  const supabase = createClient();
+  const { error } = await supabase.from('checklist_items').update(patch).eq('id', id);
+  if (error) throw error;
+}
+
+export async function swapChecklistSortOrder(
+  id: string,
+  neighborId: string,
+  currentOrder: number,
+  neighborOrder: number,
+) {
+  const supabase = createClient();
+  const { error: firstError } = await supabase
+    .from('checklist_items')
+    .update({ sort_order: neighborOrder })
+    .eq('id', id);
+  if (firstError) throw firstError;
+  const { error: secondError } = await supabase
+    .from('checklist_items')
+    .update({ sort_order: currentOrder })
+    .eq('id', neighborId);
+  if (secondError) throw secondError;
+}
+
+export async function restoreChecklistDefinition(id: string) {
+  const supabase = createClient();
+  const { error } = await supabase.from('checklist_items').update({ is_active: true }).eq('id', id);
+  if (error) throw error;
+}
+
 export async function saveCardTemplate(input: CardTemplateInput, id?: string) {
   const supabase = createClient();
   if (id) {
@@ -168,6 +219,7 @@ export async function deactivateCardTemplate(id: string) {
 export function invalidateSettingsQueries(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ['staff'] });
   queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
+  queryClient.invalidateQueries({ queryKey: ['checklist-definitions-inactive'] });
   queryClient.invalidateQueries({ queryKey: ['card-templates'] });
   queryClient.invalidateQueries({ queryKey: ['checklist'] });
   queryClient.invalidateQueries({ queryKey: ['user-feedback'] });

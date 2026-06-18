@@ -16,6 +16,8 @@ import {
 } from '@/lib/schedule/use-schedule';
 import { createClient } from '@/lib/supabase/client';
 import { getKoreanHoliday, getKoreanHolidaysInMonth } from '@/lib/calendar/korean-holidays';
+import { getNavPageMeta } from '@/lib/nav/page-meta';
+import { SCHEDULE_TAB_HINTS } from '@/lib/nav/sub-feature-copy';
 import { LeaveRequestPanel } from './leave-request-panel';
 import { ScheduleEntryModal } from './schedule-entry-modal';
 
@@ -28,6 +30,7 @@ function formatDateLabel(workDate: string): string {
 }
 
 export function SchedulePageClient() {
+  const pageMeta = getNavPageMeta('/schedule');
   const queryClient = useQueryClient();
   const { requireSession } = useWorkSession();
   const [tab, setTab] = useState<ScheduleTab>('roster');
@@ -140,8 +143,8 @@ export function SchedulePageClient() {
     <>
       <section className="schedule-page">
         <div className="schedule-page__intro">
-          <h2>근무표</h2>
-          <p>조별 근무표 CSV 업로드와 휴무 신청만 관리합니다. 호텔 일정·할일은 「업무 일정」 메뉴를 사용하세요.</p>
+          <h2>{pageMeta.label}</h2>
+          <p>{pageMeta.description}</p>
         </div>
 
         <div className="schedule-tabs" role="tablist" aria-label="근무표 메뉴">
@@ -164,6 +167,7 @@ export function SchedulePageClient() {
             휴무 신청
           </button>
         </div>
+        <p className="schedule-page__tab-hint">{SCHEDULE_TAB_HINTS[tab]}</p>
 
         {tab === 'leave' ? (
           <LeaveRequestPanel onToast={showToast} />

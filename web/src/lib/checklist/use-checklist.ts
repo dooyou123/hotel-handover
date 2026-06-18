@@ -175,6 +175,38 @@ export async function resetChecklistCompletions(
   return fetchChecklistForShift(shift, group);
 }
 
+/** 공통 또는 조별 미완료 항목을 한 번에 체크합니다. */
+export async function completeChecklistScope(
+  scope: 'common' | string,
+  shift: string,
+  group: string,
+  staffName: string,
+): Promise<ChecklistData> {
+  const { createClient } = await import('@/lib/supabase/client');
+  const supabase = createClient();
+  const workDate = todayDateString();
+  const itemWorkGroup = scope === 'common' ? 'common' : scope;
+
+  const snapshot = await fetchChecklistForShift(shift, group);
+  const incomplete = snapshot.items.filter((item) => item.work_group === itemWorkGroup && !item.completed);
+  if (!incomplete.length) {
+    return snapshot;
+  }
+
+  const rows = incomplete.map((item) => ({
+    item_id: item.id,
+    work_date: workDate,
+    shift,
+    work_group: group,
+    staff_name: staffName,
+  }));
+
+  const { error } = await supabase.from('checklist_completions').insert(rows);
+  if (error) throw error;
+
+  return fetchChecklistForShift(shift, group);
+}
+
 export function isValidShift(shift: string): shift is (typeof SHIFTS)[number] {
   return (SHIFTS as readonly string[]).includes(shift);
 }

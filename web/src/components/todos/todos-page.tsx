@@ -21,10 +21,41 @@ import {
   type TodoSeriesScope,
 } from '@/lib/todos/types';
 import { describeRecurrence } from '@/lib/todos/recurrence';
+import { getNavPageMeta } from '@/lib/nav/page-meta';
 import { useTodos } from '@/lib/todos/use-todos';
 import { formatEventTimeRange, mergeWorkScheduleItems, type WorkScheduleItem } from '@/lib/work-items/merge';
+import { formatEventDateRange, isDateInEventRange } from '@/lib/events/event-dates';
 import { isDoneTodoHiddenFromList, isPastOrCompletedHotelEvent } from '@/lib/work-items/schedule-filters';
+import { todayDateString } from '@/lib/handover/shift-summary';
 import { TodoModal } from './todo-modal';
+
+function isTodoDueToday(todo: Todo): boolean {
+  if (!todo.due_date) return false;
+  return todo.due_date === todayDateString();
+}
+
+function isEventActiveToday(event: HotelEvent): boolean {
+  return isDateInEventRange(todayDateString(), event);
+}
+
+function ScheduleDateBadge({
+  icon,
+  label,
+  tone = 'default',
+}: {
+  icon: string;
+  label: string;
+  tone?: 'default' | 'today' | 'overdue';
+}) {
+  return (
+    <span className={`todo-list__date-badge${tone !== 'default' ? ` is-${tone}` : ''}`}>
+      <span className="todo-list__date-icon" aria-hidden>
+        {icon}
+      </span>
+      <span>{label}</span>
+    </span>
+  );
+}
 
 function formatDueDate(value: string | null): string {
   if (!value) return '';
@@ -55,6 +86,7 @@ const FILTERS: { id: TodoFilter; label: string }[] = [
 type TodoScope = 'team' | 'personal';
 
 export function TodosPageClient() {
+  const pageMeta = getNavPageMeta('/todos');
   const searchParams = useSearchParams();
   const initialScope = searchParams.get('view') === 'personal' ? 'personal' : 'team';
   const [scope, setScope] = useState<TodoScope>(initialScope);
@@ -253,11 +285,9 @@ export function TodosPageClient() {
     <>
       <section className="todos-page">
         <div className="todos-page__intro">
-          <h2>업무 일정</h2>
+          <h2>{pageMeta.label}</h2>
           <p>
-            {scope === 'personal'
-              ? '나만 보는 개인 할 일입니다.'
-              : '할일과 호텔 일정(교육·VIP·점검 등)을 한곳에서 관리합니다. 조별 근무표는 「근무표」 메뉴를 사용하세요.'}
+            {scope === 'personal' ? '로그인한 직원만 보는 개인 할 일입니다.' : pageMeta.description}
           </p>
         </div>
 
@@ -313,7 +343,7 @@ export function TodosPageClient() {
               <div className="todos-page__actions">
                 <button
                   type="button"
-                  className="btn btn--ghost btn--small"
+                  className="btn btn--primary btn--small"
                   onClick={() => {
                     setEditingEvent(null);
                     setEventModalOpen(true);
@@ -323,7 +353,7 @@ export function TodosPageClient() {
                 </button>
                 <button
                   type="button"
-                  className="btn btn--primary btn--small"
+                  className="btn btn--outline btn--small"
                   onClick={() => {
                     setEditingTodo(null);
                     setModalOpen(true);
@@ -333,6 +363,10 @@ export function TodosPageClient() {
                 </button>
               </div>
             </div>
+
+            <p className="todos-page__write-hint" role="note">
+              긴 내용은 Enter로 줄바꿈하거나 1. 2.처럼 번호를 매기면 목록에서 읽기 쉽습니다.
+            </p>
 
             {isLoading ? (
               <p className="empty-state">불러오는 중…</p>
@@ -381,13 +415,15 @@ export function TodosPageClient() {
                                 <span className="todo-list__desc">{event.description}</span>
                               ) : null}
                               <span className="todo-list__meta">
-                                <span className="todo-list__kind-inline">{event.category}</span>
-                                <span className="todo-list__due">
-                                  {formatDueDate(event.event_date)}
-                                  {' · '}
-                                  {formatEventTimeRange(event.start_time, event.end_time)}
+                                <ScheduleDateBadge
+                                  icon="📅"
+                                  label={`${formatEventDateRange(event.event_date, event.end_date)} · ${formatEventTimeRange(event.start_time, event.end_time)}`}
+                                  tone={isEventActiveToday(event) ? 'today' : 'default'}
+                                />
+                                <span className="todo-list__meta-secondary">
+                                  <span className="todo-list__kind-inline">{event.category}</span>
+                                  {event.author ? <span>· {event.author}</span> : null}
                                 </span>
-                                {event.author ? <span>· {event.author}</span> : null}
                               </span>
                             </button>
                           </li>
@@ -432,32 +468,42 @@ export function TodosPageClient() {
                             <span className="todo-list__title">{todo.title}</span>
                             {todo.description ? <span className="todo-list__desc">{todo.description}</span> : null}
                             <span className="todo-list__meta">
-                              <span className={`todo-list__priority todo-list__priority--${todo.priority}`}>
-                                {TODO_PRIORITY_LABELS[todo.priority]}
+                              <ScheduleDateBadge
+                                icon="⏰"
+                                label={
+                                  todo.due_date
+                                    ? `마감 ${formatDueDate(todo.due_date)}`
+                                    : '마감 없음'
+                                }
+                                tone={
+                                  isOverdue(todo)
+                                    ? 'overdue'
+                                    : isTodoDueToday(todo)
+                                      ? 'today'
+                                      : 'default'
+                                }
+                              />
+                              <span className="todo-list__meta-secondary">
+                                <span className={`todo-list__priority todo-list__priority--${todo.priority}`}>
+                                  {TODO_PRIORITY_LABELS[todo.priority]}
+                                </span>
+                                {describeRecurrence(todo) ? (
+                                  <span className="todo-list__repeat" title="반복 할일">
+                                    🔁 {describeRecurrence(todo)}
+                                  </span>
+                                ) : null}
+                                {todo.assignee_name ? <span>담당 {todo.assignee_name}</span> : null}
+                                {todo.author ? <span>· {todo.author}</span> : null}
+                                {card ? (
+                                  <Link
+                                    href={`/handover?card=${card.id}`}
+                                    className="todo-list__link"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    인수인계 연동
+                                  </Link>
+                                ) : null}
                               </span>
-                              {todo.due_date ? (
-                                <span className={isOverdue(todo) ? 'todo-list__due is-overdue' : 'todo-list__due'}>
-                                  마감 {formatDueDate(todo.due_date)}
-                                </span>
-                              ) : (
-                                <span className="todo-list__due">마감 없음</span>
-                              )}
-                              {describeRecurrence(todo) ? (
-                                <span className="todo-list__repeat" title="반복 할일">
-                                  🔁 {describeRecurrence(todo)}
-                                </span>
-                              ) : null}
-                              {todo.assignee_name ? <span>담당 {todo.assignee_name}</span> : null}
-                              {todo.author ? <span>· {todo.author}</span> : null}
-                              {card ? (
-                                <Link
-                                  href={`/handover?card=${card.id}`}
-                                  className="todo-list__link"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  인수인계 연동
-                                </Link>
-                              ) : null}
                             </span>
                           </button>
                         </li>
@@ -512,13 +558,15 @@ export function TodosPageClient() {
                                 <span className="todo-list__desc">{event.description}</span>
                               ) : null}
                               <span className="todo-list__meta">
-                                <span className="todo-list__kind-inline">{event.category}</span>
-                                <span className="todo-list__due">
-                                  {formatDueDate(event.event_date)}
-                                  {' · '}
-                                  {formatEventTimeRange(event.start_time, event.end_time)}
+                                <ScheduleDateBadge
+                                  icon="📅"
+                                  label={`${formatEventDateRange(event.event_date, event.end_date)} · ${formatEventTimeRange(event.start_time, event.end_time)}`}
+                                  tone={isEventActiveToday(event) ? 'today' : 'default'}
+                                />
+                                <span className="todo-list__meta-secondary">
+                                  <span className="todo-list__kind-inline">{event.category}</span>
+                                  {event.author ? <span>· {event.author}</span> : null}
                                 </span>
-                                {event.author ? <span>· {event.author}</span> : null}
                               </span>
                             </button>
                           </li>

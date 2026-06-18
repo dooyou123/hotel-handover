@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
+import { getNavPageMeta } from '@/lib/nav/page-meta';
 import {
   fetchBedRoomBaseline,
   filterBedRoomsToSave,
@@ -130,6 +131,7 @@ function sortBedRoomsByNumber(a: HousekeepingBedDraft, b: HousekeepingBedDraft):
 }
 
 export function HousekeepingPageClient() {
+  const pageMeta = getNavPageMeta('/housekeeping');
   const router = useRouter();
   const queryClient = useQueryClient();
   const { authorLabel, requireSession } = useWorkSession();
@@ -497,8 +499,8 @@ export function HousekeepingPageClient() {
         ) : (
           <div className="housekeeping-page__header">
             <div>
-              <h2>하우스키핑 리포트</h2>
-              <p>4~13층 02·10·16호 트윈/트리플·엑스트라베드와 VIP·장박·일찍 체크인 객실을 입력합니다.</p>
+              <h2>{pageMeta.label}</h2>
+              <p>{pageMeta.description}</p>
             </div>
             <div className="housekeeping-page__actions">
               <button type="button" className="btn btn--primary" onClick={() => setHkView(true)}>

@@ -17,9 +17,9 @@ const HANDOVER_NOTE_KEYS = new Set<HkStatusNoteKey>([
 
 const NOTE_CATEGORY: Partial<Record<HkStatusNoteKey, string>> = {
   hk_out_of_order: '시설',
-  hk_maintenance_attention: '룸이슈',
-  hk_maintenance_notes: '룸이슈',
-  hk_vip_prep: '룸이슈',
+  hk_maintenance_attention: '시설',
+  hk_maintenance_notes: '시설',
+  hk_vip_prep: '체크인/아웃',
 };
 
 export function canCreateHandoverFromStatusNote(key: HkStatusNoteKey): boolean {
@@ -62,7 +62,7 @@ export function cardInputFromHkStatusNote(
   return {
     column_id: 'progress',
     priority: key === 'hk_out_of_order' ? 'today' : 'info',
-    category: NOTE_CATEGORY[key] ?? '룸이슈',
+    category: NOTE_CATEGORY[key] ?? '시설',
     room,
     title: room ? `${room} ${label}` : label,
     details: `${trimmed}\n\n— 하우스키핑 ${label}`,
@@ -91,7 +91,7 @@ export function cardInputFromHkSpecialRoom(room: HousekeepingSpecialDraft, autho
   return {
     column_id: 'progress',
     priority: room.is_vip ? 'today' : 'info',
-    category: '룸이슈',
+    category: '체크인/아웃',
     room: room.room_number.trim(),
     title: titleParts.length ? titleParts.join(' · ') : 'HK 특이 객실',
     details: detailLines.length

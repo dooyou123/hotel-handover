@@ -16,6 +16,7 @@ interface InventoryGridProps {
   onSearchChange: (value: string) => void;
   onSelect: (id: number) => void;
   onDownloadHistory?: () => void;
+  onOpenHistory?: () => void;
   downloadBusy?: boolean;
 }
 
@@ -26,6 +27,7 @@ export function AmenityInventoryGrid({
   onSearchChange,
   onSelect,
   onDownloadHistory,
+  onOpenHistory,
   downloadBusy = false,
 }: InventoryGridProps) {
   const sorted = useMemo(() => {
@@ -69,6 +71,11 @@ export function AmenityInventoryGrid({
           ) : null}
         </div>
         <div className="amenity-toolbar__actions">
+          {onOpenHistory ? (
+            <button type="button" className="btn btn--ghost btn--small" onClick={onOpenHistory}>
+              입출고 기록
+            </button>
+          ) : null}
           {onDownloadHistory ? (
             <button
               type="button"

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useWorkSession } from '@/lib/handover/use-work-session';
+import { getNavPageMeta } from '@/lib/nav/page-meta';
 import { getParcelSignatureUrl } from '@/lib/parcels/signatures';
 import {
   countParcelsForBoardTab,
@@ -43,6 +44,7 @@ function defaultDirectionForTab(tab: ParcelBoardTab): ParcelDirection {
 }
 
 export function ParcelsPageClient() {
+  const pageMeta = getNavPageMeta('/parcels');
   const { authorLabel, requireSession, session } = useWorkSession();
   const { confirm } = useConfirmDialog();
   const [boardTab, setBoardTab] = useState<ParcelBoardTab>('out_to_room');
@@ -164,8 +166,8 @@ export function ParcelsPageClient() {
     <section className="parcels-page">
       <header className="parcels-page__header">
         <div>
-          <h2 className="parcels-page__title">📦 물건 픽업 장부</h2>
-          <p className="parcels-page__desc">OUT TO ROOM · ROOM TO OUT 보관·인도</p>
+          <h2 className="parcels-page__title">{pageMeta.label}</h2>
+          <p className="parcels-page__desc">{pageMeta.description}</p>
         </div>
         <button type="button" className="btn btn--primary parcels-page__add-btn" onClick={openCreate}>
           + 기록 등록

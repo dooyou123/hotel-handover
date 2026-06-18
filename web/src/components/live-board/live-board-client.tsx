@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
+import { getNavPageMeta } from '@/lib/nav/page-meta';
 import { fetchCards } from '@/lib/handover/use-cards';
 import { fetchNotices } from '@/lib/handover/use-notices';
 import { buildLiveBoardFeed } from '@/lib/live-board/build-feed';
@@ -24,6 +25,7 @@ function formatClock(now: Date): string {
 }
 
 export function LiveBoardClient() {
+  const pageMeta = getNavPageMeta('/board');
   const [now, setNow] = useState(() => new Date());
 
   const { data: notices = [] } = useQuery({
@@ -70,7 +72,8 @@ export function LiveBoardClient() {
       <header className="live-board__header">
         <div>
           <p className="live-board__eyebrow">LIVE</p>
-          <h1 className="live-board__title">프런트 라이브 보드</h1>
+          <h1 className="live-board__title">{pageMeta.label}</h1>
+          <p className="live-board__desc">{pageMeta.description}</p>
         </div>
         <div className="live-board__header-meta">
           <time className="live-board__clock">{formatClock(now)}</time>

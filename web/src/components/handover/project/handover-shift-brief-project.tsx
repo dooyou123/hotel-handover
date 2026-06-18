@@ -15,6 +15,7 @@ import {
   getExportFilename,
   openSummaryPrintWindow,
 } from '@/lib/handover/daily-summary';
+import type { HandoverRecordsTab } from '@/lib/handover/records';
 import type { ShiftSummaryData } from '@/lib/handover/shift-summary';
 import {
   fetchChecklistIncomplete,
@@ -44,8 +45,7 @@ type HandoverShiftBriefProjectProps = {
   onOpenCard: (card: Card) => void;
   onOpenTodo?: (todo: Todo) => void;
   onOpenEvent?: (event: HotelEvent) => void;
-  onShiftHistory?: () => void;
-  onActivityLog?: () => void;
+  onOpenRecords?: (tab: HandoverRecordsTab) => void;
   onToast: (message: string) => void;
 };
 
@@ -60,8 +60,7 @@ export function HandoverShiftBriefProject({
   onOpenCard,
   onOpenTodo,
   onOpenEvent,
-  onShiftHistory,
-  onActivityLog,
+  onOpenRecords,
   onToast,
 }: HandoverShiftBriefProjectProps) {
   const queryClient = useQueryClient();
@@ -228,7 +227,7 @@ export function HandoverShiftBriefProject({
 
   function handleExportPrint() {
     const ok = openSummaryPrintWindow(summary, todayLogs, authorLabel, briefExtras);
-    if (!ok) onToast('팝업이 차단되었습니다. 팝업 허용 후 다시 시도해 주세요.');
+    if (!ok) onToast('인쇄 창을 열지 못했습니다. 팝업 차단을 확인해 주세요.');
   }
 
   async function handleExportImage() {
@@ -290,8 +289,8 @@ export function HandoverShiftBriefProject({
       hkDayNotes={hkDayNotes}
       todayShiftLogs={todayShiftLogs}
       shiftLogsLoading={logsLoading}
-      onOpenShiftHistory={onShiftHistory}
-      onOpenActivityLog={onActivityLog}
+      onOpenShiftHistory={onOpenRecords ? () => onOpenRecords('shift') : undefined}
+      onOpenActivityLog={onOpenRecords ? () => onOpenRecords('activity') : undefined}
       showFooter={false}
     />
     <div ref={sheetRef} className="export-sheet hidden" aria-hidden />

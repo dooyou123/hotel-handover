@@ -5,6 +5,8 @@ import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { todayDateString } from '@/lib/handover/shift-summary';
+import { getNavPageMeta } from '@/lib/nav/page-meta';
+import { TRANSPORT_TAB_HINTS } from '@/lib/nav/sub-feature-copy';
 import { useWorkSession } from '@/lib/handover/use-work-session';
 import { dashboardPeriodRange } from '@/lib/taxi/dashboard';
 import { pickupDateTime } from '@/lib/taxi/format';
@@ -42,6 +44,7 @@ function addDays(date: string, days: number): string {
 }
 
 export function TransportPageClient() {
+  const pageMeta = getNavPageMeta('/transport');
   const searchParams = useSearchParams();
   const { authorLabel, requireSession } = useWorkSession();
   const { confirm } = useConfirmDialog();
@@ -222,8 +225,8 @@ export function TransportPageClient() {
       <section className="taxi-page">
         <header className="taxi-page__header">
           <div>
-            <h2 className="taxi-page__title">🚕 Taxi</h2>
-            <p>택시 예약 장부 · 실시간 동기화 · WhatsApp · 다국어 확인증</p>
+            <h2 className="taxi-page__title">{pageMeta.label}</h2>
+            <p>{pageMeta.description}</p>
           </div>
           <div className="taxi-page__header-actions">
             {isManager ? (
@@ -255,6 +258,7 @@ export function TransportPageClient() {
             대시보드
           </button>
         </nav>
+        <p className="taxi-page__tab-hint">{TRANSPORT_TAB_HINTS[tab]}</p>
 
         {fetchError ? (
           <div className="taxi-page__alert" role="alert">

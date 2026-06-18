@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { useWorkSession } from '@/lib/handover/use-work-session';
 import { createFollowUpCardFromReview } from '@/lib/reviews/follow-up-card';
+import { getNavPageMeta } from '@/lib/nav/page-meta';
 import { formatReviewDate, formatStayRange } from '@/lib/reviews/format';
 import {
   REVIEW_ACCOUNT_PRESETS,
@@ -272,6 +273,7 @@ function matchesFilter(review: GuestReview, filter: ReviewFilter): boolean {
 }
 
 export function ReviewsPageClient() {
+  const pageMeta = getNavPageMeta('/reviews');
   const queryClient = useQueryClient();
   const { session, requireSession, authorLabel } = useWorkSession();
   const { confirm } = useConfirmDialog();
@@ -374,8 +376,8 @@ export function ReviewsPageClient() {
       <section className="reviews-page">
         <div className="reviews-page__header">
           <div>
-            <h2>고객 리뷰 보관</h2>
-            <p>OTA 붙여넣기로 빠르게 등록하고, 나쁜 리뷰는 인수인계 카드로 이어갑니다.</p>
+            <h2>{pageMeta.label}</h2>
+            <p>{pageMeta.description}</p>
           </div>
           <button
             type="button"

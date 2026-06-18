@@ -15,6 +15,8 @@ import {
   isCardSnoozed,
   isUrgentPriorityCard,
   needsComplaintFirstResponse,
+  countActiveCardComments,
+  hasActiveCardComments,
 } from '@/lib/handover/card-utils';
 import type { Card } from '@/lib/handover/types';
 import { ComplaintSlaBadge } from '@/components/handover/complaint-sla-badge';
@@ -74,6 +76,8 @@ export function HandoverListRowProject({
   const staleLevel = getStaleLevel(card);
   const holdStaleLevel = getHoldStaleLevel(card);
   const needsFirstResponse = needsComplaintFirstResponse(card);
+  const activeCommentCount = countActiveCardComments(card);
+  const hasComments = hasActiveCardComments(card);
   const preview = card.next_action?.trim() || card.details?.trim() || card.resolution?.trim() || '';
   const status = archived
     ? '보관'
@@ -106,6 +110,7 @@ export function HandoverListRowProject({
 
   return (
     <article
+      id={`handover-card-${card.id}`}
       className={[
         'project-list-row',
         isUnacked ? 'is-unacked' : '',
@@ -115,6 +120,7 @@ export function HandoverListRowProject({
         isUrgent ? 'is-urgent-priority' : '',
         bulkMode ? 'is-bulk-mode' : '',
         selected ? 'is-selected' : '',
+        hasComments ? 'has-comments' : '',
       ]
         .filter(Boolean)
         .join(' ')}
@@ -136,6 +142,11 @@ export function HandoverListRowProject({
               {status}
             </span>
             <span className="project-list-row__meta">
+              {hasComments ? (
+                <span className="project-list-row__badge project-list-row__badge--comments">
+                  댓글 {activeCommentCount}
+                </span>
+              ) : null}
               <span
                 className={`project-list-row__badge${isUrgent ? ' project-list-row__badge--urgent' : ''}`}
               >

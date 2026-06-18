@@ -9,7 +9,8 @@ import { fetchAmenityInventoryData } from '@/lib/amenity/api';
 import { getStockStatus } from '@/lib/amenity/ui';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { buildShiftSummaryData } from '@/lib/handover/shift-summary';
-import { fetchChecklistIncomplete, logShiftHandover, useTodayShiftHandovers } from '@/lib/handover/use-activity-logs';
+import { fetchChecklistIncomplete, logShiftHandover, useTodayActivityLogs, useTodayShiftHandovers } from '@/lib/handover/use-activity-logs';
+import { openSummaryPrintWindow } from '@/lib/handover/daily-summary';
 import { useCards } from '@/lib/handover/use-cards';
 import { useNotices } from '@/lib/handover/use-notices';
 import { useWorkSession } from '@/lib/handover/use-work-session';
@@ -29,6 +30,7 @@ export function ShiftBriefPageClient() {
   const { todos, isLoading: todosLoading } = useTodos();
   const { data: todayTaxi = [], isLoading: taxiLoading } = useTodayTaxiBookings();
   const { data: todayShiftLogs = [], isLoading: shiftLogsLoading } = useTodayShiftHandovers();
+  const { data: todayLogs = [] } = useTodayActivityLogs(200);
 
   const month = new Date().toISOString().slice(0, 7);
   const { events } = useMonthEvents(month);
@@ -155,6 +157,16 @@ export function ShiftBriefPageClient() {
     }
   }
 
+  const briefExtras = useMemo(
+    () => ({ todayTodos, pendingTaxi, todayShiftLogs }),
+    [todayTodos, pendingTaxi, todayShiftLogs],
+  );
+
+  function handleExportPrint() {
+    const ok = openSummaryPrintWindow(summary, todayLogs, authorLabel, briefExtras);
+    if (!ok) showToast('인쇄 창을 열지 못했습니다. 팝업 차단을 확인해 주세요.');
+  }
+
   const isLoading = cardsLoading || noticesLoading || reviewsLoading || todosLoading;
   const sessionReady = Boolean(session.group && session.name);
 
@@ -180,7 +192,7 @@ export function ShiftBriefPageClient() {
         taxiLoading={taxiLoading}
         todayShiftLogs={todayShiftLogs}
         shiftLogsLoading={shiftLogsLoading}
-        showPrint
+        onExportPrint={handleExportPrint}
       />
       <div className="shift-brief__actions shift-brief__actions--standalone">
         <Link href="/handover" className="btn btn--outline btn--small">

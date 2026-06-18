@@ -7,12 +7,16 @@ import { AmenityInventoryGrid } from '@/components/amenity/inventory-grid';
 import { AmenityTransactionPanel } from '@/components/amenity/transaction-panel';
 import { AmenityTransactionHistory } from '@/components/amenity/transaction-history';
 import { fetchAmenityInventoryData, fetchAllAmenityTransactions, subscribeAmenityChanges } from '@/lib/amenity/api';
+import { AMENITY_WORKSPACE_TABS } from '@/lib/amenity/copy';
 import { downloadAmenityTransactionsCsv } from '@/lib/amenity/export';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
+import { getNavPageMeta } from '@/lib/nav/page-meta';
 import { todayDateString } from '@/lib/handover/shift-summary';
 import { useWorkSession } from '@/lib/handover/use-work-session';
 import { useTodos } from '@/lib/todos/use-todos';
 import { buildAmenityOrderLines, buildAmenityOrderText } from '@/lib/amenity/order-sheet';
+
+type AmenityWorkspaceTab = 'inventory' | 'history';
 
 export function AmenityPageClient() {
   const { session, authorLabel, requireSession } = useWorkSession();
@@ -25,6 +29,7 @@ export function AmenityPageClient() {
   const [toast, setToast] = useState<string | null>(null);
   const [todoBusy, setTodoBusy] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
+  const [workspaceTab, setWorkspaceTab] = useState<AmenityWorkspaceTab>('inventory');
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['amenity', DEFAULT_HOTEL_ID],
@@ -37,6 +42,16 @@ export function AmenityPageClient() {
     });
     return unsubscribe;
   }, [queryClient]);
+
+  const {
+    data: allTransactions = [],
+    isLoading: historyLoading,
+    refetch: refetchHistory,
+  } = useQuery({
+    queryKey: ['amenity-transactions-all', DEFAULT_HOTEL_ID],
+    queryFn: () => fetchAllAmenityTransactions(DEFAULT_HOTEL_ID),
+    enabled: workspaceTab === 'history',
+  });
 
   useEffect(() => {
     if (!data?.items.length || selectedId != null) return;
@@ -110,10 +125,16 @@ export function AmenityPageClient() {
   }
 
   const items = data?.items ?? [];
-  const transactions = data?.transactions ?? [];
+  const { label: amenityTitle, description: amenityDescription } = getNavPageMeta('/amenity');
+  const activeTabCopy = AMENITY_WORKSPACE_TABS[workspaceTab];
 
   return (
     <section className="amenity-page">
+      <header className="amenity-page__header">
+        <h2 className="amenity-page__title">{amenityTitle || '어메니티'}</h2>
+        <p className="amenity-page__desc">{amenityDescription}</p>
+      </header>
+
       {!hasSession ? (
         <p className="amenity-page__hint">「지금 근무」 설정 후 입출고 가능</p>
       ) : null}
@@ -125,45 +146,77 @@ export function AmenityPageClient() {
         createTodoBusy={todoBusy}
       />
 
-      <div className="amenity-page__workspace">
-        <AmenityInventoryGrid
-          items={items}
-          selectedId={selectedId}
-          search={search}
-          onSearchChange={setSearch}
-          onSelect={handleSelect}
-          onDownloadHistory={() => void handleDownloadHistory()}
-          downloadBusy={downloadBusy}
-        />
-        <div className="amenity-side-stack">
-          <AmenityTransactionPanel
+      <div className="amenity-page__tabs" role="tablist" aria-label="어메니티 보기">
+        {(Object.keys(AMENITY_WORKSPACE_TABS) as AmenityWorkspaceTab[]).map((tabId) => {
+          const tab = AMENITY_WORKSPACE_TABS[tabId];
+          return (
+            <button
+              key={tabId}
+              type="button"
+              role="tab"
+              aria-selected={workspaceTab === tabId}
+              className={`amenity-page__tab${workspaceTab === tabId ? ' is-active' : ''}`}
+              onClick={() => setWorkspaceTab(tabId)}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+      <p className="amenity-page__tab-hint">{activeTabCopy.description}</p>
+
+      {workspaceTab === 'inventory' ? (
+        <div className="amenity-page__workspace">
+          <AmenityInventoryGrid
             items={items}
             selectedId={selectedId}
-            author={authorLabel || session.name}
-            canTransact={hasSession}
-            busy={isFetching}
+            search={search}
+            onSearchChange={setSearch}
             onSelect={handleSelect}
-            onSuccess={() => {
-              showToast('처리되었습니다.');
-              void refetch();
-            }}
-            onMinQuantitySaved={() => {
-              showToast('최소 재고가 저장되었습니다.');
-              void refetch();
-            }}
-            onError={showToast}
+            onDownloadHistory={() => void handleDownloadHistory()}
+            onOpenHistory={() => setWorkspaceTab('history')}
+            downloadBusy={downloadBusy}
           />
-          <AmenityTransactionHistory
-            variant="embedded"
-            transactions={transactions}
-            items={items}
-            author={authorLabel || session.name}
-            canEdit={hasSession}
-            selectedAmenityId={selectedId}
-            onSuccess={() => void refetch()}
-          />
+          <div className="amenity-side-stack">
+            <AmenityTransactionPanel
+              items={items}
+              selectedId={selectedId}
+              author={authorLabel || session.name}
+              canTransact={hasSession}
+              busy={isFetching}
+              onSelect={handleSelect}
+              onSuccess={() => {
+                showToast('처리되었습니다.');
+                void refetch();
+                void refetchHistory();
+              }}
+              onMinQuantitySaved={() => {
+                showToast('최소 재고가 저장되었습니다.');
+                void refetch();
+              }}
+              onError={showToast}
+            />
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="amenity-page__workspace amenity-page__workspace--history">
+          {historyLoading ? (
+            <p className="empty-state">입출고 기록을 불러오는 중…</p>
+          ) : (
+            <AmenityTransactionHistory
+              variant="full"
+              transactions={allTransactions}
+              items={items}
+              author={authorLabel || session.name}
+              canEdit={hasSession}
+              onSuccess={() => {
+                void refetch();
+                void refetchHistory();
+              }}
+            />
+          )}
+        </div>
+      )}
 
       {toast ? <div className="toast">{toast}</div> : null}
     </section>

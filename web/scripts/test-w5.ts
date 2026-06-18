@@ -17,7 +17,7 @@ import { buildAmenityOrderLines, buildAmenityOrderText } from '@/lib/amenity/ord
 import { buildAmenityTransactionsCsv, getAmenityTransactionsExportFilename } from '@/lib/amenity/export';
 import { getKoreanHoliday, getKoreanHolidaysInMonth } from '@/lib/calendar/korean-holidays';
 import { monthDateRange } from '@/lib/schedule/month-range';
-import { buildSummaryText, getExportFilename, hasSummaryContent } from '@/lib/handover/daily-summary';
+import { buildPrintDocumentHtml, buildSummaryText, getExportFilename, hasSummaryContent } from '@/lib/handover/daily-summary';
 import { buildShiftSummaryData } from '@/lib/handover/shift-summary';
 import { consolidateTlNotificationRows, performReconciliation } from '@/lib/rate-confirm/compare-engine';
 import { isStatusEqual, normalizeDate, normalizeRate } from '@/lib/rate-confirm/normalize';
@@ -148,6 +148,25 @@ test('hasSummaryContent false when empty', () => {
   assert.equal(hasSummaryContent(data, [] as ActivityLog[]), false);
 });
 
+test('buildPrintDocumentHtml uses compact A4 layout', () => {
+  const card = {
+    id: '1',
+    column_id: 'progress',
+    title: '테스트 카드',
+    priority: 'normal',
+    card_acknowledgments: [],
+    author: '김프런',
+    created_at: '2026-06-08T10:00:00',
+    updated_at: '2026-06-08T10:00:00',
+  } as Card;
+  const data = buildShiftSummaryData([card], []);
+  const html = buildPrintDocumentHtml(data, [], '주간 · 김프런');
+  assert.match(html, /@page \{ size: A4 portrait/);
+  assert.match(html, /sections-grid/);
+  assert.match(html, /교대 인계 요약/);
+  assert.match(html, /현재 진행중/);
+});
+
 test('splitTextBySearchQuery highlights matching segments', () => {
   assert.deepEqual(splitTextBySearchQuery('1207 VIP 민원', 'vip'), [
     { text: '1207 ', match: false },
@@ -240,6 +259,28 @@ test('isCommentEdited when updated_at differs from created_at', () => {
   assert.equal(isCommentEdited(base), false);
   assert.equal(isCommentEdited({ ...base, updated_at: base.created_at }), false);
   assert.equal(isCommentEdited({ ...base, updated_at: '2026-06-08T11:00:00.000Z' }), true);
+});
+
+test('comment audit labels for edit and delete', () => {
+  const { formatDeletedCommentLabel, formatEditedCommentLabel, isCommentDeleted } =
+    require('@/lib/handover/card-utils') as typeof import('@/lib/handover/card-utils');
+  const comment: CardComment = {
+    id: '1',
+    card_id: 'c1',
+    shift: 'A',
+    staff_name: '홍길동',
+    content: '도착',
+    created_at: '2026-06-08T10:00:00.000Z',
+    updated_at: '2026-06-08T11:00:00.000Z',
+    edited_by_shift: 'B',
+    edited_by_name: '김두',
+    deleted_at: '2026-06-08T12:00:00.000Z',
+    deleted_by_shift: 'C',
+    deleted_by_name: '이삼',
+  };
+  assert.equal(isCommentDeleted(comment), true);
+  assert.equal(formatEditedCommentLabel(comment), '수정됨 · B · 김두');
+  assert.equal(formatDeletedCommentLabel(comment), '삭제된 댓글 (C · 이삼)');
 });
 
 test('parseAmount strips currency formatting', () => {
@@ -659,6 +700,7 @@ test('mergeWorkScheduleItems combines todos and events by date', () => {
     {
       id: 'e1',
       event_date: '2026-06-17',
+      end_date: null,
       start_time: '14:00:00',
       end_time: '18:00:00',
       category: '교육',
@@ -670,12 +712,58 @@ test('mergeWorkScheduleItems combines todos and events by date', () => {
   assert.equal(merged.length, 3);
   assert.equal(merged[0].kind, 'event');
   assert.equal(merged[1].kind, 'todo');
+
+  const spanning = mergeWorkScheduleItems({
+    todos: [],
+    events: [
+      {
+        id: 'e2',
+        event_date: '2026-05-28',
+        end_date: '2026-06-05',
+        start_time: null,
+        end_time: null,
+        category: '점검',
+        title: '장기 점검',
+      },
+    ] as import('@/lib/events/types').HotelEvent[],
+    month: '2026-06',
+  });
+  assert.equal(spanning.length, 1);
+});
+
+test('hotel event date range helpers', () => {
+  const {
+    getEventEndDate,
+    isDateInEventRange,
+    eventOverlapsMonth,
+    eachEventDateInMonth,
+    normalizeEventEndDate,
+    formatEventDateRange,
+  } = require('@/lib/events/event-dates') as typeof import('@/lib/events/event-dates');
+
+  const event = { event_date: '2026-06-10', end_date: '2026-06-14' };
+  assert.equal(getEventEndDate(event), '2026-06-14');
+  assert.equal(isDateInEventRange('2026-06-12', event), true);
+  assert.equal(isDateInEventRange('2026-06-15', event), false);
+  assert.equal(eventOverlapsMonth(event, '2026-06'), true);
+  assert.equal(eventOverlapsMonth(event, '2026-07'), false);
+  assert.deepEqual(eachEventDateInMonth(event, '2026-06'), [
+    '2026-06-10',
+    '2026-06-11',
+    '2026-06-12',
+    '2026-06-13',
+    '2026-06-14',
+  ]);
+  assert.equal(normalizeEventEndDate('2026-06-10', '2026-06-10'), null);
+  assert.equal(normalizeEventEndDate('2026-06-10', '2026-06-12'), '2026-06-12');
+  assert.match(formatEventDateRange('2026-06-10', '2026-06-14'), /6\. 10\./);
 });
 
 test('today taxi bar text shows overdue message', () => {
   const {
     formatTodayTaxiBarText,
     isPickupOverdue,
+    isUpcomingTransportAlert,
   } = require('@/lib/transport/alerts') as typeof import('@/lib/transport/alerts');
 
   const booking = {
@@ -693,7 +781,8 @@ test('today taxi bar text shows overdue message', () => {
 
   assert.equal(isPickupOverdue(booking, before), false);
   assert.equal(isPickupOverdue(booking, after), true);
-  assert.match(formatTodayTaxiBarText(booking, before), /택시 예약 · 1207호/);
+  assert.equal(isUpcomingTransportAlert(booking, 30, before), true);
+  assert.match(formatTodayTaxiBarText(booking, before), /20분 후 픽업 · 1207호/);
   assert.equal(formatTodayTaxiBarText(booking, after), '시간이 지났습니다. 택시 예약을 확인해주세요.');
 });
 
@@ -841,8 +930,16 @@ test('isDoneTodoHiddenFromList hides done todos older than 7 days', () => {
     isDoneTodoHiddenFromList({ status: 'done', completed_at: '2026-05-31T09:00:00Z' }, now),
     true,
   );
-  assert.equal(isPastHotelEvent({ event_date: '2026-06-07' }, todayDateString(now)), true);
-  assert.equal(isPastHotelEvent({ event_date: '2026-06-08' }, todayDateString(now)), false);
+  assert.equal(isPastHotelEvent({ event_date: '2026-06-07', end_date: null }, todayDateString(now)), true);
+  assert.equal(isPastHotelEvent({ event_date: '2026-06-08', end_date: null }, todayDateString(now)), false);
+  assert.equal(
+    isPastHotelEvent({ event_date: '2026-06-05', end_date: '2026-06-07' }, todayDateString(now)),
+    true,
+  );
+  assert.equal(
+    isPastHotelEvent({ event_date: '2026-06-05', end_date: '2026-06-10' }, todayDateString(now)),
+    false,
+  );
   assert.equal(isCompletedHotelEvent({ completed_at: null }), false);
   assert.equal(isCompletedHotelEvent({ completed_at: '2026-06-08T09:00:00Z' }), true);
   assert.equal(

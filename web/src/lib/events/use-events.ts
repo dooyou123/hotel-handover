@@ -6,11 +6,13 @@ import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
 import { subscribeHotelEventsRealtime } from '@/lib/events/events-realtime';
 import { monthDateRange } from '@/lib/schedule/month-range';
+import { eventOverlapsMonth } from '@/lib/events/event-dates';
 import type { HotelEvent, HotelEventInput, HotelEventPatch } from '@/lib/events/types';
 
 function normalizeEvent(row: Record<string, unknown>): HotelEvent {
   return {
     ...(row as HotelEvent),
+    end_date: (row.end_date as string | null) ?? null,
     completed_at: (row.completed_at as string | null) ?? null,
   };
 }
@@ -18,16 +20,42 @@ function normalizeEvent(row: Record<string, unknown>): HotelEvent {
 async function fetchMonthEvents(month: string): Promise<HotelEvent[]> {
   const supabase = createClient();
   const { start, end } = monthDateRange(month);
-  const { data, error } = await supabase
-    .from('hotel_events')
-    .select('*')
-    .eq('hotel_id', DEFAULT_HOTEL_ID)
-    .gte('event_date', start)
-    .lte('event_date', end)
-    .order('event_date')
-    .order('start_time', { ascending: true, nullsFirst: false });
-  if (error) throw error;
-  return (data ?? []).map((row) => normalizeEvent(row as Record<string, unknown>));
+
+  const [inMonthResult, spanningResult] = await Promise.all([
+    supabase
+      .from('hotel_events')
+      .select('*')
+      .eq('hotel_id', DEFAULT_HOTEL_ID)
+      .gte('event_date', start)
+      .lte('event_date', end)
+      .order('event_date')
+      .order('start_time', { ascending: true, nullsFirst: false }),
+    supabase
+      .from('hotel_events')
+      .select('*')
+      .eq('hotel_id', DEFAULT_HOTEL_ID)
+      .lt('event_date', start)
+      .gte('end_date', start)
+      .order('event_date')
+      .order('start_time', { ascending: true, nullsFirst: false }),
+  ]);
+
+  if (inMonthResult.error) throw inMonthResult.error;
+  if (spanningResult.error) throw spanningResult.error;
+
+  const merged = new Map<string, HotelEvent>();
+  for (const row of [...(inMonthResult.data ?? []), ...(spanningResult.data ?? [])]) {
+    const event = normalizeEvent(row as Record<string, unknown>);
+    if (eventOverlapsMonth(event, month)) merged.set(event.id, event);
+  }
+
+  return [...merged.values()].sort((a, b) => {
+    const dateCmp = a.event_date.localeCompare(b.event_date);
+    if (dateCmp !== 0) return dateCmp;
+    const aTime = a.start_time ?? '';
+    const bTime = b.start_time ?? '';
+    return aTime.localeCompare(bTime);
+  });
 }
 
 export function useMonthEvents(month: string) {

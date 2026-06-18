@@ -1,17 +1,34 @@
 'use client';
 
 import Link from 'next/link';
+import { APP_NAV } from '@/lib/constants';
+import { CATEGORY_OPTIONS, QUICK_FILTERS } from '@/lib/handover/constants';
 
-const QUICK_LINKS = [
-  { href: '/handover', label: '인수인계', icon: '📋' },
-  { href: '/notices', label: '게시판', icon: '📢' },
-  { href: '/todos', label: '업무 일정', icon: '☑' },
-  { href: '/schedule', label: '근무표', icon: '📅' },
-  { href: '/transport', label: '택시 예약', icon: '🚕' },
-  { href: '/rate-confirm', label: '객실료 컨펌', icon: '💰' },
-  { href: '/stats', label: '통계', icon: '📊' },
-  { href: '/settings', label: '설정', icon: '⚙️' },
-];
+const QUICK_LINK_ICONS: Record<string, string> = {
+  '/handover': '📋',
+  '/notices': '📢',
+  '/todos': '☑',
+  '/schedule': '📅',
+  '/contacts': '📇',
+  '/checklist': '✅',
+  '/housekeeping': '🧹',
+  '/amenity': '🧴',
+  '/retail': '🛍',
+  '/transport': '🚕',
+  '/facility': '🔧',
+  '/stats': '📊',
+  '/settings': '⚙️',
+  '/help': '❓',
+};
+
+const QUICK_LINKS = APP_NAV.filter((item) =>
+  ['core', 'ops', 'insight'].includes(item.category),
+).map((item) => ({
+  href: item.href,
+  label: item.label,
+  icon: QUICK_LINK_ICONS[item.href] ?? '·',
+  description: item.description,
+}));
 
 const HANDOVER_GUIDE = {
   icon: '📌',
@@ -31,9 +48,23 @@ const HANDOVER_GUIDE = {
     { label: '⚪ 참고 요망', hint: '당장 손댈 필요 없음. 다음 조 참고용.' },
   ],
   shift: [
-    '교대 시작: 지금 근무 설정 → 인계 탭 → 미확인 긴급·진행·보류·오늘 업무 일정·택시만 확인.',
-    '근무 중: 새 이슈 → 카드 / 진행만 변경 → 댓글 / 정책 안내 → 게시판.',
-    '교대 종료: 완료 처리 + 처리 결과, 미완료는 보류·진행 유지 + 댓글.',
+    '① 지금 근무: 상단 바에서 교대·조·담당자 선택. 우측 패널에 이름·조가 크게 표시됩니다.',
+    '② 교대 시작: 우측 「교대 시작」→ 인계 탭에서 미확인 긴급·진행·보류·오늘 일정·택시만 확인.',
+    '③ 근무 중: 새 이슈 → 카드 / 진행만 변경 → 댓글 / 정책 안내 → 게시판.',
+    '④ 교대 인계: 근무 중 「교대 인계」🔄 → 인계 요약 화면에서 넘길 내용 정리.',
+    '⑤ 교대 종료: 완료 처리 + 처리 결과, 미완료는 보류·진행 유지 + 댓글.',
+  ],
+  sidebar: [
+    '근무 상태: 이름·조를 크게 표시. 브라우저 탭을 다시 열면 잠깐 테두리가 강조되어 「지금 누구 근무」를 확인합니다.',
+    '교대 버튼: 시작 전에는 「교대 시작」만 강조, 근무 중에는 「교대 인계」가 강조됩니다.',
+    '오늘 기록: [전체 | 교대 | 변경] 탭으로 필터. 아이콘·제목·담당자·시간 순으로 빠르게 훑습니다.',
+    '변경 항목 클릭 → 왼쪽 목록에서 해당 카드로 스크롤·하이라이트. 길면 마우스를 올려 전체 내용 확인.',
+    '더 보기 → 교대·변경 상세 모달(날짜·교대·검색 필터).',
+    '이번 달 업무: 캘린더에서 할일·일정 미리보기.',
+  ],
+  filters: [
+    `빠른 필터: ${QUICK_FILTERS.map((item) => item.label).join(' · ')}`,
+    `카테고리: ${CATEGORY_OPTIONS.join(' · ')}`,
   ],
   avoid: [
     '긴 공지를 인수인계 카드에 붙여 넣지 않기',
@@ -48,7 +79,7 @@ const SECTIONS = [
     title: '로그인 · 지금 근무',
     body: [
       'Supabase에 등록된 이메일·비밀번호로 로그인합니다.',
-      '상단 「지금 근무」에서 교대 · 조(A/B/C) · 담당자를 선택해야 기록이 남습니다.',
+      '상단 「지금 근무」에서 교대 · 조(A~E) · 담당자를 선택해야 기록이 남습니다.',
       '「오늘 근무」에서 이름을 누르면 자동 입력됩니다.',
       '헤더 「🔍 객실」로 객실 번호 통합 검색(인수인계·리뷰·HK 등).',
       '헤더 「개선 · 버그 신고」로 관리자에게 요청할 수 있습니다.',
@@ -58,12 +89,12 @@ const SECTIONS = [
     icon: '📋',
     title: '인수인계장',
     body: [
-      '왼쪽 70%: 진행중·완료·보관 목록. 긴급은 우선순위로 상단에 표시됩니다.',
-      '검색은 보관함 왼쪽 — 객실·제목·댓글·담당자·기간(「기간」 버튼)으로 필터합니다.',
-      '오른쪽 패널: 업무 현황, 교대·기록, 고정 공지, 오늘 업무 일정(할일+호텔 일정).',
+      '왼쪽: 목록·객실·인계·보관함 탭. 긴급은 우선순위로 진행중 상단에 표시됩니다.',
+      '검색·기간 필터로 객실·제목·댓글·담당자를 찾습니다. 보관함도 검색에 포함됩니다.',
       '카드 드로어: 댓글·사진(2장), 할일 연동, 완료 시 처리 결과 필수.',
       '긴급 카드는 ✓ 긴급 확인 후 다음 교대로 넘깁니다.',
-      '상단 바: 오늘 택시 예약(완료 전까지 표시)·어메니티 재고 부족 알림.',
+      '상단 바: 오늘 택시 예약·어메니티 재고 부족 등 당일 알림.',
+      '우측 패널: 근무 상태·교대 버튼·오늘 기록·이번 달 캘린더 — 상단 가이드 카드 참고.',
     ],
   },
   {
@@ -81,35 +112,37 @@ const SECTIONS = [
     body: [
       '업무 일정: 할일(마감·반복·인수인계 연동) + 호텔 일정(교육·VIP·점검)을 한 목록에서 관리.',
       '근무표: 조별 근무 CSV 업로드·휴무 신청만 담당합니다.',
-      '인계 오른쪽 「오늘 업무 일정」에서 당일 할일·일정을 함께 봅니다.',
+      '인수인계 우측 「이번 달 업무」캘린더에서 당일 할일·일정을 함께 봅니다.',
     ],
   },
   {
     icon: '✅',
-    title: '체크리스트 A/B/C',
+    title: '체크리스트',
     body: [
-      '공통 | A조 | B조 | C조 2열 그리드로 표시됩니다.',
+      '공통 | A~E조 탭으로 표시됩니다.',
       '공통 항목은 모든 조가 확인하고, 조 전용 항목은 해당 조만 체크합니다.',
+      '교대 시작·종료 시 미완료 항목 수가 교대 기록에 남습니다.',
       '설정 → 체크리스트 탭에서 항목을 관리합니다.',
     ],
   },
   {
     icon: '🧹',
-    title: '하우스키핑 · 어메니티 · 리뷰',
+    title: '하우스키핑 · 어메니티 · 판매상품',
     body: [
-      '하우스키핑: 4~13층 EB·특이 객실 일별 보고, 인쇄 가능.',
-      '어메니티: 재고·입출고, 품목별 최소 재고 설정 시 상단 알림.',
+      '하우스키핑: 층별 객실 상태·특이 객실 일별 보고. 메모에서 인수인계 카드 초안 생성 가능.',
+      '어메니티: 재고·입고·출고·실사 기록. 품목별 최소 재고 설정 시 상단 알림.',
+      '판매상품: 판매·배포·입고를 월별로 관리하고 실사로 마감합니다.',
       '리뷰: 긍정/부정 기록, 객실 조치 완료·취소, 「인수인계 후속」 카드 생성.',
     ],
   },
   {
     icon: '🚕',
-    title: '택시 예약 · 시설 현황',
+    title: '택시 · 시설 · 물건 픽업',
     body: [
       '택시 예약: 카드형 목록·목적지별 요금·WhatsApp 전송·다국어 확인증 인쇄.',
       '진행중/완료/취소 상태, 차량번호·메모 인라인 수정. 당일 미완료는 상단 바에 표시.',
-      'WhatsApp 수신 번호는 설정 → 메뉴 → 운영 자동화에서 관리자가 등록합니다.',
       '시설 현황: 루틴 A/B/C 템플릿, 시설 이슈 기록·해결 이력.',
+      '물건 픽업 장부: 보관 물품의 인도·서명을 기록합니다.',
     ],
   },
   {
@@ -123,10 +156,13 @@ const SECTIONS = [
   },
   {
     icon: '📊',
-    title: '통계 · 변경 기록',
+    title: '통계 · 기록 · 분석',
     body: [
-      '통계: 인수인계·긴급 처리·체크리스트·할일·리뷰 후속·어메니티·HK EB 추이.',
-      '변경 기록: 인수인계 화면 「기록」— 유형·동작·검색 필터, Realtime 갱신.',
+      '통계: 인수인계·긴급 처리·체크리스트·할일·리뷰 후속·어메니티·HK 추이.',
+      '교대 기록: 우측 오늘 기록 → 교대 탭 또는 더 보기. 교대·날짜·검색 필터.',
+      '변경 기록: 오늘 기록 → 변경 탭. 카드·게시판 수정·댓글·이동 이력.',
+      '층별 히트맵: 층·객실별 이슈·리뷰·HK를 색으로 비교.',
+      '라이브 보드: 실시간 운영 피드를 한 화면에 표시.',
     ],
   },
   {
@@ -151,7 +187,12 @@ export function HelpPageClient() {
         </div>
         <div className="help-page__quick">
           {QUICK_LINKS.map((link) => (
-            <Link key={link.href} href={link.href} className="help-quick-link">
+            <Link
+              key={link.href}
+              href={link.href}
+              className="help-quick-link"
+              title={link.description}
+            >
               <span aria-hidden>{link.icon}</span>
               {link.label}
             </Link>
@@ -204,6 +245,24 @@ export function HelpPageClient() {
           </section>
 
           <section>
+            <h4>인수인계 필터</h4>
+            <ul className="help-card__list">
+              {HANDOVER_GUIDE.filters.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="help-guide-grid__wide">
+            <h4>우측 패널 (교대 · 오늘 기록)</h4>
+            <ul className="help-card__list">
+              {HANDOVER_GUIDE.sidebar.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </section>
+
+          <section>
             <h4>하지 말 것</h4>
             <ul className="help-card__list help-card__list--warn">
               {HANDOVER_GUIDE.avoid.map((line) => (
@@ -236,6 +295,10 @@ export function HelpPageClient() {
         <p>
           <strong>문제가 있나요?</strong> 헤더의 <strong>개선 · 버그 신고</strong>를 눌러 관리자에게
           알려주세요.
+        </p>
+        <p>
+          각 메뉴 상단에 한 줄 설명이 표시됩니다. 사이드바 메뉴에 마우스를 올려도 요약을 볼 수
+          있습니다.
         </p>
       </aside>
     </section>

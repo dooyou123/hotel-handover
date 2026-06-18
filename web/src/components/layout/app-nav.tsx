@@ -87,6 +87,7 @@ function NavLink({
       href={item.href}
       className={`${btnClass}${active ? ' is-active' : ''}${hiddenFromStaff ? ' is-hidden-from-staff' : ''}`}
       aria-label={ariaLabel}
+      title={item.description}
     >
       <span className="nav-btn__label">{item.label}</span>
       {badge && badge.count > 0 ? (

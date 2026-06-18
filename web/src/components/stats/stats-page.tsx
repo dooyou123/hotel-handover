@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchStatsData, formatDurationMinutes, formatPercent } from '@/lib/stats/api';
+import { getNavPageMeta } from '@/lib/nav/page-meta';
 import type { StatsPeriod } from '@/lib/stats/types';
 
 function maxCount(values: number[]) {
@@ -70,6 +71,7 @@ function MiniDayChart({
 }
 
 export function StatsPageClient() {
+  const pageMeta = getNavPageMeta('/stats');
   const [period, setPeriod] = useState<StatsPeriod>('week');
 
   const { data, isLoading, error, refetch } = useQuery({
@@ -81,8 +83,8 @@ export function StatsPageClient() {
     <section className="stats-page">
       <div className="stats-page__header">
         <div>
-          <h2>주간 · 월간 통계</h2>
-          <p>교대별 인수인계, 긴급 처리 시간, 어메니티 소모 추이를 확인합니다.</p>
+          <h2>{pageMeta.label}</h2>
+          <p>{pageMeta.description}</p>
         </div>
         <div className="segmented-control segmented-control--compact" role="group" aria-label="기간 선택">
           <button

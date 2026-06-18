@@ -18,7 +18,7 @@ import {
   saveCardCreateDraft,
   type CardFormSnapshot,
 } from '@/lib/handover/card-draft';
-import { parseDueAt, toDateInputValue, toTimeInputValue, canDeleteCard, findDuplicateCards } from '@/lib/handover/card-utils';
+import { parseDueAt, toDateInputValue, toTimeInputValue, joinDatetimeLocalValue, splitDatetimeLocalValue, canDeleteCard, findDuplicateCards } from '@/lib/handover/card-utils';
 import { WORK_GROUPS, formatWorkGroupLabel } from '@/lib/constants';
 import type { Card, CardAttachment, CardInput, ColumnId, Priority } from '@/lib/handover/types';
 import type { Todo } from '@/lib/todos/types';
@@ -59,6 +59,7 @@ type CardModalProps = {
   onCreateTodo?: () => void | Promise<void>;
   onRecordFirstResponse?: () => void | Promise<void>;
   onSwitchToFull?: () => void;
+  onDuplicate?: (card: Card) => void | Promise<void>;
   requireSession?: (action: string) => boolean;
 };
 
@@ -101,6 +102,7 @@ export function CardModal({
   onCreateTodo,
   onRecordFirstResponse,
   onSwitchToFull,
+  onDuplicate,
   requireSession,
 }: CardModalProps) {
   const [form, setForm] = useState<CardInput>(emptyForm);
@@ -353,7 +355,7 @@ export function CardModal({
     if (!card || !canDelete) return;
     const ok = await confirm({
       title: '인수인계 삭제',
-      message: '이 인수인계를 삭제합니다.',
+      message: '정말 이 인수인계를 삭제하시겠습니까?',
       detail: '삭제하면 복구할 수 없습니다.',
       tone: 'danger',
       confirmLabel: '삭제',
@@ -365,6 +367,27 @@ export function CardModal({
       onClose();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '삭제에 실패했습니다.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDuplicate() {
+    if (!card || !onDuplicate) return;
+    if (requireSession && !requireSession('카드 복제')) return;
+    const ok = await confirm({
+      title: '카드 복제',
+      message: '이 카드의 내용으로 새 인수인계를 만듭니다.',
+      detail: '댓글·확인·첨부는 복사되지 않으며, 제목에 (복제)가 붙습니다.',
+      confirmLabel: '복제',
+    });
+    if (!ok) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await onDuplicate(card);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '복제에 실패했습니다.');
     } finally {
       setSaving(false);
     }
@@ -553,17 +576,30 @@ export function CardModal({
           ))}
         </select>
       </label>
-      <div className="field field--full">
+      <label className="field field--full">
         <span>마감 (선택)</span>
-        <div className="form-grid form-grid--compact" style={{ marginTop: '0.35rem' }}>
-          <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
-          <input type="time" value={dueTime} onChange={(event) => setDueTime(event.target.value)} />
-        </div>
-        <p className="card-extra__hint">날짜만 넣으면 23:59로 저장됩니다.</p>
-      </div>
+        <input
+          type="datetime-local"
+          className="field-input--datetime"
+          value={joinDatetimeLocalValue(dueDate, dueTime)}
+          onChange={(event) => {
+            const { date, time } = splitDatetimeLocalValue(event.target.value);
+            setDueDate(date);
+            setDueTime(time);
+          }}
+        />
+        <span className="field-hint">비우면 마감 없음 · 날짜만 지정 시 23:59로 저장됩니다</span>
+      </label>
       <label className="field field--full">
         <span>작성자</span>
-        <input value={form.author} onChange={(event) => setForm({ ...form, author: event.target.value })} />
+        <input
+          value={form.author}
+          readOnly
+          className="field-input--readonly"
+          aria-readonly="true"
+          title="현재 근무 세션 기준"
+        />
+        <span className="field-hint">근무 세션에 연결된 작성자입니다</span>
       </label>
     </div>
   );
@@ -580,7 +616,8 @@ export function CardModal({
               <CardCommentItem
                 key={comment.id}
                 comment={comment}
-                canManage={isManager || comment.staff_name === defaultName}
+                currentStaffName={defaultName}
+                canManage={Boolean(defaultName) && !commentLoading}
                 disabled={commentLoading}
                 onUpdate={async (content) => {
                   if (!onUpdateComment) return;
@@ -746,14 +783,14 @@ export function CardModal({
   const formFooter = (
     <div className="modal__footer">
       <div className="modal__footer-left">
+        {card && onDuplicate ? (
+          <button type="button" onClick={() => void handleDuplicate()} disabled={saving} className="btn btn--ghost">
+            복제
+          </button>
+        ) : null}
         {card && onRecordFirstResponse ? (
           <button type="button" onClick={() => void onRecordFirstResponse()} className="btn btn--ghost">
             첫 응대 완료
-          </button>
-        ) : null}
-        {card && canDelete ? (
-          <button type="button" onClick={handleDelete} disabled={saving} className="btn btn--danger">
-            삭제
           </button>
         ) : null}
       </div>
@@ -824,9 +861,21 @@ export function CardModal({
           </>
         )}
       </div>
-      <button type="button" className="icon-btn" onClick={() => void requestClose()} aria-label="닫기">
-        ✕
-      </button>
+      <div className="drawer-panel__header-actions">
+        {card && canDelete && !commentsOnly ? (
+          <button
+            type="button"
+            className="drawer-panel__header-danger"
+            onClick={() => void handleDelete()}
+            disabled={saving}
+          >
+            삭제
+          </button>
+        ) : null}
+        <button type="button" className="icon-btn" onClick={() => void requestClose()} aria-label="닫기">
+          ✕
+        </button>
+      </div>
     </div>
   );
 

@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
+import { getNavPageMeta } from '@/lib/nav/page-meta';
 import { invalidateCardQueries } from '@/lib/supabase/handover-realtime';
 import { cardSummaryLabel, logActivity } from '@/lib/handover/activity';
 import { ComplaintSlaBadge } from '@/components/handover/complaint-sla-badge';
@@ -20,6 +21,7 @@ import { createClient } from '@/lib/supabase/client';
 import { FacilityResolveModal } from './facility-resolve-modal';
 
 export function FacilityPageClient() {
+  const pageMeta = getNavPageMeta('/facility');
   const queryClient = useQueryClient();
   const { cards, updateCard } = useCards();
   const { data: archivedCards = [] } = useArchivedCards();
@@ -106,8 +108,8 @@ export function FacilityPageClient() {
     <section className="facility-page">
       <header className="facility-page__header">
         <div>
-          <h2>시설 문제 현황</h2>
-          <p>시설·컴플레인 인수인계 카드 기준 — 최근 6개월, 보관함 포함 객실별 이력</p>
+          <h2>{pageMeta.label}</h2>
+          <p>{pageMeta.description}</p>
         </div>
         <div className="facility-page__stats">
           <span>

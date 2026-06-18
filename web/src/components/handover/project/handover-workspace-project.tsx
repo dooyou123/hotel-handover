@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import type { HandoverRecordsTab } from '@/lib/handover/records';
 import type { ShiftSummaryData } from '@/lib/handover/shift-summary';
 import type { Card, HandoverViewMode, QuickFilter, WorkSession } from '@/lib/handover/types';
 import type { HotelEvent } from '@/lib/events/types';
@@ -41,8 +42,7 @@ type HandoverWorkspaceProjectProps = {
   onAdd: () => void;
   onArchiveDone: () => void;
   onRestoreFromArchive: (cardId: string) => Promise<void>;
-  onActivity: () => void;
-  onShiftHistory: () => void;
+  onOpenRecords: (tab: HandoverRecordsTab) => void;
   onOpenShiftBrief: () => void;
   authorLabel: string;
   requireSession: (action: string) => boolean;
@@ -75,6 +75,7 @@ type HandoverWorkspaceProjectProps = {
   onOpenTodo: (todo: Todo) => void;
   onToggleTodo: (todo: Todo) => void;
   onOpenEvent: (event: HotelEvent) => void;
+  onOpenCardById?: (cardId: string) => void;
 };
 
 export function HandoverWorkspaceProject({
@@ -104,8 +105,7 @@ export function HandoverWorkspaceProject({
   onAdd,
   onArchiveDone,
   onRestoreFromArchive,
-  onActivity,
-  onShiftHistory,
+  onOpenRecords,
   onOpenShiftBrief,
   authorLabel,
   requireSession,
@@ -138,6 +138,7 @@ export function HandoverWorkspaceProject({
   onOpenTodo,
   onToggleTodo,
   onOpenEvent,
+  onOpenCardById,
 }: HandoverWorkspaceProjectProps) {
   const isBriefView = viewMode === 'brief';
   const panelViewMode = isBriefView ? 'board' : viewMode;
@@ -177,8 +178,7 @@ export function HandoverWorkspaceProject({
               onOpenCard={onOpenCard}
               onOpenTodo={onOpenTodo}
               onOpenEvent={onOpenEvent}
-              onShiftHistory={onShiftHistory}
-              onActivityLog={onActivity}
+              onOpenRecords={onOpenRecords}
               onToast={onToast}
             />
           </div>
@@ -254,12 +254,13 @@ export function HandoverWorkspaceProject({
         </div>
 
         <HandoverAsideProject
+          session={session}
           todos={todos}
           onShiftStart={onShiftStart}
           onShiftEnd={onShiftEnd}
           onOpenShiftBrief={onOpenShiftBrief}
-          onShiftHistory={onShiftHistory}
-          onActivity={onActivity}
+          onOpenRecords={onOpenRecords}
+          onOpenCardById={onOpenCardById}
           onOpenTodo={onOpenTodo}
           onOpenEvent={onOpenEvent}
           onToggleTodo={onToggleTodo}
@@ -277,8 +278,7 @@ export function HandoverWorkspaceProject({
         onShiftStart={onShiftStart}
         onShiftEnd={onShiftEnd}
         onOpenShiftBrief={onOpenShiftBrief}
-        onShiftHistory={onShiftHistory}
-        onActivity={onActivity}
+        onOpenRecords={onOpenRecords}
         onAlertClick={onAlertClick}
         onOpenCard={onOpenCard}
         onOpenTodo={onOpenTodo}

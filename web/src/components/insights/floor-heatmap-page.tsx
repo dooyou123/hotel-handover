@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
+import { getNavPageMeta } from '@/lib/nav/page-meta';
 import { fetchArchivedCards, fetchCards } from '@/lib/handover/use-cards';
 import { buildFloorHeatmap, type FloorHeatmapLookback } from '@/lib/insights/floor-heatmap';
 import { KNOWN_HOTEL_FLOORS } from '@/lib/insights/room-floor';
@@ -15,6 +16,7 @@ const LOOKBACK_OPTIONS: { id: FloorHeatmapLookback; label: string }[] = [
 ];
 
 export function FloorHeatmapPageClient() {
+  const pageMeta = getNavPageMeta('/insights/floor');
   const [lookbackDays, setLookbackDays] = useState<FloorHeatmapLookback>(7);
   const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
 
@@ -48,10 +50,8 @@ export function FloorHeatmapPageClient() {
     <section className="floor-heatmap-page">
       <header className="floor-heatmap-page__header">
         <div>
-          <h2 className="floor-heatmap-page__title">층별 민원 히트맵</h2>
-          <p className="floor-heatmap-page__desc">
-            인수인계 · 컴플레인 · 시설 · 부정 리뷰를 객실 층별로 집계합니다.
-          </p>
+          <h2 className="floor-heatmap-page__title">{pageMeta.label}</h2>
+          <p className="floor-heatmap-page__desc">{pageMeta.description}</p>
         </div>
         <div className="segmented-control segmented-control--compact">
           {LOOKBACK_OPTIONS.map((opt) => (

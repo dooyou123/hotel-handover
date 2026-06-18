@@ -6,6 +6,7 @@ import type { HotelEvent } from '@/lib/events/types';
 import { useMonthEvents } from '@/lib/events/use-events';
 import type { Todo } from '@/lib/todos/types';
 import { formatEventTimeRange } from '@/lib/work-items/merge';
+import { eachEventDateInMonth, isDateInEventRange } from '@/lib/events/event-dates';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'] as const;
 
@@ -52,7 +53,9 @@ export function AsideMonthCalendar({
   const dayCounts = useMemo(() => {
     const counts = new Map<string, number>();
     events.forEach((event) => {
-      counts.set(event.event_date, (counts.get(event.event_date) ?? 0) + 1);
+      eachEventDateInMonth(event, month).forEach((date) => {
+        counts.set(date, (counts.get(date) ?? 0) + 1);
+      });
     });
     todos.forEach((todo) => {
       if (!todo.due_date || !todo.due_date.startsWith(month)) return;
@@ -64,7 +67,7 @@ export function AsideMonthCalendar({
   const selectedEvents = useMemo(
     () =>
       sortByDone(
-        events.filter((event) => event.event_date === selectedDate),
+        events.filter((event) => isDateInEventRange(selectedDate, event)),
         (event) => Boolean(event.completed_at),
       ),
     [events, selectedDate],

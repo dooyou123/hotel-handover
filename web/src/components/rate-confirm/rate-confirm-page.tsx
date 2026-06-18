@@ -18,6 +18,7 @@ import {
 } from '@/lib/rate-confirm/use-rate-confirm-history';
 import type { RateConfirmItem } from '@/lib/rate-confirm/history-types';
 import { useWorkSession } from '@/lib/handover/use-work-session';
+import { getNavPageMeta } from '@/lib/nav/page-meta';
 import {
   detectRateFileFormat,
   guessColumnMapping,
@@ -251,6 +252,7 @@ function UploadZone({ id, title, hint, sheet, onFile }: UploadZoneProps) {
 type PageTab = 'reconcile' | 'history';
 
 export function RateConfirmPageClient() {
+  const pageMeta = getNavPageMeta('/rate-confirm');
   const { session, authorLabel, requireSession } = useWorkSession();
   const { createSession } = useRateConfirmSessions();
   const [pageTab, setPageTab] = useState<PageTab>('reconcile');
@@ -439,11 +441,8 @@ export function RateConfirmPageClient() {
       <header className="rc-page__hero">
         <div>
           <p className="rc-page__eyebrow">예약 대조</p>
-          <h2>객실료 컨펌</h2>
-          <p className="rc-page__lead">
-            TL-Lincoln RAW와 PMS export를 <strong>예약번호(OTA)</strong>로 맞춥니다. 대조 후{' '}
-            <strong>기록 저장</strong>하면 불일치 건별 처리 내역을 남길 수 있습니다.
-          </p>
+          <h2>{pageMeta.label}</h2>
+          <p className="rc-page__lead">{pageMeta.description}</p>
         </div>
         {result && pageTab === 'reconcile' ? (
           <div className="rc-page__hero-actions">

@@ -1,5 +1,5 @@
 import { HIGHLIGHT_KEYWORDS } from '@/lib/handover/constants';
-import type { Card, CardComment, ColumnId, QuickFilter, WorkSession } from '@/lib/handover/types';
+import type { Card, CardComment, CardInput, ColumnId, QuickFilter, WorkSession } from '@/lib/handover/types';
 
 export type ProjectListSection = {
   id: 'unacked' | 'progress' | 'hold' | 'done' | 'archived';
@@ -188,9 +188,66 @@ export function getLatestCardComment(card: Card): CardComment | null {
   return [...card.card_comments].sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null;
 }
 
+export function getLatestActiveCardComment(card: Card): CardComment | null {
+  const active = card.card_comments.filter((comment) => !isCommentDeleted(comment));
+  if (!active.length) return null;
+  return [...active].sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null;
+}
+
 export function isCommentEdited(comment: CardComment): boolean {
   if (!comment.updated_at) return false;
   return comment.updated_at !== comment.created_at;
+}
+
+export function isCommentDeleted(comment: CardComment): boolean {
+  return Boolean(comment.deleted_at);
+}
+
+export function formatCommentActorLabel(shift: string | null | undefined, name: string | null | undefined): string {
+  if (shift && name) return `${shift} · ${name}`;
+  return name || shift || '—';
+}
+
+export function formatDeletedCommentLabel(comment: CardComment): string {
+  const deleter = formatCommentActorLabel(comment.deleted_by_shift, comment.deleted_by_name);
+  return `삭제된 댓글 (${deleter})`;
+}
+
+export function formatEditedCommentLabel(comment: CardComment): string {
+  const editor = formatCommentActorLabel(comment.edited_by_shift, comment.edited_by_name);
+  return editor !== '—' ? `수정됨 · ${editor}` : '수정됨';
+}
+
+export function countActiveCardComments(card: Card): number {
+  return card.card_comments.filter((comment) => !isCommentDeleted(comment)).length;
+}
+
+export function hasActiveCardComments(card: Card): boolean {
+  return countActiveCardComments(card) > 0;
+}
+
+export function buildDuplicateCardInput(
+  source: Card,
+  author: string,
+  assigneeShift: string,
+  assigneeName: string,
+): CardInput {
+  const duplicateSuffix = ' (복제)';
+  const baseTitle = source.title.replace(/ \(복제\)$/, '');
+  return {
+    column_id: source.column_id === 'done' ? 'progress' : source.column_id,
+    priority: source.priority,
+    category: source.category,
+    room: source.room,
+    title: `${baseTitle}${duplicateSuffix}`,
+    details: source.details,
+    resolution: source.column_id === 'done' ? '' : source.resolution,
+    next_action: source.next_action,
+    author: author || source.author,
+    assignee_shift: source.assignee_shift || assigneeShift,
+    assignee_name: source.assignee_name || assigneeName,
+    due_at: source.due_at,
+  };
 }
 
 function cardMatchesDateRange(card: Card, dateFrom: string | null, dateTo: string | null): boolean {
@@ -225,7 +282,13 @@ export function filterCards(
 
   return cards.filter((card) => {
     const commentText = card.card_comments
-      .map((comment) => [comment.content, comment.staff_name, comment.shift].join(' '))
+      .map((comment) =>
+        isCommentDeleted(comment)
+          ? formatDeletedCommentLabel(comment)
+          : [comment.content, comment.staff_name, comment.shift, comment.edited_by_name, comment.deleted_by_name]
+              .filter(Boolean)
+              .join(' '),
+      )
       .join(' ');
 
     const haystack = [
@@ -444,6 +507,18 @@ export function toTimeInputValue(iso: string): string {
   if (Number.isNaN(date.getTime())) return '';
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+export function joinDatetimeLocalValue(date: string, time: string): string {
+  if (!date.trim()) return '';
+  return `${date.trim()}T${time.trim() || '23:59'}`;
+}
+
+export function splitDatetimeLocalValue(value: string): { date: string; time: string } {
+  const trimmed = value.trim();
+  if (!trimmed) return { date: '', time: '' };
+  const [date = '', time = ''] = trimmed.split('T');
+  return { date, time };
 }
 
 /** 날짜만 있으면 23:59, 시간만 있으면 오늘 날짜와 결합 */

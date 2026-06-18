@@ -19,6 +19,11 @@ export type CardComment = {
   content: string;
   created_at: string;
   updated_at?: string | null;
+  edited_by_shift?: string | null;
+  edited_by_name?: string | null;
+  deleted_at?: string | null;
+  deleted_by_shift?: string | null;
+  deleted_by_name?: string | null;
 };
 
 export type CardAttachment = {

@@ -9,13 +9,21 @@ import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   formatAmenityDateTimeShort,
   type AmenityTransaction,
-  type AmenityTransactionType,
   type InventoryItem,
 } from '@/lib/amenity/types';
+import {
+  amenityTransactionBadgeClass,
+  formatAmenityTransactionQuantity,
+  matchesAmenityTransactionFilter,
+  resolveAmenityTransactionDisplayType,
+  type AmenityTransactionDisplayType,
+} from '@/lib/amenity/transaction-display';
+import { AMENITY_WORKSPACE_TABS } from '@/lib/amenity/copy';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE_EMBEDDED = 20;
+const PAGE_SIZE_FULL = 50;
 
-type TypeFilter = 'all' | AmenityTransactionType;
+type TypeFilter = 'all' | AmenityTransactionDisplayType;
 
 interface TransactionHistoryProps {
   transactions: AmenityTransaction[];
@@ -37,10 +45,11 @@ export function AmenityTransactionHistory({
   variant = 'full',
 }: TransactionHistoryProps) {
   const embedded = variant === 'embedded';
+  const pageSize = embedded ? PAGE_SIZE_EMBEDDED : PAGE_SIZE_FULL;
   const [toast, setToast] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [search, setSearch] = useState('');
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [visibleCount, setVisibleCount] = useState(pageSize);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editQtyText, setEditQtyText] = useState('1');
   const [editMemo, setEditMemo] = useState('');
@@ -55,6 +64,7 @@ export function AmenityTransactionHistory({
   }
 
   function startEdit(tx: AmenityTransaction) {
+    if (resolveAmenityTransactionDisplayType(tx) === '실사') return;
     setEditingId(tx.id);
     setEditQtyText(String(tx.total_items));
     setEditMemo(tx.memo);
@@ -70,7 +80,7 @@ export function AmenityTransactionHistory({
     const query = search.trim().toLowerCase();
     return transactions.filter((tx) => {
       if (embedded && selectedAmenityId != null && tx.amenity_id !== selectedAmenityId) return false;
-      if (typeFilter !== 'all' && tx.type !== typeFilter) return false;
+      if (!matchesAmenityTransactionFilter(tx, typeFilter)) return false;
       if (!query) return true;
       const name = tx.amenities?.name?.toLowerCase() ?? '';
       return (
@@ -116,9 +126,10 @@ export function AmenityTransactionHistory({
 
   async function removeTx(tx: AmenityTransaction) {
     const label = tx.amenities?.name ?? '거래';
+    const displayType = resolveAmenityTransactionDisplayType(tx);
     const ok = await confirm({
       title: '기록 삭제',
-      message: `${label} · ${tx.type} · ${tx.total_items.toLocaleString()}개`,
+      message: `${label} · ${displayType} · ${formatAmenityTransactionQuantity(tx)}`,
       detail: '삭제하면 재고가 되돌려집니다.',
       tone: 'danger',
       confirmLabel: '삭제',
@@ -146,17 +157,19 @@ export function AmenityTransactionHistory({
       >
         <header className="amenity-history__head">
           <div className="amenity-history__title-row">
-            <h3>{embedded ? '이 품목 기록' : '최근 거래 내역'}</h3>
+            <h3>{embedded ? '이 품목 기록' : '전체 입출고 기록'}</h3>
             <span className="amenity-history__count">{filtered.length}건</span>
           </div>
           {!embedded ? (
             <>
+              <p className="amenity-history__subtitle">{AMENITY_WORKSPACE_TABS.history.description}</p>
               <div className="amenity-history__filters" role="tablist" aria-label="거래 구분">
                 {(
                   [
                     { id: 'all', label: '전체' },
                     { id: '출고', label: '출고' },
                     { id: '입고', label: '입고' },
+                    { id: '실사', label: '실사' },
                   ] as const
                 ).map((item) => (
                   <button
@@ -167,7 +180,7 @@ export function AmenityTransactionHistory({
                     className={`amenity-history__filter${typeFilter === item.id ? ' is-active' : ''}`}
                     onClick={() => {
                       setTypeFilter(item.id);
-                      setVisibleCount(PAGE_SIZE);
+                      setVisibleCount(pageSize);
                     }}
                   >
                     {item.label}
@@ -181,7 +194,7 @@ export function AmenityTransactionHistory({
                     value={search}
                     onChange={(event) => {
                       setSearch(event.target.value);
-                      setVisibleCount(PAGE_SIZE);
+                      setVisibleCount(pageSize);
                     }}
                     placeholder="품목·작성자·메모 검색"
                     autoComplete="off"
@@ -220,15 +233,17 @@ export function AmenityTransactionHistory({
                   </tr>
                 </thead>
                 <tbody>
-                  {visible.map((tx) =>
-                    editingId === tx.id ? (
+                  {visible.map((tx) => {
+                    const displayType = resolveAmenityTransactionDisplayType(tx);
+                    const badgeClass = amenityTransactionBadgeClass(displayType);
+                    const isAudit = displayType === '실사';
+
+                    return editingId === tx.id ? (
                       <tr key={tx.id} className="amenity-history__edit-row">
                         <td colSpan={embedded ? (canEdit ? 4 : 3) : canEdit ? 6 : 5}>
                           <div className="amenity-history__inline-edit">
-                            <span
-                              className={`amenity-stock-badge ${tx.type === '입고' ? 'amenity-stock-badge--ok' : 'amenity-stock-badge--critical'}`}
-                            >
-                              {tx.type}
+                            <span className={`amenity-stock-badge ${badgeClass}`}>
+                              {displayType}
                             </span>
                             <label className="amenity-history__inline-field">
                               <span>수량</span>
@@ -284,10 +299,8 @@ export function AmenityTransactionHistory({
                         <td className="amenity-history__time">{formatAmenityDateTimeShort(tx.created_at)}</td>
                         {!embedded ? (
                           <td>
-                            <span
-                              className={`amenity-stock-badge ${tx.type === '입고' ? 'amenity-stock-badge--ok' : 'amenity-stock-badge--critical'}`}
-                            >
-                              {tx.type}
+                            <span className={`amenity-stock-badge ${badgeClass}`}>
+                              {displayType}
                             </span>
                           </td>
                         ) : null}
@@ -298,15 +311,13 @@ export function AmenityTransactionHistory({
                           </td>
                         ) : (
                           <td>
-                            <span
-                              className={`amenity-stock-badge ${tx.type === '입고' ? 'amenity-stock-badge--ok' : 'amenity-stock-badge--critical'}`}
-                            >
-                              {tx.type}
+                            <span className={`amenity-stock-badge ${badgeClass}`}>
+                              {displayType}
                             </span>
                           </td>
                         )}
                         <td className="amenity-history__qty">
-                          {tx.total_items.toLocaleString()}개
+                          {formatAmenityTransactionQuantity(tx)}
                           {embedded && tx.memo ? (
                             <span className="amenity-history__memo">{tx.memo}</span>
                           ) : null}
@@ -315,13 +326,15 @@ export function AmenityTransactionHistory({
                         {canEdit ? (
                           <td>
                             <div className="amenity-history__actions">
-                              <button
-                                type="button"
-                                className="btn btn--ghost btn--xs"
-                                onClick={() => startEdit(tx)}
-                              >
-                                수정
-                              </button>
+                              {!isAudit ? (
+                                <button
+                                  type="button"
+                                  className="btn btn--ghost btn--xs"
+                                  onClick={() => startEdit(tx)}
+                                >
+                                  수정
+                                </button>
+                              ) : null}
                               {!embedded ? (
                                 <button
                                   type="button"
@@ -335,8 +348,8 @@ export function AmenityTransactionHistory({
                           </td>
                         ) : null}
                       </tr>
-                    ),
-                  )}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -345,7 +358,7 @@ export function AmenityTransactionHistory({
                 <button
                   type="button"
                   className="btn btn--ghost btn--small"
-                  onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}
+                  onClick={() => setVisibleCount((count) => count + pageSize)}
                 >
                   더 보기 ({filtered.length - visibleCount}건)
                 </button>
