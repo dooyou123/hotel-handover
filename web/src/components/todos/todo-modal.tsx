@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { WORK_GROUPS, formatWorkGroupLabel } from '@/lib/constants';
 import type { Card } from '@/lib/handover/types';
 import { describeRecurrence, getSeriesId } from '@/lib/todos/recurrence';
@@ -146,7 +147,7 @@ export function TodoModal({
     onClose();
   }
 
-  return (
+  const dialog = (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(ev) => ev.stopPropagation()}>
         <form noValidate onSubmit={handleSubmit} className="modal__form">
@@ -371,4 +372,7 @@ export function TodoModal({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(dialog, document.body);
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { normalizeEventEndDate } from '@/lib/events/event-dates';
 import { EVENT_CATEGORIES, type HotelEvent, type HotelEventInput } from '@/lib/events/types';
 
@@ -94,7 +95,7 @@ export function EventModal({ open, event, defaultDate, authorLabel, onClose, onS
     }
   }
 
-  return (
+  const dialog = (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(ev) => ev.stopPropagation()}>
         <form noValidate onSubmit={handleSubmit} className="modal__form">
@@ -128,10 +129,10 @@ export function EventModal({ open, event, defaultDate, authorLabel, onClose, onS
                 onChange={(e) => setForm({ ...form, end_date: e.target.value })}
               />
             </label>
-            <p className="field field--full drawer-panel__mode">
+            <p className="form-grid__hint">
               종료일을 비우면 하루 일정입니다. 며칠 이상 이어지는 업무는 시작일과 종료일을 모두 지정하세요.
             </p>
-            <label className="field">
+            <label className="field field--full">
               <span>구분</span>
               <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
                 {EVENT_CATEGORIES.map((cat) => (
@@ -200,4 +201,7 @@ export function EventModal({ open, event, defaultDate, authorLabel, onClose, onS
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(dialog, document.body);
 }

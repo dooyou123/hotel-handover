@@ -752,7 +752,7 @@ html[data-ui='project'] .session-schedule-mismatch__action:hover {
 
 html[data-ui='project'] .nova-topbar-alerts--compact {
   flex-direction: row;
-  align-items: stretch;
+  align-items: center;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
@@ -760,6 +760,11 @@ html[data-ui='project'] .nova-topbar-alerts--compact {
 html[data-ui='project'] .nova-topbar-alerts--compact .app-ticker--carousel {
   flex: 1;
   min-width: 0;
+  align-self: stretch;
+}
+
+html[data-ui='project'] .nova-topbar-alerts--compact .app-ticker--carousel:has(.app-ticker__carousel-controls) .app-ticker__carousel-action {
+  display: none;
 }
 
 html[data-ui='project'] .nova-topbar-alerts--compact .today-taxi-bar,
@@ -768,9 +773,10 @@ html[data-ui='project'] .nova-topbar-alerts--compact .today-taxi-bar--compact-su
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: center;
+  align-self: center;
   gap: 0.35rem;
   margin: 0;
-  padding: 0.2rem 1rem 0.2rem 0.75rem;
+  padding: 0.35rem 0.85rem 0.35rem 0.75rem;
   border-left: 1px solid var(--border);
   background: var(--surface);
 }
@@ -778,8 +784,8 @@ html[data-ui='project'] .nova-topbar-alerts--compact .today-taxi-bar--compact-su
 /* 업무 알림 캐러셀 — 한 줄, 우선순위 1건씩 */
 html[data-ui='project'] .app-ticker--carousel {
   display: flex;
-  align-items: stretch;
-  min-height: 2.2rem;
+  align-items: center;
+  min-height: 2.35rem;
   border-bottom: none;
 }
 
