@@ -750,7 +750,213 @@ html[data-ui='project'] .session-schedule-mismatch__action:hover {
   background: #fef3c7;
 }
 
-/* 업무 알림 리본 */
+html[data-ui='project'] .nova-topbar-alerts--compact {
+  flex-direction: row;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+html[data-ui='project'] .nova-topbar-alerts--compact .app-ticker--carousel {
+  flex: 1;
+  min-width: 0;
+}
+
+html[data-ui='project'] .nova-topbar-alerts--compact .today-taxi-bar,
+html[data-ui='project'] .nova-topbar-alerts--compact .today-taxi-bar--compact-summary {
+  flex-shrink: 0;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.2rem 1rem 0.2rem 0.75rem;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+}
+
+/* 업무 알림 캐러셀 — 한 줄, 우선순위 1건씩 */
+html[data-ui='project'] .app-ticker--carousel {
+  display: flex;
+  align-items: stretch;
+  min-height: 2.2rem;
+  border-bottom: none;
+}
+
+html[data-ui='project'] .app-ticker--carousel--urgent {
+  background: #fef2f2;
+  color: #991b1b;
+  box-shadow: inset 3px 0 0 #dc2626;
+}
+
+html[data-ui='project'] .app-ticker--carousel--warn {
+  background: #fffbeb;
+  color: #92400e;
+  box-shadow: inset 3px 0 0 #d97706;
+}
+
+html[data-ui='project'] .app-ticker--carousel--info {
+  background: #eff6ff;
+  color: #1e40af;
+  box-shadow: inset 3px 0 0 #2563eb;
+}
+
+html[data-ui='project'] .app-ticker__carousel-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.85rem 0.4rem 1rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+html[data-ui='project'] .app-ticker__carousel-main:hover {
+  filter: brightness(0.98);
+}
+
+html[data-ui='project'] .app-ticker__carousel-label {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+html[data-ui='project'] .app-ticker__carousel-sep {
+  flex-shrink: 0;
+  opacity: 0.55;
+}
+
+html[data-ui='project'] .app-ticker__carousel-body {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+html[data-ui='project'] .app-ticker__carousel-action {
+  flex-shrink: 0;
+  margin-left: 0.35rem;
+  padding: 0.22rem 0.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid currentColor;
+  background: rgba(255, 255, 255, 0.55);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+html[data-ui='project'] .app-ticker__carousel-controls {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0 0.55rem 0 0.15rem;
+  border-left: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+}
+
+html[data-ui='project'] .app-ticker__carousel-step {
+  width: 1.65rem;
+  height: 1.65rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+html[data-ui='project'] .app-ticker__carousel-step:hover {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+html[data-ui='project'] .app-ticker__carousel-count {
+  min-width: 2.4rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-align: center;
+  opacity: 0.85;
+}
+
+html[data-ui='project'] .app-ticker__carousel-list {
+  position: relative;
+}
+
+html[data-ui='project'] .app-ticker__carousel-list-toggle {
+  list-style: none;
+  padding: 0.22rem 0.5rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+  background: rgba(255, 255, 255, 0.45);
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+  user-select: none;
+}
+
+html[data-ui='project'] .app-ticker__carousel-list-toggle::-webkit-details-marker {
+  display: none;
+}
+
+html[data-ui='project'] .app-ticker__carousel-list-panel {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  z-index: 30;
+  width: min(22rem, calc(100vw - 2rem));
+  max-height: min(18rem, 50vh);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-strong);
+}
+
+html[data-ui='project'] .app-ticker__carousel-list-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+html[data-ui='project'] .app-ticker__carousel-list-item.is-active {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+  background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+}
+
+html[data-ui='project'] .app-ticker__carousel-list-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
+html[data-ui='project'] .app-ticker__carousel-list-body {
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* 업무 알림 리본 (레거시) */
 html[data-ui='project'] .app-ticker--ribbons {
   display: flex;
   flex-direction: column;

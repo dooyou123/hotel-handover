@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { HandoverRecordsTab } from '@/lib/handover/records';
 import type { ShiftSummaryData } from '@/lib/handover/shift-summary';
 import type { Card, HandoverViewMode, QuickFilter, WorkSession } from '@/lib/handover/types';
@@ -158,38 +159,42 @@ export function HandoverWorkspaceProject({
     };
   }, [isBriefView]);
 
+  const briefFullscreen = isBriefView ? (
+    <div className="handover-brief-fullscreen" role="dialog" aria-modal="true" aria-label="교대 인계">
+      <header className="handover-brief-fullscreen__bar">
+        <button
+          type="button"
+          className="handover-brief-fullscreen__back"
+          onClick={() => onViewModeChange('board')}
+        >
+          ← 인수인계 목록
+        </button>
+        <p className="handover-brief-fullscreen__title">교대 인계</p>
+      </header>
+      <div className="handover-brief-fullscreen__body">
+        <HandoverShiftBriefProject
+          summary={summaryData}
+          todos={todos}
+          events={events}
+          session={session}
+          authorLabel={authorLabel}
+          requireSession={requireSession}
+          onAcknowledge={onAcknowledge}
+          onOpenCard={onOpenCard}
+          onOpenTodo={onOpenTodo}
+          onOpenEvent={onOpenEvent}
+          onOpenRecords={onOpenRecords}
+          onToast={onToast}
+        />
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div className="project-handover">
-      {isBriefView ? (
-        <div className="handover-brief-fullscreen" role="dialog" aria-modal="true" aria-label="교대 인계">
-          <header className="handover-brief-fullscreen__bar">
-            <button
-              type="button"
-              className="handover-brief-fullscreen__back"
-              onClick={() => onViewModeChange('board')}
-            >
-              ← 인수인계 목록
-            </button>
-            <p className="handover-brief-fullscreen__title">교대 인계</p>
-          </header>
-          <div className="handover-brief-fullscreen__body">
-            <HandoverShiftBriefProject
-              summary={summaryData}
-              todos={todos}
-              events={events}
-              session={session}
-              authorLabel={authorLabel}
-              requireSession={requireSession}
-              onAcknowledge={onAcknowledge}
-              onOpenCard={onOpenCard}
-              onOpenTodo={onOpenTodo}
-              onOpenEvent={onOpenEvent}
-              onOpenRecords={onOpenRecords}
-              onToast={onToast}
-            />
-          </div>
-        </div>
-      ) : null}
+      {typeof document !== 'undefined' && briefFullscreen
+        ? createPortal(briefFullscreen, document.body)
+        : null}
 
       <HandoverMobileViewTabs view={mobileView} panelBadge={mobilePanelBadge} onChange={setMobileView} />
 

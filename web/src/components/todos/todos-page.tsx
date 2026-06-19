@@ -13,6 +13,7 @@ import { EMPTY_COMPLAINT_REMEDIES } from '@/lib/handover/complaint-remedies';
 import type { Priority } from '@/lib/handover/types';
 import { useCards } from '@/lib/handover/use-cards';
 import { useWorkSession } from '@/lib/handover/use-work-session';
+import { LinkifiedText } from '@/components/ui/linkified-text';
 import {
   TODO_PRIORITY_LABELS,
   type Todo,
@@ -416,7 +417,9 @@ export function TodosPageClient() {
                             >
                               <span className="todo-list__title">{event.title}</span>
                               {event.description ? (
-                                <span className="todo-list__desc">{event.description}</span>
+                                <span className="todo-list__desc">
+                                  <LinkifiedText text={event.description} as="span" />
+                                </span>
                               ) : null}
                               <span className="todo-list__meta">
                                 <ScheduleDateBadge
@@ -470,7 +473,11 @@ export function TodosPageClient() {
                             }}
                           >
                             <span className="todo-list__title">{todo.title}</span>
-                            {todo.description ? <span className="todo-list__desc">{todo.description}</span> : null}
+                            {todo.description ? (
+                              <span className="todo-list__desc">
+                                <LinkifiedText text={todo.description} as="span" />
+                              </span>
+                            ) : null}
                             <span className="todo-list__meta">
                               <ScheduleDateBadge
                                 icon="⏰"
@@ -559,7 +566,9 @@ export function TodosPageClient() {
                             >
                               <span className="todo-list__title">{event.title}</span>
                               {event.description ? (
-                                <span className="todo-list__desc">{event.description}</span>
+                                <span className="todo-list__desc">
+                                  <LinkifiedText text={event.description} as="span" />
+                                </span>
                               ) : null}
                               <span className="todo-list__meta">
                                 <ScheduleDateBadge

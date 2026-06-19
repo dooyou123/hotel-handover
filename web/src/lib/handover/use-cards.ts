@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { enrichAttachments, uploadCardAttachment, deleteCardAttachment as removeAttachment } from '@/lib/handover/attachments';
 import { createClient } from '@/lib/supabase/client';
+import { getSafeUser } from '@/lib/supabase/auth-session';
 import { invalidateCardQueries, subscribeCardsRealtime } from '@/lib/supabase/handover-realtime';
 import type { Card, CardInput, ColumnId } from '@/lib/handover/types';
 
@@ -128,10 +129,21 @@ export function useCards() {
   });
 
   const deleteCard = useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, staffName }: { id: string; staffName: string }) => {
       const supabase = createClient();
-      const { error } = await supabase.from('cards').delete().eq('id', id);
-      if (error) throw error;
+      const { error: rpcError } = await supabase.rpc('delete_card_by_staff', {
+        p_card_id: id,
+        p_staff_name: staffName,
+      });
+      if (!rpcError) return;
+
+      if (rpcError.code === 'PGRST202') {
+        const { error: directError } = await supabase.from('cards').delete().eq('id', id);
+        if (directError) throw directError;
+        return;
+      }
+
+      throw rpcError;
     },
     onSuccess: () => invalidateCardQueriesLocal(queryClient),
   });
@@ -371,9 +383,7 @@ export function useIsManager() {
     queryKey: ['profile-role'],
     queryFn: async () => {
       const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const user = await getSafeUser(supabase);
       if (!user) return false;
 
       const { data } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
@@ -387,9 +397,7 @@ export function useCurrentUserId() {
     queryKey: ['auth-user-id'],
     queryFn: async () => {
       const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const user = await getSafeUser(supabase);
       return user?.id ?? null;
     },
   });

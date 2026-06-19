@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   CARD_COLUMN_OPTIONS,
   CATEGORY_OPTIONS,
@@ -20,8 +21,9 @@ import {
   saveCardCreateDraft,
   type CardFormSnapshot,
 } from '@/lib/handover/card-draft';
-import { parseDueAt, toDateInputValue, toTimeInputValue, joinDatetimeLocalValue, splitDatetimeLocalValue, canDeleteCard, findDuplicateCards } from '@/lib/handover/card-utils';
-import { WORK_GROUPS, formatWorkGroupLabel } from '@/lib/constants';
+import { parseDueAt, toDateInputValue, toTimeInputValue, joinDatetimeLocalValue, splitDatetimeLocalValue, canDeleteCard, findDuplicateCards, resolveStaffNameForDelete } from '@/lib/handover/card-utils';
+import { readWorkSession } from '@/lib/handover/use-work-session';
+import { WORK_GROUPS, formatSessionLabel, formatWorkGroupLabel } from '@/lib/constants';
 import type { Card, CardAttachment, CardInput, ColumnId, Priority } from '@/lib/handover/types';
 import type { Todo } from '@/lib/todos/types';
 import { useCardTemplates, type CardTemplate } from '@/lib/settings/use-settings';
@@ -54,7 +56,7 @@ type CardModalProps = {
   activeCards?: Card[];
   onClose: () => void;
   onSave: (input: CardInput, id?: string, options?: { pendingFiles?: File[] }) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
+  onDelete: (id: string, staffName: string) => Promise<void>;
   onAddComment?: (cardId: string, content: string) => Promise<void>;
   onUpdateComment?: (cardId: string, commentId: string, content: string) => Promise<void>;
   onDeleteComment?: (cardId: string, commentId: string) => Promise<void>;
@@ -357,17 +359,27 @@ export function CardModal({
     }
   }
 
+  const sessionForDelete = readWorkSession();
   const canDelete = card
     ? canDeleteCard(card, {
         isManager,
         userId: currentUserId,
-        staffName: defaultName,
-        authorLabel,
+        staffName: sessionForDelete.name || defaultName,
+        authorLabel: sessionForDelete.name
+          ? formatSessionLabel(sessionForDelete.group, sessionForDelete.name)
+          : authorLabel,
       })
     : false;
 
   async function handleDelete() {
     if (!card || !canDelete) return;
+    const session = readWorkSession();
+    const staffName = resolveStaffNameForDelete(session.name, authorLabel);
+    if (!staffName) {
+      if (requireSession && !requireSession('인수인계 삭제')) return;
+      setError('조·담당자를 선택한 뒤 삭제할 수 있습니다.');
+      return;
+    }
     const ok = await confirm({
       title: '인수인계 삭제',
       message: '정말 이 인수인계를 삭제하시겠습니까?',
@@ -378,7 +390,7 @@ export function CardModal({
     if (!ok) return;
     setSaving(true);
     try {
-      await onDelete(card.id);
+      await onDelete(card.id, staffName);
       onClose();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '삭제에 실패했습니다.');
@@ -913,7 +925,7 @@ export function CardModal({
     </div>
   );
 
-  return (
+  const dialog = (
     <div
       className="drawer-overlay"
       onPointerDown={(event) => {
@@ -957,4 +969,7 @@ export function CardModal({
       </aside>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(dialog, document.body);
 }

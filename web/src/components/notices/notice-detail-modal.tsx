@@ -4,6 +4,7 @@ import { formatExpiryLabel } from '@/lib/handover/shift-summary';
 import { formatTime } from '@/lib/handover/card-utils';
 import { noticeTypeLabel } from '@/lib/handover/notice-utils';
 import type { Notice } from '@/lib/handover/types';
+import { LinkifiedText } from '@/components/ui/linkified-text';
 
 type NoticeDetailModalProps = {
   notice: Notice | null;
@@ -53,7 +54,7 @@ export function NoticeDetailModal({ notice, onClose, onEdit }: NoticeDetailModal
           </time>
         </div>
 
-        <div className="notice-read__body">{notice.content}</div>
+        <LinkifiedText text={notice.content} className="notice-read__body" />
 
         <footer className="notice-read__footer">
           {onEdit ? (

@@ -20,6 +20,7 @@ import { isTodoOverdue } from '@/lib/today/alerts';
 import { TODO_PRIORITY_LABELS, type Todo } from '@/lib/todos/types';
 import { transportStatusLabel, type TransportBooking } from '@/lib/transport/types';
 import { formatEventTimeRange, mergeWorkScheduleItems, type WorkScheduleItem } from '@/lib/work-items/merge';
+import { LinkifiedText } from '@/components/ui/linkified-text';
 
 export type AmenityBriefAlert = {
   id: number;
@@ -107,8 +108,16 @@ function BriefCardItem({
       </div>
       <p className="brief-item__title">{card.title}</p>
       {remedySummary ? <p className="brief-item__sub">제공: {remedySummary}</p> : null}
-      {card.next_action ? <p className="brief-item__sub">다음: {card.next_action}</p> : null}
-      {card.details ? <p className="brief-item__detail">{card.details}</p> : null}
+      {card.next_action ? (
+        <p className="brief-item__sub">
+          다음: <LinkifiedText text={card.next_action} as="span" />
+        </p>
+      ) : null}
+      {card.details ? (
+        <p className="brief-item__detail">
+          <LinkifiedText text={card.details} as="span" />
+        </p>
+      ) : null}
       <p className="brief-item__meta">
         {card.author || '—'} · {formatTime(card.updated_at || card.created_at)}
       </p>
@@ -143,11 +152,17 @@ function BriefNoticeItem({ notice }: { notice: Notice }) {
         <span className="brief-item__status">{noticeTypeShort(notice.type)}</span>
       </div>
       {singleBlock ? (
-        <p className="brief-item__detail brief-item__detail--pre brief-item__detail--lead">{title}</p>
+        <p className="brief-item__detail brief-item__detail--pre brief-item__detail--lead">
+          <LinkifiedText text={title} as="span" />
+        </p>
       ) : (
         <>
           <p className="brief-item__title">{title}</p>
-          {body ? <p className="brief-item__detail brief-item__detail--pre">{body}</p> : null}
+          {body ? (
+            <p className="brief-item__detail brief-item__detail--pre">
+              <LinkifiedText text={body} as="span" />
+            </p>
+          ) : null}
         </>
       )}
       <p className="brief-item__meta">
@@ -213,7 +228,11 @@ function BriefShiftHandoverItem({ record }: { record: ShiftHandover }) {
       {record.checklist_incomplete > 0 ? (
         <p className="brief-item__sub">체크리스트 미완료 {record.checklist_incomplete}건</p>
       ) : null}
-      {record.notes.trim() ? <p className="brief-item__detail">{record.notes.trim()}</p> : null}
+      {record.notes.trim() ? (
+        <p className="brief-item__detail">
+          <LinkifiedText text={record.notes.trim()} as="span" />
+        </p>
+      ) : null}
       <p className="brief-item__meta">{formatTime(record.handover_at)}</p>
     </article>
   );
@@ -251,7 +270,11 @@ function BriefTodoItem({ todo, onOpenTodo }: { todo: Todo; onOpenTodo?: (todo: T
         {overdue ? <span className="brief-item__room">마감 지남</span> : null}
       </div>
       <p className="brief-item__title">{todo.title}</p>
-      {todo.description ? <p className="brief-item__detail">{todo.description}</p> : null}
+      {todo.description ? (
+        <p className="brief-item__detail">
+          <LinkifiedText text={todo.description} as="span" />
+        </p>
+      ) : null}
       <p className="brief-item__meta">
         {formatTodoDue(todo)}
         {todo.linked_card_id ? ' · 인수인계 연동' : ''}
@@ -312,7 +335,11 @@ function BriefEventItem({ event, onOpenEvent }: { event: HotelEvent; onOpenEvent
         <span className="brief-item__room">{formatEventTimeRange(event.start_time, event.end_time)}</span>
       </div>
       <p className="brief-item__title">{event.title}</p>
-      {event.description ? <p className="brief-item__detail">{event.description}</p> : null}
+      {event.description ? (
+        <p className="brief-item__detail">
+          <LinkifiedText text={event.description} as="span" />
+        </p>
+      ) : null}
     </>
   );
 
@@ -365,7 +392,9 @@ function BriefReviewItem({
         <span className="brief-item__status">나쁜 리뷰</span>
         {review.guest_name ? <span className="brief-item__room">{review.guest_name}</span> : null}
       </div>
-      <p className="brief-item__title">{review.content_ko}</p>
+      <p className="brief-item__title">
+        <LinkifiedText text={review.content_ko} as="span" />
+      </p>
       <p className="brief-item__meta">{formatTime(review.created_at)}</p>
       <button type="button" className="btn btn--outline btn--xs" disabled={busy} onClick={onFollowUp}>
         {busy ? '…' : '인수인계 카드 만들기'}

@@ -9,6 +9,7 @@ import {
 import { formatAsideRecordTime } from '@/lib/handover/shift-ui-state';
 import type { ActivityLog, ShiftHandover } from '@/lib/handover/types';
 import type { AsideFeedTab } from '@/lib/handover/shift-ui-state';
+import { LinkifiedText } from '@/components/ui/linkified-text';
 
 export function shiftHandoverTypeLabel(type: ShiftHandover['handover_type']): string {
   return type === 'start' ? '교대 시작' : '교대 종료';
@@ -57,7 +58,9 @@ export function ShiftHandoverRecordItem({ record }: { record: ShiftHandover }) {
         </span>
       </p>
       {record.notes.trim() ? (
-        <blockquote className="activity-item__quote">{record.notes.trim()}</blockquote>
+        <blockquote className="activity-item__quote">
+          <LinkifiedText text={record.notes.trim()} as="span" />
+        </blockquote>
       ) : null}
     </article>
   );
@@ -86,7 +89,11 @@ export function ActivityRecordItem({ log }: { log: ActivityLog }) {
 
       <p className="activity-item__meta-line">{activityPreviewMeta(log)}</p>
 
-      {detail ? <blockquote className="activity-item__quote">{detail}</blockquote> : null}
+      {detail ? (
+        <blockquote className="activity-item__quote">
+          <LinkifiedText text={detail} as="span" />
+        </blockquote>
+      ) : null}
     </article>
   );
 }

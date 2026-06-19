@@ -1,6 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
-import { getSafeUser } from '@/lib/supabase/auth-session';
+import { resolveAuthUser, stripSupabaseAuthCookies } from '@/lib/supabase/auth-session';
 import { getSupabasePublicEnv } from '@/lib/supabase/env';
 
 export async function updateSession(request: NextRequest) {
@@ -22,7 +22,10 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  const user = await getSafeUser(supabase);
+  const { user, clearedStale } = await resolveAuthUser(supabase);
+  if (clearedStale) {
+    stripSupabaseAuthCookies(request, supabaseResponse);
+  }
 
   const pathname = request.nextUrl.pathname;
   const isAuthRoute = pathname.startsWith('/login') || pathname.startsWith('/auth');
@@ -36,7 +39,14 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('next', pathname);
-    return NextResponse.redirect(url);
+    if (clearedStale) {
+      url.searchParams.set('reason', 'session_expired');
+    }
+    const redirect = NextResponse.redirect(url);
+    if (clearedStale) {
+      stripSupabaseAuthCookies(request, redirect);
+    }
+    return redirect;
   }
 
   if (user && pathname === '/login') {

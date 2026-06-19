@@ -13,6 +13,7 @@ import { cardInputFromNotice } from '@/lib/handover/notice-to-card';
 import { buildShiftSummaryData, todayDateString } from '@/lib/handover/shift-summary';
 import { useNotices } from '@/lib/handover/use-notices';
 import { useArchivedCards, useCards, useCurrentUserId, useIsManager } from '@/lib/handover/use-cards';
+import { fetchChecklistIncomplete, logShiftHandover } from '@/lib/handover/use-activity-logs';
 import { useWorkSession } from '@/lib/handover/use-work-session';
 import type {
   Card,
@@ -108,6 +109,7 @@ export function HandoverPage() {
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<HotelEvent | null>(null);
   const [shiftStartConfirmOpen, setShiftStartConfirmOpen] = useState(false);
+  const [shiftStartSaving, setShiftStartSaving] = useState(false);
   const [shiftEndModalOpen, setShiftEndModalOpen] = useState(false);
   const [recordsModalOpen, setRecordsModalOpen] = useState(false);
   const [recordsModalTab, setRecordsModalTab] = useState<HandoverRecordsTab>('shift');
@@ -302,11 +304,32 @@ export function HandoverPage() {
     setShiftStartConfirmOpen(true);
   }, [requireSession]);
 
-  const handleShiftStartConfirm = useCallback(() => {
-    setShiftStartConfirmOpen(false);
-    setViewMode('brief');
-    showToast('인계 탭에서 미완료 업무를 확인해 주세요.');
-  }, []);
+  const handleShiftStartConfirm = useCallback(async () => {
+    if (!session.group || !session.name) return;
+    setShiftStartSaving(true);
+    try {
+      const checklist = await fetchChecklistIncomplete(session.group || session.shift, session.group);
+      await logShiftHandover({
+        shift: session.shift,
+        staffName: session.name,
+        handoverType: 'start',
+        unackedUrgent: summaryData.unackedUrgent.length,
+        urgentCount: summaryData.urgentActive.length,
+        progressCount: summaryData.progressActive.length,
+        todayCount: summaryData.todayCards.length,
+        checklistIncomplete: checklist.incomplete,
+        progressRemaining: summaryData.progressActive.length,
+      });
+      await queryClient.invalidateQueries({ queryKey: ['shift-handovers', DEFAULT_HOTEL_ID] });
+      setShiftStartConfirmOpen(false);
+      setViewMode('brief');
+      showToast(`${authorLabel} 교대가 시작되었습니다. 인계 탭에서 미완료 업무를 확인해 주세요.`);
+    } catch {
+      showToast('교대 시작 기록에 실패했습니다. 다시 시도해 주세요.');
+    } finally {
+      setShiftStartSaving(false);
+    }
+  }, [authorLabel, queryClient, session.group, session.name, session.shift, summaryData]);
 
   const handleShiftEnd = useCallback(() => {
     if (!requireSession('교대 종료')) return;
@@ -392,9 +415,9 @@ export function HandoverPage() {
     refreshActivityLogs();
   }
 
-  async function handleDelete(id: string) {
+  async function handleDelete(id: string, staffName: string) {
     const before = cards.find((card) => card.id === id) ?? archivedCards.find((card) => card.id === id);
-    await deleteCard.mutateAsync(id);
+    await deleteCard.mutateAsync({ id, staffName });
     if (before?.linked_todo_id) {
       await updateTodoMutation.mutateAsync({
         id: before.linked_todo_id,
@@ -1095,8 +1118,9 @@ export function HandoverPage() {
         summary={summaryData}
         todayTodoCount={todayTodoCount}
         todayEventCount={todayEventCount}
+        saving={shiftStartSaving}
         onClose={() => setShiftStartConfirmOpen(false)}
-        onConfirm={handleShiftStartConfirm}
+        onConfirm={() => void handleShiftStartConfirm()}
       />
 
       <ShiftHandoverModal

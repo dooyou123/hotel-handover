@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { splitTextWithLinks } from '@/lib/text/linkify';
 import { isCardDueSoon, isCardOverdue, isCommentEdited, splitTextBySearchQuery, canDeleteCard, findDuplicateCards, titlesAreSimilar, isCardSnoozed, getStaleLevel, getHoldStaleLevel, isStaleCard, isLongHoldCard, needsComplaintFirstResponse } from '@/lib/handover/card-utils';
 import {
   formatComplaintRemedies,
@@ -25,7 +26,7 @@ import { monthDateRange } from '@/lib/schedule/month-range';
 import { buildPrintDocumentHtml, buildSummaryText, getExportFilename, hasSummaryContent } from '@/lib/handover/daily-summary';
 import { buildShiftSummaryData } from '@/lib/handover/shift-summary';
 import { consolidateTlNotificationRows, performReconciliation } from '@/lib/rate-confirm/compare-engine';
-import { isStatusEqual, normalizeDate, normalizeRate } from '@/lib/rate-confirm/normalize';
+import { isDateEqual, isStatusEqual, normalizeDate, normalizeRate } from '@/lib/rate-confirm/normalize';
 import {
   detectRateFileFormat,
   guessColumnMapping,
@@ -385,6 +386,11 @@ test('status and date normalization', () => {
   assert.equal(isStatusEqual('예약', 'RR'), true);
   assert.equal(normalizeDate('2026.05.20(수)'), '2026-05-20');
   assert.equal(normalizeDate('2026-05-20'), '2026-05-20');
+  assert.equal(normalizeDate('2026/06/19'), '2026-06-19');
+  assert.equal(normalizeDate('06/19/2026'), '2026-06-19');
+  assert.equal(normalizeDate('06-19-2026'), '2026-06-19');
+  assert.equal(isDateEqual('2026-05-20', '06/19/2026'), false);
+  assert.equal(isDateEqual('2026-06-19', '06/19/2026'), true);
 });
 
 import { calculateTaxiPrice } from '@/lib/taxi/destinations';
@@ -1203,6 +1209,17 @@ test('complaint remedy helpers', () => {
   });
 });
 
+test('splitTextWithLinks detects http(s) URLs and preserves trailing punctuation', () => {
+  const parts = splitTextWithLinks('안내: https://docs.google.com/edit?usp=sharing 참고');
+  assert.equal(parts.length, 3);
+  assert.deepEqual(parts[0], { type: 'text', value: '안내: ' });
+  assert.equal(parts[1]?.type, 'link');
+  if (parts[1]?.type === 'link') {
+    assert.equal(parts[1].href, 'https://docs.google.com/edit?usp=sharing');
+  }
+  assert.deepEqual(parts[2], { type: 'text', value: ' 참고' });
+});
+
 test('ticker navigation hrefs', () => {
   assert.equal(getTickerItemHref('idle'), null);
   assert.equal(getTickerItemHref('notice-abc'), '/notices?id=abc');
@@ -1265,12 +1282,16 @@ test('canDeleteCard allows manager, author account, and legacy author label', ()
 
   assert.equal(canDeleteCard(card, { isManager: true, userId: null, staffName: '', authorLabel: '' }), true);
   assert.equal(
-    canDeleteCard(card, { isManager: false, userId: 'user-1', staffName: 'Lee', authorLabel: 'B조 · Lee' }),
+    canDeleteCard(card, { isManager: false, userId: 'user-1', staffName: 'Kim', authorLabel: 'B조 · Kim' }),
     true,
   );
   assert.equal(
     canDeleteCard(card, { isManager: false, userId: null, staffName: 'Kim', authorLabel: 'B조 · Kim' }),
     true,
+  );
+  assert.equal(
+    canDeleteCard(card, { isManager: false, userId: 'user-2', staffName: 'Kim', authorLabel: 'B조 · Kim' }),
+    false,
   );
   assert.equal(
     canDeleteCard(card, { isManager: false, userId: null, staffName: 'Lee', authorLabel: 'B조 · Lee' }),

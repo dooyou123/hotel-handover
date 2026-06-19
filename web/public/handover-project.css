@@ -3817,6 +3817,31 @@ html[data-ui='project'] .drawer-panel--notice {
   max-width: 32rem;
 }
 
+/* 인수인계 카드 드로어 — viewport 전체 오버레이 (body portal) */
+html[data-ui='project'] .drawer-overlay {
+  z-index: 110;
+  background: rgba(15, 23, 42, 0.38);
+}
+
+html[data-ui='project'] .drawer-panel--card {
+  z-index: 111;
+  max-height: 100dvh;
+}
+
+html[data-ui='project'] .drawer-panel--card .drawer-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+@media (max-width: 640px) {
+  html[data-ui='project'] .drawer-panel--card {
+    width: 100vw;
+    max-width: 100vw;
+  }
+}
+
 html[data-ui='project'] .notice-drawer__footer {
   flex-shrink: 0;
   display: flex;
@@ -3961,7 +3986,19 @@ html[data-ui='project'] .handover-mobile {
 }
 
 @media (max-width: 960px) {
-  html[data-ui='project'] .app-ticker {
+  html[data-ui='project'] .app-ticker--ribbons {
+    display: none;
+  }
+
+  html[data-ui='project'] .nova-topbar-alerts--compact .today-taxi-bar {
+    display: none;
+  }
+
+  html[data-ui='project'] .app-ticker__carousel-controls {
+    padding-right: 0.35rem;
+  }
+
+  html[data-ui='project'] .app-ticker__carousel-list-toggle {
     display: none;
   }
 
@@ -4632,13 +4669,16 @@ html[data-ui='project'] .floor-heatmap__cell {
 .handover-brief-fullscreen {
   position: fixed;
   inset: 0;
-  z-index: 520;
+  z-index: 650;
   display: flex;
   flex-direction: column;
   width: 100vw;
   max-width: 100vw;
+  height: 100dvh;
+  max-height: 100dvh;
   background: var(--bg);
   color: var(--text);
+  isolation: isolate;
 }
 
 .handover-brief-fullscreen__bar {
@@ -4707,6 +4747,8 @@ html[data-ui='project'] .handover-brief-fullscreen .project-shift-brief .shift-b
 html[data-ui='project'] .handover-brief-fullscreen .shift-brief__chips {
   flex-shrink: 0;
   margin-bottom: 0.75rem;
+  position: relative;
+  z-index: 0;
 }
 
 html[data-ui='project'] .handover-brief-fullscreen .shift-brief__sections {
@@ -4729,7 +4771,7 @@ html[data-ui='project'] .handover-brief-fullscreen .brief-section {
 }
 
 html[data-ui='project'] .handover-brief-fullscreen .brief-section--records {
-  height: 100%;
+  height: auto;
 }
 
 html[data-ui='project'] .handover-brief-fullscreen .brief-section__head {
@@ -4776,6 +4818,8 @@ html[data-ui='project'] .handover-brief-fullscreen .project-shift-brief .shift-b
 
   html[data-ui='project'] .handover-brief-fullscreen .shift-brief__sections {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+    grid-auto-flow: row dense;
   }
 }
 
@@ -4786,6 +4830,12 @@ html[data-ui='project'] .handover-brief-fullscreen .project-shift-brief .shift-b
 
   html[data-ui='project'] .handover-brief-fullscreen .shift-brief__sections {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-content: start;
+    grid-auto-flow: row dense;
+  }
+
+  html[data-ui='project'] .handover-brief-fullscreen .brief-section--records {
+    grid-column: 1 / -1;
   }
 }
 
@@ -4961,8 +5011,39 @@ html[data-ui='project'] .contacts-page .project-board__search {
   flex: none;
 }
 
-html[data-ui='project'] .contacts-page .project-board__filters {
+html[data-ui='project'] .contacts-page .project-board__filters,
+html[data-ui='project'] .contacts-page__filters {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  align-content: flex-start;
+  gap: 0.35rem;
   width: 100%;
+  flex: none;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-ui='project'] .contacts-page__filter {
+  padding: 0.42rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+html[data-ui='project'] .contacts-page__filter.is-active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
 }
 
 html[data-ui='project'] .schedule-page .schedule-tabs__btn {

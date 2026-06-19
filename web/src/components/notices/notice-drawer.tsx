@@ -8,6 +8,7 @@ import { formatExpiryLabel } from '@/lib/handover/shift-summary';
 import type { Notice, NoticeInput, NoticeType } from '@/lib/handover/types';
 import { NoticeReadStatus } from '@/components/notices/notice-read-status';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
+import { LinkifiedText } from '@/components/ui/linkified-text';
 
 export type NoticeDrawerMode = 'read' | 'edit' | 'create';
 
@@ -187,7 +188,9 @@ export function NoticeDrawer({
           {formatTime(notice.updated_at || notice.created_at)}
         </time>
       </div>
-      <div className="notice-drawer__body">{notice.content}</div>
+      <div className="notice-drawer__body">
+        <LinkifiedText text={notice.content} />
+      </div>
       <NoticeReadStatus
         notice={notice}
         activeStaffNames={activeStaffNames}

@@ -110,3 +110,21 @@ export function subscribeFeedbackChanges(onChange: () => void) {
 export function countOpenFeedback(items: UserFeedback[]) {
   return items.filter((item) => item.status === 'open' || item.status === 'in_progress').length;
 }
+
+export function isFeedbackDone(status: FeedbackStatus): boolean {
+  return status === 'resolved' || status === 'closed';
+}
+
+export function sortFeedbackForAdmin(items: UserFeedback[]): UserFeedback[] {
+  const rank: Record<FeedbackStatus, number> = {
+    open: 0,
+    in_progress: 1,
+    resolved: 2,
+    closed: 3,
+  };
+  return [...items].sort((a, b) => {
+    const byStatus = rank[a.status] - rank[b.status];
+    if (byStatus !== 0) return byStatus;
+    return b.created_at.localeCompare(a.created_at);
+  });
+}

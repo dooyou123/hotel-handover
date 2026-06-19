@@ -11,6 +11,7 @@ import {
 } from '@/lib/handover/card-utils';
 import type { CardComment } from '@/lib/handover/types';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
+import { LinkifiedText } from '@/components/ui/linkified-text';
 
 type CardCommentItemProps = {
   comment: CardComment;
@@ -160,7 +161,9 @@ export function CardCommentItem({
         </div>
       ) : (
         <>
-          <p className="card-comment__content">{comment.content}</p>
+          <p className="card-comment__content">
+            <LinkifiedText text={comment.content} as="span" />
+          </p>
             <div className="card-comment__foot">
             <p className="card-comment__meta">
               <span className="card-comment__meta-author">

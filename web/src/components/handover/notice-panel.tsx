@@ -3,6 +3,7 @@
 import { formatExpiryLabel } from '@/lib/handover/shift-summary';
 import { formatTime } from '@/lib/handover/card-utils';
 import type { Notice, NoticeType } from '@/lib/handover/types';
+import { LinkifiedText } from '@/components/ui/linkified-text';
 
 type NoticePanelProps = {
   type: NoticeType;
@@ -64,7 +65,9 @@ export function NoticePanel({ type, title, hint, notices, onAdd, onOpen, onToggl
                     📌
                   </button>
                 </div>
-                <p className="notice-item__content">{notice.content}</p>
+                <p className="notice-item__content">
+                  <LinkifiedText text={notice.content} as="span" />
+                </p>
                 <div className="notice-item__meta">
                   <span>{notice.author || '작성자 미입력'}</span>
                   <span>{formatTime(notice.updated_at || notice.created_at)}</span>

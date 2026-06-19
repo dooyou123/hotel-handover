@@ -438,10 +438,7 @@ export function ContactsPageClient() {
               aria-label="연락처 검색"
             />
           </div>
-          <div
-            className="project-board__filters segmented-control segmented-control--wrap contacts-toolbar__filters"
-            aria-label="구분 필터"
-          >
+          <div className="project-board__filters contacts-page__filters" aria-label="구분 필터">
             {CONTACT_DEPARTMENTS.map((dept) => {
               const count = countsByDept[dept];
               return (
@@ -449,7 +446,7 @@ export function ContactsPageClient() {
                   key={dept}
                   type="button"
                   onClick={() => setFilter(dept)}
-                  className={`segmented-control__btn${filter === dept ? ' is-active' : ''}`}
+                  className={`contacts-page__filter${filter === dept ? ' is-active' : ''}`}
                 >
                   {dept}
                   {count ? ` ${count}` : ''}

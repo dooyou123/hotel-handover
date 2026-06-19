@@ -403,23 +403,39 @@ export function formatSnoozeUntil(value: string): string {
   return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
 }
 
+/** 카드 author 문자열이 근무 담당자 이름과 일치하는지 (레거시 카드 삭제용) */
+export function authorMatchesStaffName(author: string, staffName: string): boolean {
+  const normalizedAuthor = author.trim();
+  const normalizedName = staffName.trim();
+  if (!normalizedAuthor || !normalizedName) return false;
+  if (normalizedAuthor === normalizedName) return true;
+  if (normalizedAuthor.endsWith(normalizedName)) return true;
+  if (normalizedAuthor.includes(` · ${normalizedName}`)) return true;
+  return false;
+}
+
+export function resolveStaffNameForDelete(staffName: string, authorLabel: string): string {
+  const name = staffName.trim();
+  if (name) return name;
+  const label = authorLabel.trim();
+  const separator = label.indexOf(' · ');
+  if (separator >= 0) return label.slice(separator + 3).trim();
+  return label;
+}
+
 export function canDeleteCard(
   card: Card,
   options: { isManager: boolean; userId: string | null; staffName: string; authorLabel: string },
 ): boolean {
   if (options.isManager) return true;
-  if (options.userId && card.created_by === options.userId) return true;
 
-  const author = card.author?.trim() ?? '';
-  if (!author) return false;
+  const staffName = resolveStaffNameForDelete(options.staffName, options.authorLabel);
+  if (!staffName || !authorMatchesStaffName(card.author ?? '', staffName)) return false;
 
-  const staffName = options.staffName.trim();
-  const authorLabel = options.authorLabel.trim();
-  if (staffName && (author === staffName || author.endsWith(staffName) || author.includes(` · ${staffName}`))) {
-    return true;
-  }
-  if (authorLabel && author === authorLabel) return true;
-  return false;
+  const createdBy = card.created_by ?? null;
+  if (createdBy && options.userId && createdBy !== options.userId) return false;
+
+  return true;
 }
 
 export function formatTime(value: string): string {

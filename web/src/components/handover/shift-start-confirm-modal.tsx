@@ -1,5 +1,6 @@
 'use client';
 
+import { createPortal } from 'react-dom';
 import { getTodayLabel, type ShiftSummaryData } from '@/lib/handover/shift-summary';
 
 type ShiftStartConfirmModalProps = {
@@ -8,6 +9,7 @@ type ShiftStartConfirmModalProps = {
   summary: ShiftSummaryData;
   todayTodoCount: number;
   todayEventCount?: number;
+  saving?: boolean;
   onClose: () => void;
   onConfirm: () => void;
 };
@@ -18,6 +20,7 @@ export function ShiftStartConfirmModal({
   summary,
   todayTodoCount,
   todayEventCount = 0,
+  saving = false,
   onClose,
   onConfirm,
 }: ShiftStartConfirmModalProps) {
@@ -62,10 +65,10 @@ export function ShiftStartConfirmModal({
   const pendingCount = checks.filter((check) => check.warn).length;
   const metaLine = `${getTodayLabel()} · ${authorLabel || '근무자 미선택'}`;
 
-  return (
+  const dialog = (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal modal--shift modal--shift-start" onClick={(event) => event.stopPropagation()}>
-        <div className="shift-modal">
+        <div className="shift-modal shift-modal--start">
           <div className="modal__header">
             <div>
               <h2>인수인계 시작</h2>
@@ -99,13 +102,13 @@ export function ShiftStartConfirmModal({
           </div>
 
           <div className="modal__footer shift-modal__footer">
-            <p className="shift-modal__note">확인 후 「인계」 탭으로 이동합니다.</p>
+            <p className="shift-modal__note">교대를 시작하고 「인계」 탭으로 이동합니다.</p>
             <div className="modal__footer-right">
-              <button type="button" onClick={onClose} className="btn btn--ghost">
+              <button type="button" onClick={onClose} className="btn btn--ghost" disabled={saving}>
                 취소
               </button>
-              <button type="button" onClick={onConfirm} className="btn btn--primary">
-                인계 탭에서 확인
+              <button type="button" onClick={onConfirm} className="btn btn--primary" disabled={saving}>
+                {saving ? '시작 중…' : '교대 시작'}
               </button>
             </div>
           </div>
@@ -113,4 +116,7 @@ export function ShiftStartConfirmModal({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(dialog, document.body);
 }

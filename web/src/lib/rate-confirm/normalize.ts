@@ -77,11 +77,93 @@ export function isAccountEqual(acc1: string, acc2: string): boolean {
   return false;
 }
 
+function pad2(value: string): string {
+  return value.padStart(2, '0');
+}
+
+function toIsoDate(year: string, month: string, day: string): string {
+  return `${year}-${pad2(month)}-${pad2(day)}`;
+}
+
+function isReasonableYear(year: number): boolean {
+  return year >= 1900 && year <= 2099;
+}
+
+function isReasonableMonth(month: number): boolean {
+  return month >= 1 && month <= 12;
+}
+
+function isReasonableDay(day: number): boolean {
+  return day >= 1 && day <= 31;
+}
+
+/** MM/DD/YYYY · DD/MM/YYYY 등 구분자 날짜 (연도가 끝에 오는 형식) */
+function parseDelimitedEndingYear(value: string): string | null {
+  const match = value.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+  if (!match) return null;
+
+  const partA = Number(match[1]);
+  const partB = Number(match[2]);
+  const year = Number(match[3]);
+  if (!isReasonableYear(year)) return null;
+
+  if (partA > 12 && isReasonableMonth(partB) && isReasonableDay(partA)) {
+    return toIsoDate(String(year), String(partB), String(partA));
+  }
+
+  if (partB > 12 && isReasonableMonth(partA) && isReasonableDay(partB)) {
+    return toIsoDate(String(year), String(partA), String(partB));
+  }
+
+  if (isReasonableMonth(partA) && isReasonableDay(partB)) {
+    return toIsoDate(String(year), String(partA), String(partB));
+  }
+
+  return null;
+}
+
+/** Excel 날짜 시리얼(숫자만) → ISO */
+function excelSerialToIso(serial: number): string | null {
+  if (!Number.isFinite(serial) || serial < 1 || serial >= 100_000) return null;
+  const date = new Date(Date.UTC(1899, 11, 30) + Math.floor(serial) * 86_400_000);
+  const year = date.getUTCFullYear();
+  if (!isReasonableYear(year)) return null;
+  return toIsoDate(String(year), String(date.getUTCMonth() + 1), String(date.getUTCDate()));
+}
+
 export function normalizeDate(dateStr: string): string {
   if (!dateStr) return '';
-  const cleaned = dateStr.replace(/[^0-9]/g, '');
+  const trimmed = dateStr.trim().replace(/\([^)]*\)\s*$/, '').trim();
+
+  const ymd = trimmed.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (ymd) {
+    const year = Number(ymd[1]);
+    const month = Number(ymd[2]);
+    const day = Number(ymd[3]);
+    if (isReasonableYear(year) && isReasonableMonth(month) && isReasonableDay(day)) {
+      return toIsoDate(ymd[1], ymd[2], ymd[3]);
+    }
+  }
+
+  const endingYear = parseDelimitedEndingYear(trimmed);
+  if (endingYear) return endingYear;
+
+  if (/^\d+(\.\d+)?$/.test(trimmed)) {
+    const serial = Number(trimmed);
+    const fromSerial = excelSerialToIso(serial);
+    if (fromSerial) return fromSerial;
+  }
+
+  const cleaned = trimmed.replace(/[^0-9]/g, '');
   if (cleaned.length === 8) {
-    return `${cleaned.slice(0, 4)}-${cleaned.slice(4, 6)}-${cleaned.slice(6, 8)}`;
+    const yearFirst = Number(cleaned.slice(0, 4));
+    if (isReasonableYear(yearFirst)) {
+      return `${cleaned.slice(0, 4)}-${cleaned.slice(4, 6)}-${cleaned.slice(6, 8)}`;
+    }
+    const yearLast = Number(cleaned.slice(4, 8));
+    if (isReasonableYear(yearLast)) {
+      return `${cleaned.slice(4, 8)}-${cleaned.slice(0, 2)}-${cleaned.slice(2, 4)}`;
+    }
   }
   if (cleaned.length === 6) {
     return `20${cleaned.slice(0, 2)}-${cleaned.slice(2, 4)}-${cleaned.slice(4, 6)}`;

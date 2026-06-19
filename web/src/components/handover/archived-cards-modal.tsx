@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { formatArchiveTime, formatAssigneeLabel, formatTime } from '@/lib/handover/card-utils';
 import { formatComplaintRemedies } from '@/lib/handover/complaint-remedies';
 import type { Card } from '@/lib/handover/types';
+import { LinkifiedText } from '@/components/ui/linkified-text';
 
 type ArchivedCardsModalProps = {
   open: boolean;
@@ -89,7 +90,11 @@ export function ArchivedCardsModal({
                         {card.room ? `[${card.room}] ` : ''}
                         {card.title}
                       </p>
-                      {card.resolution ? <p className="activity-item__detail">{card.resolution}</p> : null}
+                      {card.resolution ? (
+                        <p className="activity-item__detail">
+                          <LinkifiedText text={card.resolution} as="span" />
+                        </p>
+                      ) : null}
                       <p className="activity-item__meta">
                         {card.author || '작성자 미입력'}
                         {assignee ? ` · 담당 ${assignee}` : ''}

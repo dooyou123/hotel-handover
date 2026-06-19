@@ -13,6 +13,7 @@ import {
 } from '@/lib/handover/card-utils';
 import { formatComplaintRemedies, hasComplaintRemedies } from '@/lib/handover/complaint-remedies';
 import type { Card } from '@/lib/handover/types';
+import { LinkifiedText } from '@/components/ui/linkified-text';
 
 type RoomViewProps = {
   cards: Card[];
@@ -106,7 +107,9 @@ export function RoomView({ cards, onOpenCard }: RoomViewProps) {
                     </p>
                   ) : null}
                   {card.next_action ? (
-                    <p className="room-timeline-item__action">다음: {card.next_action}</p>
+                    <p className="room-timeline-item__action">
+                      다음: <LinkifiedText text={card.next_action} as="span" />
+                    </p>
                   ) : null}
                   <div className="room-timeline-item__meta">
                     {formatAssigneeLabel(card) ? <span>{formatAssigneeLabel(card)}</span> : null}
