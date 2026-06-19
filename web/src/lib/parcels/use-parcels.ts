@@ -66,7 +66,8 @@ export function useParcels(statusFilter: ParcelStatusFilter = 'all') {
         ...input,
         hotel_id: DEFAULT_HOTEL_ID,
         checkout_date: input.checkout_date.trim() || null,
-        ready_at: input.status === 'ready' ? new Date().toISOString() : null,
+        check_in_date: input.check_in_date.trim() || null,
+        reservation_number: input.reservation_number.trim(),
       };
       const { data, error } = await supabase.from('parcels').insert(payload).select('*').single();
       if (error) throw error;
@@ -82,8 +83,11 @@ export function useParcels(statusFilter: ParcelStatusFilter = 'all') {
       if (input.checkout_date !== undefined) {
         patch.checkout_date = input.checkout_date.trim() || null;
       }
-      if (input.status === 'ready') {
-        patch.ready_at = new Date().toISOString();
+      if (input.check_in_date !== undefined) {
+        patch.check_in_date = input.check_in_date.trim() || null;
+      }
+      if (input.reservation_number !== undefined) {
+        patch.reservation_number = input.reservation_number.trim();
       }
       if (input.status === 'delivered') {
         patch.delivered_at = new Date().toISOString();

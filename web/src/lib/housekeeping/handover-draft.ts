@@ -1,4 +1,5 @@
 import { extractRoomFromText } from '@/lib/handover/notice-to-card';
+import { EMPTY_COMPLAINT_REMEDIES } from '@/lib/handover/complaint-remedies';
 import type { CardInput } from '@/lib/handover/types';
 import {
   HK_STATUS_NOTE_FIELDS,
@@ -72,6 +73,7 @@ export function cardInputFromHkStatusNote(
     assignee_shift: '',
     assignee_name: '',
     due_at: null,
+    ...EMPTY_COMPLAINT_REMEDIES,
   };
 }
 
@@ -103,5 +105,6 @@ export function cardInputFromHkSpecialRoom(room: HousekeepingSpecialDraft, autho
     assignee_shift: '',
     assignee_name: '',
     due_at: null,
+    ...EMPTY_COMPLAINT_REMEDIES,
   };
 }

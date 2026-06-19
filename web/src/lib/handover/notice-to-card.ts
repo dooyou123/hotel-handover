@@ -1,4 +1,5 @@
 import { noticeListTitle } from '@/lib/handover/notice-utils';
+import { EMPTY_COMPLAINT_REMEDIES } from '@/lib/handover/complaint-remedies';
 import type { CardInput, Notice } from '@/lib/handover/types';
 
 /** 공지/변경 본문에서 객실 번호 추출 */
@@ -34,5 +35,6 @@ export function cardInputFromNotice(notice: Notice, authorLabel: string): CardIn
     assignee_shift: '',
     assignee_name: '',
     due_at: null,
+    ...EMPTY_COMPLAINT_REMEDIES,
   };
 }

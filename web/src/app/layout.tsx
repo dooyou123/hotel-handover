@@ -14,7 +14,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="ko" data-ui="project">
       <head>
-        <link rel="stylesheet" href="/handover.css" />
+        <link rel="stylesheet" href="/handover-tokens.css" />
+        <link rel="stylesheet" href="/handover-components.css" />
+        <link rel="stylesheet" href="/handover-legacy.css" />
         <link rel="stylesheet" href="/handover-modern-shell.css" />
         <link rel="stylesheet" href="/handover-project.css" />
       </head>

@@ -6,7 +6,7 @@ import {
   PARCEL_SIGN_LOCALES,
   PARCEL_SIGN_LOCALE_LABELS,
   detectParcelSignLocale,
-  formatParcelSignRoom,
+  formatParcelSignTitle,
   parcelSignMessages,
   parseParcelSignLocale,
   translateParcelSignApiError,
@@ -205,11 +205,17 @@ export function ParcelSignClient({ token, initialLocale = null }: ParcelSignClie
       <form className="parcel-sign__card" onSubmit={(e) => void handleSubmit(e)}>
         <header className="parcel-sign__head">
           <p className="parcel-sign__eyebrow">{t.eyebrow}</p>
-          <h1>{formatParcelSignRoom(preview.room_number, locale)}</h1>
+          <h1>{formatParcelSignTitle(preview, locale)}</h1>
           {preview.guest_name ? <p className="parcel-sign__guest">{preview.guest_name}</p> : null}
         </header>
 
         <dl className="parcel-sign__meta">
+          {preview.check_in_date ? (
+            <>
+              <dt>{t.checkin}</dt>
+              <dd>{formatParcelCheckoutDate(preview.check_in_date)}</dd>
+            </>
+          ) : null}
           {preview.checkout_date ? (
             <>
               <dt>{t.checkout}</dt>

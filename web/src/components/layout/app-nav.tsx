@@ -8,9 +8,12 @@ import { useIsManager } from '@/lib/handover/use-cards';
 import { useNavBadges } from '@/lib/nav/use-nav-badges';
 import { useNavItemsForUser, type NavDisplayItem } from '@/lib/settings/nav-visibility';
 import type { NavBadge } from '@/lib/nav/nav-badges';
+import { NavIcon } from '@/components/layout/nav-icons';
+import { useMobileNav } from '@/components/layout/mobile-nav';
 
 type AppNavProps = {
-  variant?: 'classic' | 'nova';
+  /** @deprecated classic 제거 — 항상 nova 스타일 */
+  variant?: 'nova';
 };
 
 function NavStaffVisibilityIcon({
@@ -67,15 +70,15 @@ function NavStaffVisibilityIcon({
 function NavLink({
   item,
   active,
-  btnClass,
   showStaffVisibility,
   badge,
+  onNavigate,
 }: {
   item: NavDisplayItem;
   active: boolean;
-  btnClass: string;
   showStaffVisibility: boolean;
   badge?: NavBadge;
+  onNavigate?: () => void;
 }) {
   const hiddenFromStaff = showStaffVisibility && !item.staffVisible;
   const ariaLabel = showStaffVisibility
@@ -85,10 +88,12 @@ function NavLink({
   return (
     <Link
       href={item.href}
-      className={`${btnClass}${active ? ' is-active' : ''}${hiddenFromStaff ? ' is-hidden-from-staff' : ''}`}
+      className={`nova-nav__btn${active ? ' is-active' : ''}${hiddenFromStaff ? ' is-hidden-from-staff' : ''}`}
       aria-label={ariaLabel}
       title={item.description}
+      onClick={onNavigate}
     >
+      <NavIcon href={item.href} />
       <span className="nav-btn__label">{item.label}</span>
       {badge && badge.count > 0 ? (
         <span
@@ -106,13 +111,12 @@ function NavLink({
   );
 }
 
-export function AppNav({ variant = 'classic' }: AppNavProps) {
+export function AppNav(_props: AppNavProps = {}) {
   const pathname = usePathname();
   const { data: isManager = false } = useIsManager();
   const { items, showStaffVisibility } = useNavItemsForUser(isManager);
   const badges = useNavBadges();
-  const navClass = variant === 'nova' ? 'nova-nav' : 'app-nav';
-  const btnClass = variant === 'nova' ? 'nova-nav__btn' : 'app-nav__btn';
+  const { closeNav } = useMobileNav();
 
   const groups = useMemo(() => {
     return NAV_CATEGORIES.map((category) => ({
@@ -123,7 +127,7 @@ export function AppNav({ variant = 'classic' }: AppNavProps) {
   }, [items]);
 
   return (
-    <nav className={navClass} aria-label="화면 전환">
+    <nav className="nova-nav" aria-label="화면 전환">
       {groups.map((group) => (
         <div key={group.category} className="nav-group">
           <p className="nav-group__label">{group.label}</p>
@@ -133,9 +137,9 @@ export function AppNav({ variant = 'classic' }: AppNavProps) {
                 key={item.href}
                 item={item}
                 active={pathname.startsWith(item.href)}
-                btnClass={btnClass}
                 showStaffVisibility={showStaffVisibility}
                 badge={badges[item.href]}
+                onNavigate={closeNav}
               />
             ))}
           </div>

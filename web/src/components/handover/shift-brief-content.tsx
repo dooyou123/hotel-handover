@@ -1,8 +1,10 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { ACTION_LABELS } from '@/lib/handover/activity';
 import { formatTime } from '@/lib/handover/card-utils';
+import { formatComplaintRemedies, hasComplaintRemedies } from '@/lib/handover/complaint-remedies';
 import { noticeTypeShort } from '@/lib/handover/notice-utils';
 import {
   cardStatusLabel,
@@ -78,6 +80,10 @@ function BriefCardItem({
   onOpenCard?: (card: Card) => void;
 }) {
   const unacked = warn && !card.card_acknowledgments?.length;
+  const remedySummary =
+    card.category === '컴플레인' && hasComplaintRemedies(card.complaint_remedies, card.complaint_remedy_other)
+      ? formatComplaintRemedies(card.complaint_remedies, card.complaint_remedy_other)
+      : '';
   const body = (
     <>
       <div className="brief-item__top">
@@ -100,6 +106,7 @@ function BriefCardItem({
         ) : null}
       </div>
       <p className="brief-item__title">{card.title}</p>
+      {remedySummary ? <p className="brief-item__sub">제공: {remedySummary}</p> : null}
       {card.next_action ? <p className="brief-item__sub">다음: {card.next_action}</p> : null}
       {card.details ? <p className="brief-item__detail">{card.details}</p> : null}
       <p className="brief-item__meta">
@@ -150,6 +157,43 @@ function BriefNoticeItem({ notice }: { notice: Notice }) {
   );
 }
 
+function BriefRecordsSection({
+  title,
+  lead,
+  emptyText,
+  onOpenAll,
+  isEmpty,
+  children,
+}: {
+  title: string;
+  lead: string;
+  emptyText: string;
+  onOpenAll?: () => void;
+  isEmpty: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <section className="brief-section brief-section--records">
+      <div className="brief-section__head">
+        <h2>{title}</h2>
+        {onOpenAll ? (
+          <button type="button" className="btn btn--ghost btn--xs" onClick={onOpenAll}>
+            전체 보기
+          </button>
+        ) : null}
+      </div>
+      <div className="brief-section__body">
+        <p className="brief-section__lead">{lead}</p>
+        {isEmpty ? (
+          <p className="brief-section__empty">{emptyText}</p>
+        ) : (
+          <div className="brief-section__list">{children}</div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function handoverTypeLabel(type: ShiftHandover['handover_type']): string {
   return type === 'start' ? '교대 시작' : '교대 종료';
 }
@@ -182,12 +226,11 @@ function BriefActivityItem({ log }: { log: ActivityLog }) {
     <article className="brief-item">
       <div className="brief-item__top">
         <span className="brief-item__status">{ACTION_LABELS[log.action] || log.action}</span>
-        <span className="brief-item__meta">{formatTime(log.created_at)}</span>
       </div>
       <p className="brief-item__title">{log.summary}</p>
       <p className="brief-item__meta">
         {actor}
-        {detail ? ` · ${detail}` : ''}
+        {detail ? ` · ${detail}` : ''} · {formatTime(log.created_at)}
       </p>
     </article>
   );
@@ -499,7 +542,7 @@ export function ShiftBriefContent({
 
           {summary.unackedUrgent.length ? (
             <section className="brief-section brief-section--alert">
-              <h2>1. 미확인 긴급 — 지금 확인</h2>
+              <h2>미확인 긴급 — 지금 확인</h2>
               <p className="brief-section__lead">카드에서 ✓ 긴급 확인을 눌러 다음 교대로 넘깁니다.</p>
               <div className="brief-section__list">
                 {summary.unackedUrgent.map((card) => (
@@ -518,7 +561,7 @@ export function ShiftBriefContent({
 
           {summary.urgentActive.length ? (
             <section className="brief-section">
-              <h2>2. 긴급 처리 중</h2>
+              <h2>긴급 처리 중</h2>
               <div className="brief-section__list">
                 {summary.urgentActive.map((card) => (
                   <BriefCardItem key={card.id} card={card} onOpenCard={onOpenCard} />
@@ -529,7 +572,7 @@ export function ShiftBriefContent({
 
           {summary.progressActive.length ? (
             <section className="brief-section">
-              <h2>3. 오늘 진행 업무</h2>
+              <h2>오늘 진행 업무</h2>
               <div className="brief-section__list">
                 {summary.progressActive.map((card) => (
                   <BriefCardItem key={card.id} card={card} onOpenCard={onOpenCard} />
@@ -540,7 +583,7 @@ export function ShiftBriefContent({
 
           {summary.holdActive.length ? (
             <section className="brief-section brief-section--warn">
-              <h2>4. 보류 — 대기 중</h2>
+              <h2>보류 — 대기 중</h2>
               <p className="brief-section__lead">아직 끝나지 않았지만 지금은 멈춰 둔 업무입니다.</p>
               <div className="brief-section__list">
                 {summary.holdActive.map((card) => (
@@ -635,47 +678,29 @@ export function ShiftBriefContent({
             </section>
           ) : null}
 
-          <section className="brief-section brief-section--records">
-            <div className="brief-section__head">
-              <h2>오늘 교대 기록</h2>
-              {onOpenShiftHistory ? (
-                <button type="button" className="btn btn--ghost btn--xs" onClick={onOpenShiftHistory}>
-                  전체 보기
-                </button>
-              ) : null}
-            </div>
-            <p className="brief-section__lead">교대 시작·종료 시 저장된 인수·마감 스냅샷입니다.</p>
-            {todayShiftLogs.length ? (
-              <div className="brief-section__list">
-                {todayShiftLogs.map((record) => (
-                  <BriefShiftHandoverItem key={record.id} record={record} />
-                ))}
-              </div>
-            ) : (
-              <p className="brief-section__empty">오늘 교대 기록이 없습니다. 교대 시작·종료 시 자동 저장됩니다.</p>
-            )}
-          </section>
+          <BriefRecordsSection
+            title="오늘 교대 기록"
+            lead="교대 시작·종료 시 저장된 인수·마감 스냅샷입니다."
+            emptyText="오늘 교대 기록이 없습니다. 교대 시작·종료 시 자동 저장됩니다."
+            onOpenAll={onOpenShiftHistory}
+            isEmpty={!todayShiftLogs.length}
+          >
+            {todayShiftLogs.map((record) => (
+              <BriefShiftHandoverItem key={record.id} record={record} />
+            ))}
+          </BriefRecordsSection>
 
-          <section className="brief-section brief-section--records">
-            <div className="brief-section__head">
-              <h2>오늘 변경 기록</h2>
-              {onOpenActivityLog ? (
-                <button type="button" className="btn btn--ghost btn--xs" onClick={onOpenActivityLog}>
-                  전체 보기
-                </button>
-              ) : null}
-            </div>
-            <p className="brief-section__lead">카드·공지 추가·수정·이동 등 업무 변경 내역입니다.</p>
-            {todayLogs.length ? (
-              <div className="brief-section__list">
-                {todayLogs.map((log) => (
-                  <BriefActivityItem key={log.id} log={log} />
-                ))}
-              </div>
-            ) : (
-              <p className="brief-section__empty">오늘 변경 기록이 없습니다.</p>
-            )}
-          </section>
+          <BriefRecordsSection
+            title="오늘 변경 기록"
+            lead="카드·공지 추가·수정·이동 등 업무 변경 내역입니다."
+            emptyText="오늘 변경 기록이 없습니다."
+            onOpenAll={onOpenActivityLog}
+            isEmpty={!todayLogs.length}
+          >
+            {todayLogs.map((log) => (
+              <BriefActivityItem key={log.id} log={log} />
+            ))}
+          </BriefRecordsSection>
 
           {!hasContent ? <p className="empty-state">현재 인계할 특이 사항이 없습니다.</p> : null}
         </div>

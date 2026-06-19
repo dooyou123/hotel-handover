@@ -13,3 +13,9 @@
     min-height: 100%;
   }
 }
+
+@layer utilities {
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}

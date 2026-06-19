@@ -79,7 +79,7 @@ const PRINT_STYLES = `
     padding: 0;
     background: #fff;
     color: #171717;
-    font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    font-family: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
     font-size: 9pt;
     line-height: 1.35;
     -webkit-print-color-adjust: exact;
@@ -812,6 +812,9 @@ export function buildHousekeepingPrintHtml(
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>하우스키핑 전달 ${workDate}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;800&display=swap" rel="stylesheet" />
     <style>${PRINT_STYLES}</style>
   </head>
   <body>

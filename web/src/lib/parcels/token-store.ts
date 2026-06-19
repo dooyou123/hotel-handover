@@ -55,7 +55,9 @@ export async function validateSignToken(token: string): Promise<ValidatedSignTok
     preview: {
       direction: parcel.direction,
       room_number: parcel.room_number,
+      reservation_number: parcel.reservation_number,
       guest_name: parcel.guest_name,
+      check_in_date: parcel.check_in_date,
       checkout_date: parcel.checkout_date,
       storage_slot: parcel.storage_slot,
       description: parcel.description,

@@ -19,9 +19,11 @@ import {
   hasActiveCardComments,
 } from '@/lib/handover/card-utils';
 import type { Card } from '@/lib/handover/types';
+import { formatComplaintRemedies, hasComplaintRemedies } from '@/lib/handover/complaint-remedies';
 import { ComplaintSlaBadge } from '@/components/handover/complaint-sla-badge';
 import { SearchHighlight } from '@/components/handover/search-highlight';
 import { HandoverCardCommentSection } from './handover-card-comment-section';
+import { HandoverListRowMoreMenu } from './handover-list-row-more-menu';
 
 type HandoverListRowProjectProps = {
   card: Card;
@@ -79,6 +81,10 @@ export function HandoverListRowProject({
   const activeCommentCount = countActiveCardComments(card);
   const hasComments = hasActiveCardComments(card);
   const preview = card.next_action?.trim() || card.details?.trim() || card.resolution?.trim() || '';
+  const remedySummary =
+    card.category === '컴플레인' && hasComplaintRemedies(card.complaint_remedies, card.complaint_remedy_other)
+      ? formatComplaintRemedies(card.complaint_remedies, card.complaint_remedy_other)
+      : '';
   const status = archived
     ? '보관'
     : card.column_id === 'done'
@@ -142,17 +148,11 @@ export function HandoverListRowProject({
               {status}
             </span>
             <span className="project-list-row__meta">
-              {hasComments ? (
-                <span className="project-list-row__badge project-list-row__badge--comments">
-                  댓글 {activeCommentCount}
+              {isUrgent ? (
+                <span className="project-list-row__badge project-list-row__badge--urgent">
+                  {PRIORITY_LABELS[card.priority]}
                 </span>
               ) : null}
-              <span
-                className={`project-list-row__badge${isUrgent ? ' project-list-row__badge--urgent' : ''}`}
-              >
-                {PRIORITY_LABELS[card.priority]}
-              </span>
-              <span className="project-list-row__badge">{card.category}</span>
               {snoozed && card.snoozed_until ? (
                 <span className="project-list-row__badge project-list-row__badge--snooze">
                   알림 끔 · {formatSnoozeUntil(card.snoozed_until)}까지
@@ -172,9 +172,6 @@ export function HandoverListRowProject({
                   {formatHoldStaleBadge(holdStaleLevel)}
                 </span>
               ) : null}
-              {archived ? (
-                <span className="project-list-row__badge project-list-row__badge--archive">완료 보관</span>
-              ) : null}
             </span>
             <ComplaintSlaBadge card={card} />
           </div>
@@ -193,6 +190,12 @@ export function HandoverListRowProject({
             <SearchHighlight text={card.title} query={searchQuery} />
           </span>
 
+          {remedySummary ? (
+            <span className="project-list-row__preview project-list-row__preview--remedy" title={remedySummary}>
+              제공: <SearchHighlight text={remedySummary} query={searchQuery} />
+            </span>
+          ) : null}
+
           {preview ? (
             <span className="project-list-row__preview" title={preview}>
               <SearchHighlight text={preview} query={searchQuery} />
@@ -200,6 +203,14 @@ export function HandoverListRowProject({
           ) : null}
 
           <span className="project-list-row__foot">
+            <span className="project-list-row__foot-meta">
+              <span className="project-list-row__foot-tag">{card.category}</span>
+              {hasComments ? (
+                <span className="project-list-row__foot-tag project-list-row__foot-tag--comments">
+                  댓글 {activeCommentCount}
+                </span>
+              ) : null}
+            </span>
             <span className="project-list-row__people">
               <span className="project-list-row__person">
                 <span className="project-list-row__person-label">작성</span>
@@ -260,93 +271,23 @@ export function HandoverListRowProject({
               완료
             </button>
           ) : null}
-          {canHold ? (
-            <button
-              type="button"
-              className="project-list-row__hold project-list-row__hold--outline"
-              onClick={async (event) => {
-                event.stopPropagation();
-                const ok = await confirm({
-                  title: '보류 처리',
-                  message: '이 카드를 보류함으로 옮길까요?',
-                  detail: card.title,
-                  confirmLabel: '보류',
-                  tone: 'warning',
-                });
-                if (ok) onHold();
-              }}
-            >
-              보류
-            </button>
-          ) : null}
-          {canResume ? (
-            <button
-              type="button"
-              className="project-list-row__resume"
-              onClick={(event) => {
-                event.stopPropagation();
-                onResume();
-              }}
-            >
-              재개
-            </button>
-          ) : null}
-          {needsFirstResponse ? (
-            <button
-              type="button"
-              className="project-list-row__first-response"
-              onClick={(event) => {
-                event.stopPropagation();
-                onRecordFirstResponse?.();
-              }}
-            >
-              첫 응대
-            </button>
-          ) : null}
-          {canSnooze ? (
-            snoozed ? (
-              <button
-                type="button"
-                className="project-list-row__snooze project-list-row__snooze--active"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onUnsnooze?.();
-                }}
-              >
-                알림 켬
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="project-list-row__snooze"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onSnooze?.();
-                }}
-              >
-                2h 알림 끔
-              </button>
-            )
-          ) : null}
-          {canAssign && staffNames.length ? (
-            <select
-              className="project-list-row__assign"
-              aria-label="담당 변경"
-              value={card.assignee_name || ''}
-              onClick={(event) => event.stopPropagation()}
-              onChange={(event) => {
-                event.stopPropagation();
-                onAssignChange(event.target.value);
-              }}
-            >
-              <option value="">담당 없음</option>
-              {staffNames.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          ) : null}
+          <HandoverListRowMoreMenu
+            cardTitle={card.title}
+            canHold={canHold}
+            canResume={canResume}
+            needsFirstResponse={needsFirstResponse}
+            canSnooze={canSnooze}
+            snoozed={snoozed}
+            canAssign={canAssign}
+            staffNames={staffNames}
+            assigneeName={card.assignee_name}
+            onHold={onHold}
+            onResume={onResume}
+            onRecordFirstResponse={onRecordFirstResponse}
+            onSnooze={onSnooze}
+            onUnsnooze={onUnsnooze}
+            onAssignChange={onAssignChange}
+          />
         </div>
       ) : null}
     </article>

@@ -80,13 +80,13 @@ export function StatsPageClient() {
   });
 
   return (
-    <section className="stats-page">
-      <div className="stats-page__header">
+    <section className="project-board stats-page">
+      <header className="project-board__head">
         <div>
-          <h2>{pageMeta.label}</h2>
+          <h1>{pageMeta.label}</h1>
           <p>{pageMeta.description}</p>
         </div>
-        <div className="segmented-control segmented-control--compact" role="group" aria-label="기간 선택">
+        <div className="stats-page__period segmented-control segmented-control--compact" role="group" aria-label="기간 선택">
           <button
             type="button"
             className={`segmented-control__btn${period === 'week' ? ' is-active' : ''}`}
@@ -102,7 +102,7 @@ export function StatsPageClient() {
             월간 (30일)
           </button>
         </div>
-      </div>
+      </header>
 
       {isLoading ? (
         <p className="empty-state">통계를 불러오는 중…</p>

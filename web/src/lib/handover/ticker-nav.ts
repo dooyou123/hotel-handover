@@ -23,7 +23,17 @@ export function isTickerItemClickable(id: string): boolean {
   return getTickerItemHref(id) !== null;
 }
 
-export const TICKER_RIBBON_MAX_VISIBLE = 2;
+export const TICKER_RIBBON_MAX_VISIBLE = 1;
+
+const TONE_RANK: Record<'urgent' | 'warn' | 'info', number> = {
+  urgent: 0,
+  warn: 1,
+  info: 2,
+};
+
+export function sortTickerItemsForDisplay<T extends { tone: 'urgent' | 'warn' | 'info' }>(items: T[]): T[] {
+  return [...items].sort((a, b) => TONE_RANK[a.tone] - TONE_RANK[b.tone]);
+}
 
 export function getTickerActionLabel(id: string): string {
   if (id === 'idle') return '';

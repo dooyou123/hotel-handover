@@ -97,8 +97,27 @@ function scheduleReconnect(supabase: SupabaseClient, pool: ChannelPool) {
   }, 3000);
 }
 
+function failPoolChannel(supabase: SupabaseClient, pool: ChannelPool) {
+  pool.subscribed = false;
+  clearRetry(pool);
+  const channel = pool.channel;
+  pool.channel = null;
+  if (!channel) {
+    scheduleReconnect(supabase, pool);
+    return;
+  }
+
+  pool.closing = true;
+  void supabase.removeChannel(channel).finally(() => {
+    pool.closing = false;
+    if (pool.listeners.size > 0) scheduleReconnect(supabase, pool);
+  });
+}
+
 function ensurePoolChannel(supabase: SupabaseClient, pool: ChannelPool) {
+  if (pool.listeners.size === 0) return;
   if (pool.subscribed && pool.channel) return;
+
   if (pool.closing) {
     scheduleReconnect(supabase, pool);
     return;
@@ -119,6 +138,7 @@ function ensurePoolChannel(supabase: SupabaseClient, pool: ChannelPool) {
   }
 
   pool.channel = channel;
+  pool.subscribed = false;
   channel.subscribe((status) => {
     if (pool.closing) return;
 
@@ -128,16 +148,12 @@ function ensurePoolChannel(supabase: SupabaseClient, pool: ChannelPool) {
     }
 
     if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-      pool.subscribed = false;
-      pool.channel = null;
-      scheduleReconnect(supabase, pool);
+      failPoolChannel(supabase, pool);
       return;
     }
 
     if (status === 'CLOSED' && pool.listeners.size > 0) {
-      pool.subscribed = false;
-      pool.channel = null;
-      scheduleReconnect(supabase, pool);
+      failPoolChannel(supabase, pool);
     }
   });
 }

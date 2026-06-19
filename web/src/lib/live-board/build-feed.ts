@@ -12,6 +12,7 @@ import {
   getNoticeExpiryUrgency,
 } from '@/lib/notices/expiry';
 import { filterNoticesForFeed } from '@/lib/notices/status';
+import { parcelPrimaryLabel } from '@/lib/parcels/display';
 import { isParcelOverdue, type Parcel } from '@/lib/parcels/types';
 import type { Card, Notice } from '@/lib/handover/types';
 import type { TransportBooking } from '@/lib/transport/types';
@@ -159,7 +160,7 @@ export function buildLiveBoardFeed(input: {
     items.push({
       id: `parcel-${parcel.id}`,
       label: '픽업 장기 미인도',
-      body: `${parcel.room_number ? `${parcel.room_number}호 · ` : ''}${parcel.guest_name || parcel.description || '물건'}`,
+      body: `${parcelPrimaryLabel(parcel)}${parcel.guest_name ? ` · ${parcel.guest_name}` : ''}${parcel.description ? ` · ${parcel.description}` : ''}`,
       tone: 'warn',
       href: '/parcels',
     });

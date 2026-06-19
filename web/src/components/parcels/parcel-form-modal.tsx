@@ -3,6 +3,12 @@
 import { useEffect, useState } from 'react';
 import type { Parcel, ParcelDirection, ParcelInput, ParcelStatus } from '@/lib/parcels/types';
 import { PARCEL_DIRECTION_LABELS, PARCEL_STATUS_LABELS } from '@/lib/parcels/types';
+import {
+  resolveParcelIdentityMode,
+  sanitizeParcelInput,
+  validateParcelInput,
+  type ParcelIdentityMode,
+} from '@/lib/parcels/validate';
 
 type ParcelFormModalProps = {
   open: boolean;
@@ -13,7 +19,7 @@ type ParcelFormModalProps = {
   onSave: (input: ParcelInput) => Promise<void>;
 };
 
-const STATUS_OPTIONS: ParcelStatus[] = ['stored', 'ready', 'delivered', 'returned'];
+const EDIT_STATUS_OPTIONS: ParcelStatus[] = ['stored', 'delivered', 'returned'];
 
 export function ParcelFormModal({
   open,
@@ -23,10 +29,13 @@ export function ParcelFormModal({
   onClose,
   onSave,
 }: ParcelFormModalProps) {
+  const [identityMode, setIdentityMode] = useState<ParcelIdentityMode>('room');
   const [form, setForm] = useState<ParcelInput>(() => ({
     direction: defaultDirection,
     room_number: '',
+    reservation_number: '',
     guest_name: '',
+    check_in_date: '',
     checkout_date: '',
     storage_slot: '',
     description: '',
@@ -36,15 +45,20 @@ export function ParcelFormModal({
     created_by: authorLabel,
     updated_by: authorLabel,
   }));
+  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     if (editing) {
+      const mode = resolveParcelIdentityMode(editing);
+      setIdentityMode(mode);
       setForm({
         direction: editing.direction,
         room_number: editing.room_number,
+        reservation_number: editing.reservation_number,
         guest_name: editing.guest_name,
+        check_in_date: editing.check_in_date,
         checkout_date: editing.checkout_date,
         storage_slot: editing.storage_slot,
         description: editing.description,
@@ -55,10 +69,13 @@ export function ParcelFormModal({
         updated_by: authorLabel,
       });
     } else {
+      setIdentityMode('room');
       setForm({
         direction: defaultDirection,
         room_number: '',
+        reservation_number: '',
         guest_name: '',
+        check_in_date: '',
         checkout_date: '',
         storage_slot: '',
         description: '',
@@ -69,15 +86,32 @@ export function ParcelFormModal({
         updated_by: authorLabel,
       });
     }
+    setError(null);
   }, [open, editing, authorLabel, defaultDirection]);
 
   if (!open) return null;
 
+  function switchIdentityMode(mode: ParcelIdentityMode) {
+    setIdentityMode(mode);
+    setError(null);
+    if (mode === 'room') {
+      setForm((prev) => ({ ...prev, reservation_number: '', check_in_date: '' }));
+    } else {
+      setForm((prev) => ({ ...prev, room_number: '', checkout_date: '' }));
+    }
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    const payload = sanitizeParcelInput(form, identityMode);
+    const validationError = validateParcelInput(payload);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
     setSaving(true);
     try {
-      await onSave(form);
+      await onSave(payload);
       onClose();
     } finally {
       setSaving(false);
@@ -91,7 +125,7 @@ export function ParcelFormModal({
           <div className="modal__header">
             <div>
               <h2>{editing ? '기록 수정' : '기록 등록'}</h2>
-              <p className="parcel-form__subtitle">객실·체크아웃·보관 위치를 입력합니다.</p>
+              <p className="parcel-form__subtitle">객실번호 또는 예약번호 중 하나로 등록합니다.</p>
             </div>
             <button type="button" className="icon-btn" onClick={onClose} aria-label="닫기">
               ✕
@@ -114,30 +148,71 @@ export function ParcelFormModal({
               ))}
             </div>
 
+            <div className="parcel-form__identity" role="group" aria-label="등록 방식">
+              <button
+                type="button"
+                className={`parcel-form__identity-btn${identityMode === 'room' ? ' is-active' : ''}`}
+                onClick={() => switchIdentityMode('room')}
+              >
+                객실번호
+              </button>
+              <button
+                type="button"
+                className={`parcel-form__identity-btn${identityMode === 'reservation' ? ' is-active' : ''}`}
+                onClick={() => switchIdentityMode('reservation')}
+              >
+                예약번호 (미체크인)
+              </button>
+            </div>
+
             <div className="parcel-form__grid">
-              <label className="field">
-                <span>객실</span>
-                <input
-                  value={form.room_number}
-                  onChange={(e) => setForm({ ...form, room_number: e.target.value })}
-                  placeholder="1207"
-                  autoFocus
-                />
-              </label>
+              {identityMode === 'room' ? (
+                <>
+                  <label className="field">
+                    <span>객실번호 *</span>
+                    <input
+                      value={form.room_number}
+                      onChange={(e) => setForm({ ...form, room_number: e.target.value })}
+                      placeholder="1207"
+                      autoFocus
+                    />
+                  </label>
+                  <label className="field">
+                    <span>체크아웃</span>
+                    <input
+                      type="date"
+                      value={form.checkout_date}
+                      onChange={(e) => setForm({ ...form, checkout_date: e.target.value })}
+                    />
+                  </label>
+                </>
+              ) : (
+                <>
+                  <label className="field">
+                    <span>예약번호 *</span>
+                    <input
+                      value={form.reservation_number}
+                      onChange={(e) => setForm({ ...form, reservation_number: e.target.value })}
+                      placeholder="PMS 예약번호"
+                      autoFocus
+                    />
+                  </label>
+                  <label className="field">
+                    <span>체크인 예정일 *</span>
+                    <input
+                      type="date"
+                      value={form.check_in_date}
+                      onChange={(e) => setForm({ ...form, check_in_date: e.target.value })}
+                    />
+                  </label>
+                </>
+              )}
               <label className="field">
                 <span>게스트</span>
                 <input
                   value={form.guest_name}
                   onChange={(e) => setForm({ ...form, guest_name: e.target.value })}
                   placeholder="성명"
-                />
-              </label>
-              <label className="field">
-                <span>체크아웃</span>
-                <input
-                  type="date"
-                  value={form.checkout_date}
-                  onChange={(e) => setForm({ ...form, checkout_date: e.target.value })}
                 />
               </label>
               <label className="field">
@@ -148,20 +223,22 @@ export function ParcelFormModal({
                   placeholder="프론트 보관함 A-3"
                 />
               </label>
-              <label className="field">
-                <span>상태</span>
-                <select
-                  value={form.status}
-                  onChange={(e) => setForm({ ...form, status: e.target.value as ParcelStatus })}
-                  disabled={editing?.status === 'delivered'}
-                >
-                  {STATUS_OPTIONS.map((status) => (
-                    <option key={status} value={status}>
-                      {PARCEL_STATUS_LABELS[status]}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {editing ? (
+                <label className="field">
+                  <span>상태</span>
+                  <select
+                    value={form.status}
+                    onChange={(e) => setForm({ ...form, status: e.target.value as ParcelStatus })}
+                    disabled={editing.status === 'delivered'}
+                  >
+                    {EDIT_STATUS_OPTIONS.map((status) => (
+                      <option key={status} value={status}>
+                        {PARCEL_STATUS_LABELS[status]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
             </div>
 
             <label className="field field--full">
@@ -190,6 +267,8 @@ export function ParcelFormModal({
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
               />
             </label>
+
+            {error ? <p className="parcel-form__error">{error}</p> : null}
           </div>
 
           <div className="modal__footer parcel-form__footer">

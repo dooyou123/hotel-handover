@@ -18,6 +18,7 @@ import { transportStatusLabel } from '@/lib/transport/types';
 import { formatEventTimeRange, mergeWorkScheduleItems } from '@/lib/work-items/merge';
 
 type HandoverMobilePanelProps = {
+  hidden?: boolean;
   summaryData: ShiftSummaryData;
   cards: Card[];
   todos: Todo[];
@@ -45,6 +46,7 @@ function formatDue(todo: Todo): string {
 }
 
 export function HandoverMobilePanel({
+  hidden = false,
   summaryData,
   cards,
   todos,
@@ -138,7 +140,7 @@ export function HandoverMobilePanel({
   }
 
   return (
-    <div className="handover-mobile">
+    <div className={`handover-mobile${hidden ? ' handover-mobile--hidden' : ''}`}>
       <button
         type="button"
         className="handover-mobile__trigger"

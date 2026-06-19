@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useMonthEvents } from '@/lib/events/use-events';
 import type { HotelEvent, HotelEventInput } from '@/lib/events/types';
 import { isArchivedCard } from '@/lib/handover/card-utils';
+import { EMPTY_COMPLAINT_REMEDIES } from '@/lib/handover/complaint-remedies';
 import type { Priority } from '@/lib/handover/types';
 import { useCards } from '@/lib/handover/use-cards';
 import { useWorkSession } from '@/lib/handover/use-work-session';
@@ -250,6 +251,7 @@ export function TodosPageClient() {
         assignee_shift: todo.assignee_shift || session.shift,
         assignee_name: todo.assignee_name || session.name,
         due_at: todo.due_date ? `${todo.due_date}T12:00:00` : null,
+        ...EMPTY_COMPLAINT_REMEDIES,
       });
       await updateCard.mutateAsync({ id: created.id, input: { linked_todo_id: todo.id } });
       await updateTodo.mutateAsync({ id: todo.id, input: { linked_card_id: created.id } });
@@ -283,13 +285,15 @@ export function TodosPageClient() {
 
   return (
     <>
-      <section className="todos-page">
-        <div className="todos-page__intro">
-          <h2>{pageMeta.label}</h2>
-          <p>
-            {scope === 'personal' ? '로그인한 직원만 보는 개인 할 일입니다.' : pageMeta.description}
-          </p>
-        </div>
+      <section className="project-board todos-page">
+        <header className="project-board__head">
+          <div>
+            <h1>{pageMeta.label}</h1>
+            <p>
+              {scope === 'personal' ? '로그인한 직원만 보는 개인 할 일입니다.' : pageMeta.description}
+            </p>
+          </div>
+        </header>
 
         <div className="todos-page__scope" role="tablist" aria-label="업무 일정 종류">
           <button

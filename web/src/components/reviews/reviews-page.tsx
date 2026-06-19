@@ -373,10 +373,10 @@ export function ReviewsPageClient() {
 
   return (
     <>
-      <section className="reviews-page">
-        <div className="reviews-page__header">
+      <section className="project-board reviews-page">
+        <header className="project-board__head">
           <div>
-            <h2>{pageMeta.label}</h2>
+            <h1>{pageMeta.label}</h1>
             <p>{pageMeta.description}</p>
           </div>
           <button
@@ -389,25 +389,28 @@ export function ReviewsPageClient() {
           >
             + 리뷰 추가
           </button>
-        </div>
+        </header>
 
-        <div className="reviews-summary">
-          <span className="reviews-summary__chip reviews-summary__chip--positive">
+        <div className="reviews-page__summary">
+          <span className="reviews-page__chip reviews-page__chip--positive">
             좋은 리뷰 <strong>{counts.positive}</strong>건
           </span>
-          <span className="reviews-summary__chip reviews-summary__chip--negative">
+          <span className="reviews-page__chip reviews-page__chip--negative">
             나쁜 리뷰 <strong>{counts.negative}</strong>건
           </span>
         </div>
 
-        <div className="reviews-toolbar">
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="이름·예약번호·리뷰 내용 검색…"
-            aria-label="리뷰 검색"
-          />
+        <div className="project-board__controls reviews-page__controls">
+          <label className="project-board__search reviews-page__search">
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="이름·예약번호·리뷰 내용 검색…"
+              aria-label="리뷰 검색"
+            />
+          </label>
+          <div className="project-board__filters reviews-page__filters">
           <div className="segmented-control segmented-control--wrap" aria-label="리뷰 구분 필터">
             {REVIEW_FILTER_OPTIONS.map((option) => (
               <button
@@ -419,6 +422,7 @@ export function ReviewsPageClient() {
                 {option}
               </button>
             ))}
+          </div>
           </div>
         </div>
 

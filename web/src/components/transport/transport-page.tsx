@@ -222,10 +222,10 @@ export function TransportPageClient() {
 
   return (
     <>
-      <section className="taxi-page">
-        <header className="taxi-page__header">
+      <section className="project-board taxi-page">
+        <header className="project-board__head">
           <div>
-            <h2 className="taxi-page__title">{pageMeta.label}</h2>
+            <h1>{pageMeta.label}</h1>
             <p>{pageMeta.description}</p>
           </div>
           <div className="taxi-page__header-actions">

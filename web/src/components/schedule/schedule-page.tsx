@@ -141,13 +141,15 @@ export function SchedulePageClient() {
 
   return (
     <>
-      <section className="schedule-page">
-        <div className="schedule-page__intro">
-          <h2>{pageMeta.label}</h2>
-          <p>{pageMeta.description}</p>
-        </div>
+      <section className="project-board schedule-page">
+        <header className="project-board__head">
+          <div>
+            <h1>{pageMeta.label}</h1>
+            <p>{pageMeta.description}</p>
+          </div>
+        </header>
 
-        <div className="schedule-tabs" role="tablist" aria-label="근무표 메뉴">
+        <div className="project-board__toolbar schedule-tabs" role="tablist" aria-label="근무표 메뉴">
           <button
             type="button"
             role="tab"

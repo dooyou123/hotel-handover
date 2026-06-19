@@ -20,6 +20,8 @@ export type ParcelSignMessages = {
   eyebrow: string;
   roomUnassigned: string;
   checkout: string;
+  checkin: string;
+  reservation: string;
   storage: string;
   description: string;
   recipientLabel: string;
@@ -50,6 +52,8 @@ const MESSAGES: Record<ParcelSignLocale, ParcelSignMessages> = {
     eyebrow: '물건 인도 확인',
     roomUnassigned: '객실 미지정',
     checkout: '체크아웃',
+    checkin: '체크인',
+    reservation: '예약번호',
     storage: '보관 위치',
     description: '내용',
     recipientLabel: '수령자 성명',
@@ -78,6 +82,8 @@ const MESSAGES: Record<ParcelSignLocale, ParcelSignMessages> = {
     eyebrow: 'Item pick-up confirmation',
     roomUnassigned: 'Room not specified',
     checkout: 'Check-out',
+    checkin: 'Check-in',
+    reservation: 'Reservation',
     storage: 'Storage location',
     description: 'Contents',
     recipientLabel: 'Recipient name',
@@ -106,6 +112,8 @@ const MESSAGES: Record<ParcelSignLocale, ParcelSignMessages> = {
     eyebrow: '物品お渡し確認',
     roomUnassigned: '部屋番号なし',
     checkout: 'チェックアウト',
+    checkin: 'チェックイン',
+    reservation: '予約番号',
     storage: '保管場所',
     description: '内容',
     recipientLabel: '受取人氏名',
@@ -134,6 +142,8 @@ const MESSAGES: Record<ParcelSignLocale, ParcelSignMessages> = {
     eyebrow: '物品领取确认',
     roomUnassigned: '未指定房间',
     checkout: '退房日期',
+    checkin: '入住日期',
+    reservation: '预订号',
     storage: '存放位置',
     description: '内容',
     recipientLabel: '领取人姓名',
@@ -196,6 +206,29 @@ export function detectParcelSignLocale(): ParcelSignLocale {
   if (lang.startsWith('zh')) return 'zh';
   if (lang.startsWith('en')) return 'en';
   return 'ko';
+}
+
+import type { ParcelSignPreview } from '@/lib/parcels/types';
+
+export function formatParcelSignTitle(
+  preview: Pick<ParcelSignPreview, 'room_number' | 'reservation_number'>,
+  locale: ParcelSignLocale,
+): string {
+  const t = MESSAGES[locale];
+  if (preview.room_number.trim()) return formatParcelSignRoom(preview.room_number, locale);
+  if (preview.reservation_number.trim()) {
+    switch (locale) {
+      case 'en':
+        return `${t.reservation} ${preview.reservation_number}`;
+      case 'ja':
+        return `${t.reservation} ${preview.reservation_number}`;
+      case 'zh':
+        return `${t.reservation} ${preview.reservation_number}`;
+      default:
+        return `${t.reservation} ${preview.reservation_number}`;
+    }
+  }
+  return t.roomUnassigned;
 }
 
 export function formatParcelSignRoom(room: string, locale: ParcelSignLocale): string {

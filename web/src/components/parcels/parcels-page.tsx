@@ -13,6 +13,7 @@ import {
   type ParcelActiveStatusFilter,
   type ParcelBoardTab,
 } from '@/lib/parcels/filter';
+import { parcelDateHint, parcelPrimaryLabel } from '@/lib/parcels/display';
 import {
   formatParcelCheckoutDate,
   PARCEL_DIRECTION_LABELS,
@@ -22,6 +23,7 @@ import {
   type ParcelDirection,
   type ParcelInput,
 } from '@/lib/parcels/types';
+import { validateParcelInput } from '@/lib/parcels/validate';
 import { useParcels } from '@/lib/parcels/use-parcels';
 import { formatSupabaseClientError } from '@/lib/supabase/env';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -116,6 +118,11 @@ export function ParcelsPageClient() {
 
   async function handleSave(input: ParcelInput) {
     if (!requireSession('저장')) return;
+    const validationError = validateParcelInput(input);
+    if (validationError) {
+      showToast(validationError);
+      throw new Error(validationError);
+    }
     try {
       if (editing) {
         await updateParcel.mutateAsync({ id: editing.id, input });
@@ -147,29 +154,16 @@ export function ParcelsPageClient() {
     }
   }
 
-  async function markReady(parcel: Parcel) {
-    if (!requireSession('상태 변경')) return;
-    try {
-      await updateParcel.mutateAsync({
-        id: parcel.id,
-        input: { status: 'ready', updated_by: authorLabel },
-      });
-      showToast('인도 대기로 변경했습니다.');
-    } catch (caught) {
-      showToast(formatSupabaseClientError(caught));
-    }
-  }
-
   const isCompletedTab = boardTab === 'completed';
 
   return (
-    <section className="parcels-page">
-      <header className="parcels-page__header">
+    <section className="project-board parcels-page">
+      <header className="project-board__head">
         <div>
-          <h2 className="parcels-page__title">{pageMeta.label}</h2>
-          <p className="parcels-page__desc">{pageMeta.description}</p>
+          <h1>{pageMeta.label}</h1>
+          <p>{pageMeta.description}</p>
         </div>
-        <button type="button" className="btn btn--primary parcels-page__add-btn" onClick={openCreate}>
+        <button type="button" className="btn btn--primary" onClick={openCreate}>
           + 기록 등록
         </button>
       </header>
@@ -179,19 +173,20 @@ export function ParcelsPageClient() {
         이전 기록은 <strong>완료</strong> 탭에서 검색해 확인하세요.
       </p>
 
-      <div className="parcels-page__filters">
-        <input
-          type="search"
-          className="parcels-page__search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={
-            isCompletedTab
-              ? '객실·이름·체크아웃·내용 검색…'
-              : '객실·이름·보관함·내용 검색…'
-          }
-          aria-label="픽업 장부 검색"
-        />
+      <div className="project-board__controls parcels-page__controls">
+        <div className="project-board__search">
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={
+              isCompletedTab
+                ? '객실·예약·이름·체크아웃·내용 검색…'
+                : '객실·예약·이름·보관함·내용 검색…'
+            }
+            aria-label="픽업 장부 검색"
+          />
+        </div>
         <div className="parcels-page__status-bar">
           <span className="parcels-page__status-bar-label">구분</span>
           <div className="segmented-control segmented-control--compact segmented-control--wrap">
@@ -238,7 +233,7 @@ export function ParcelsPageClient() {
         <p className="empty-state" style={{ color: '#b91c1c' }}>
           {formatSupabaseClientError(error)}
           <br />
-          Supabase SQL Editor에서 <code>046</code>·<code>051</code> 마이그레이션을 실행했는지 확인해 주세요.
+          Supabase SQL Editor에서 <code>046</code>·<code>051</code>·<code>057</code> 마이그레이션을 실행했는지 확인해 주세요.
         </p>
       ) : isLoading ? (
         <p className="empty-state">불러오는 중…</p>
@@ -255,7 +250,8 @@ export function ParcelsPageClient() {
           {filtered.map((parcel) => {
             const overdue = !isCompletedTab && isParcelOverdue(parcel);
             const completed = isParcelCompleted(parcel);
-            const hasCheckout = Boolean(parcel.checkout_date);
+            const dateHint = parcelDateHint(parcel);
+            const hasDateHint = Boolean(dateHint);
             return (
               <article
                 key={parcel.id}
@@ -265,7 +261,7 @@ export function ParcelsPageClient() {
                   `parcel-card--${parcel.direction}`,
                   overdue ? 'parcel-card--overdue' : '',
                   completed ? 'parcel-card--completed' : '',
-                  hasCheckout ? 'parcel-card--checkout' : '',
+                  hasDateHint ? 'parcel-card--checkout' : '',
                 ]
                   .filter(Boolean)
                   .join(' ')}
@@ -289,18 +285,14 @@ export function ParcelsPageClient() {
                   </button>
                 </header>
 
-                <div className={hasCheckout ? 'parcel-card__highlight' : 'parcel-card__identity'}>
-                  <p className={`parcel-card__room${hasCheckout ? ' parcel-card__room--emph' : ''}`}>
-                    {parcel.room_number ? `${parcel.room_number}호` : '객실 미입력'}
+                <div className={hasDateHint ? 'parcel-card__highlight' : 'parcel-card__identity'}>
+                  <p className={`parcel-card__room${hasDateHint ? ' parcel-card__room--emph' : ''}`}>
+                    {parcelPrimaryLabel(parcel)}
                   </p>
-                  <p className={`parcel-card__guest${hasCheckout ? ' parcel-card__guest--emph' : ''}`}>
+                  <p className={`parcel-card__guest${hasDateHint ? ' parcel-card__guest--emph' : ''}`}>
                     {parcel.guest_name || '게스트 미입력'}
                   </p>
-                  {hasCheckout ? (
-                    <p className="parcel-card__checkout">
-                      체크아웃 {formatParcelCheckoutDate(parcel.checkout_date)}
-                    </p>
-                  ) : null}
+                  {dateHint ? <p className="parcel-card__checkout">{dateHint}</p> : null}
                 </div>
 
                 <dl className="parcel-card__meta">
@@ -343,11 +335,6 @@ export function ParcelsPageClient() {
                 <div className="parcel-card__actions">
                   {!completed ? (
                     <>
-                      {parcel.status === 'stored' ? (
-                        <button type="button" className="btn btn--ghost btn--small" onClick={() => void markReady(parcel)}>
-                          인도 대기
-                        </button>
-                      ) : null}
                       {parcel.direction === 'out_to_room' ? (
                         <button type="button" className="btn btn--primary btn--small" onClick={() => openSign(parcel)}>
                           인도 서명
@@ -405,7 +392,7 @@ export function ParcelsPageClient() {
         onClose={() => setSignParcel(null)}
         onDelivered={(parcel) => {
           showToast(
-            `${parcel.room_number ? `${parcel.room_number}호 ` : ''}인도가 완료되었습니다.`,
+            `${parcelPrimaryLabel(parcel)} 인도가 완료되었습니다.`,
           );
         }}
         onToast={showToast}
@@ -426,8 +413,16 @@ export function ParcelsPageClient() {
                 <dd>{PARCEL_DIRECTION_LABELS[detailParcel.direction]}</dd>
                 <dt>객실</dt>
                 <dd>{detailParcel.room_number || '—'}</dd>
+                <dt>예약번호</dt>
+                <dd>{detailParcel.reservation_number || '—'}</dd>
                 <dt>게스트</dt>
                 <dd>{detailParcel.guest_name || '—'}</dd>
+                <dt>체크인</dt>
+                <dd>
+                  {detailParcel.check_in_date
+                    ? formatParcelCheckoutDate(detailParcel.check_in_date)
+                    : '—'}
+                </dd>
                 <dt>체크아웃</dt>
                 <dd>
                   {detailParcel.checkout_date

@@ -409,10 +409,10 @@ export function ContactsPageClient() {
 
   return (
     <>
-      <section className="contacts-page">
-        <div className="contacts-page__header">
+      <section className="project-board contacts-page">
+        <header className="project-board__head">
           <div>
-            <h2>{pageMeta.label}</h2>
+            <h1>{pageMeta.label}</h1>
             <p>{pageMeta.description}</p>
           </div>
           <button
@@ -425,13 +425,11 @@ export function ContactsPageClient() {
           >
             + 연락처 추가
           </button>
-        </div>
+        </header>
 
-        <div className="contacts-toolbar">
-          <div className="contacts-toolbar__search">
-            <span className="contacts-toolbar__search-icon" aria-hidden>
-              ⌕
-            </span>
+        <div className="project-board__controls">
+          <div className="project-board__search">
+            <span aria-hidden>⌕</span>
             <input
               type="search"
               value={query}
@@ -440,7 +438,10 @@ export function ContactsPageClient() {
               aria-label="연락처 검색"
             />
           </div>
-          <div className="segmented-control segmented-control--wrap contacts-toolbar__filters" aria-label="구분 필터">
+          <div
+            className="project-board__filters segmented-control segmented-control--wrap contacts-toolbar__filters"
+            aria-label="구분 필터"
+          >
             {CONTACT_DEPARTMENTS.map((dept) => {
               const count = countsByDept[dept];
               return (

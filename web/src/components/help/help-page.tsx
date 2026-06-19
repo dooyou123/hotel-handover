@@ -179,12 +179,15 @@ const SECTIONS = [
 
 export function HelpPageClient() {
   return (
-    <section className="help-page">
-      <div className="help-page__hero">
+    <section className="project-board help-page">
+      <header className="project-board__head">
         <div>
-          <h2>사용 안내</h2>
+          <h1>사용 안내</h1>
           <p>현장에서 자주 쓰는 기능만 빠르게 찾을 수 있도록 정리했습니다.</p>
         </div>
+      </header>
+
+      <div className="project-board__controls help-page__quick-wrap">
         <div className="help-page__quick">
           {QUICK_LINKS.map((link) => (
             <Link

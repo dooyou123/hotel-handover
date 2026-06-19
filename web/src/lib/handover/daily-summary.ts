@@ -373,7 +373,7 @@ const PRINT_STYLES = `
     padding: 0;
     background: #fff;
     color: #0f172a;
-    font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    font-family: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
     font-size: 9pt;
     line-height: 1.32;
     -webkit-print-color-adjust: exact;
@@ -441,6 +441,11 @@ const PRINT_STYLES = `
     background: #f8fafc;
     font-size: 7.5pt;
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stat strong {
+    font-variant-numeric: tabular-nums;
   }
 
   .stat--warn {
@@ -536,6 +541,12 @@ const PRINT_STYLES = `
   }
 `;
 
+const PRINT_FONT_LINKS = `
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;800&display=swap" rel="stylesheet" />
+`;
+
 function printWhenReady(targetWindow: Window, onCleanup?: () => void) {
   const runPrint = () => {
     targetWindow.focus();
@@ -565,6 +576,7 @@ export function buildPrintDocumentHtml(
   <head>
     <meta charset="UTF-8" />
     <title>교대 인계 요약</title>
+    ${PRINT_FONT_LINKS}
     <style>${PRINT_STYLES}</style>
   </head>
   <body>

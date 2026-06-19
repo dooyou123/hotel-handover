@@ -13,8 +13,10 @@ import {
 import {
   cardFormSnapshotsEqual,
   clearCardCreateDraft,
+  DEFAULT_CARD_INPUT,
   hasCardDraftContent,
   loadCardCreateDraft,
+  normalizeCardInput,
   saveCardCreateDraft,
   type CardFormSnapshot,
 } from '@/lib/handover/card-draft';
@@ -32,6 +34,8 @@ import { CardSimilarHistory } from './card-similar-history';
 import { CardActivityTimeline } from './card-activity-timeline';
 import { RoutineTemplateBar } from './routine-template-bar';
 import { TemplateBar } from './template-bar';
+import { ComplaintRemedyPicker } from './complaint-remedy-picker';
+import { EMPTY_COMPLAINT_REMEDIES, sanitizeComplaintRemediesForCategory } from '@/lib/handover/complaint-remedies';
 
 type CardModalView = 'full' | 'comments';
 
@@ -63,20 +67,7 @@ type CardModalProps = {
   requireSession?: (action: string) => boolean;
 };
 
-const emptyForm = (): CardInput => ({
-  column_id: 'progress',
-  priority: 'today',
-  category: '기타',
-  room: '',
-  title: '',
-  details: '',
-  resolution: '',
-  next_action: '',
-  author: '',
-  assignee_shift: '',
-  assignee_name: '',
-  due_at: null,
-});
+const emptyForm = (): CardInput => ({ ...DEFAULT_CARD_INPUT });
 
 export function CardModal({
   open,
@@ -149,15 +140,19 @@ export function CardModal({
   }, [isDirty, confirm, onClose, card, form, dueDate, dueTime]);
 
   function applyTemplate(template: CardTemplate) {
-    setForm((prev) => ({
-      ...prev,
-      priority: template.priority,
-      column_id: template.column_id,
-      category: template.category,
-      title: template.title || prev.title,
-      next_action: template.next_action,
-      details: template.details,
-    }));
+    setForm((prev) => {
+      const category = template.category;
+      return {
+        ...prev,
+        priority: template.priority,
+        column_id: template.column_id,
+        category,
+        title: template.title || prev.title,
+        next_action: template.next_action,
+        details: template.details,
+        ...(category === '컴플레인' ? {} : { ...EMPTY_COMPLAINT_REMEDIES }),
+      };
+    });
   }
 
   function applySimilarHistory(hit: SimilarHistoryHit) {
@@ -210,6 +205,8 @@ export function CardModal({
         assignee_shift: card.assignee_shift,
         assignee_name: card.assignee_name,
         due_at: card.due_at,
+        complaint_remedies: [...(card.complaint_remedies ?? [])],
+        complaint_remedy_other: card.complaint_remedy_other ?? '',
       };
       nextDueDate = card.due_at ? toDateInputValue(card.due_at) : '';
       nextDueTime = card.due_at ? toTimeInputValue(card.due_at) : '';
@@ -220,6 +217,8 @@ export function CardModal({
         author: base.author || authorLabel,
         assignee_shift: base.assignee_shift || defaultShift,
         assignee_name: base.assignee_name || defaultName,
+        complaint_remedies: base.complaint_remedies ?? [],
+        complaint_remedy_other: base.complaint_remedy_other ?? '',
       };
       nextDueDate = base.due_at ? toDateInputValue(base.due_at) : '';
       nextDueTime = base.due_at ? toTimeInputValue(base.due_at) : '';
@@ -231,6 +230,8 @@ export function CardModal({
           author: stored.form.author || authorLabel,
           assignee_shift: stored.form.assignee_shift || defaultShift,
           assignee_name: stored.form.assignee_name || defaultName,
+          complaint_remedies: stored.form.complaint_remedies ?? [],
+          complaint_remedy_other: stored.form.complaint_remedy_other ?? '',
         };
         nextDueDate = stored.dueDate;
         nextDueTime = stored.dueTime;
@@ -249,7 +250,11 @@ export function CardModal({
     setForm(nextForm);
     setDueDate(nextDueDate);
     setDueTime(nextDueTime);
-    initialSnapshotRef.current = { form: nextForm, dueDate: nextDueDate, dueTime: nextDueTime };
+    initialSnapshotRef.current = {
+      form: normalizeCardInput(nextForm),
+      dueDate: nextDueDate,
+      dueTime: nextDueTime,
+    };
     setError(null);
     setPendingFiles([]);
     setPendingPreviewUrls((urls) => {
@@ -257,6 +262,10 @@ export function CardModal({
       return [];
     });
   }, [open, card, createDraft, authorLabel, defaultShift, defaultName]);
+
+  useEffect(() => {
+    setForm((prev) => normalizeCardInput(prev));
+  }, []);
 
   useEffect(() => {
     if (!open || card) return;
@@ -318,6 +327,11 @@ export function CardModal({
     setSaving(true);
     setError(null);
     try {
+      const remedies = sanitizeComplaintRemediesForCategory(
+        form.category,
+        form.complaint_remedies,
+        form.complaint_remedy_other,
+      );
       await onSave(
         {
           ...form,
@@ -329,6 +343,7 @@ export function CardModal({
           author: form.author.trim() || authorLabel,
           assignee_name: form.assignee_name.trim(),
           due_at: dueAt,
+          ...remedies,
         },
         card?.id,
         card ? undefined : { pendingFiles },
@@ -483,7 +498,17 @@ export function CardModal({
       </label>
       <label className="field">
         <span>카테고리</span>
-        <select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>
+        <select
+          value={form.category}
+          onChange={(event) => {
+            const category = event.target.value;
+            setForm({
+              ...form,
+              category,
+              ...(category === '컴플레인' ? {} : { ...EMPTY_COMPLAINT_REMEDIES }),
+            });
+          }}
+        >
           {CATEGORY_OPTIONS.map((option) => (
             <option key={option} value={option}>
               {option}
@@ -491,6 +516,15 @@ export function CardModal({
           ))}
         </select>
       </label>
+      {form.category === '컴플레인' ? (
+        <ComplaintRemedyPicker
+          remedies={form.complaint_remedies}
+          other={form.complaint_remedy_other}
+          onChange={(complaint_remedies, complaint_remedy_other) =>
+            setForm((prev) => normalizeCardInput({ ...prev, complaint_remedies, complaint_remedy_other }))
+          }
+        />
+      ) : null}
       <label className="field">
         <span>객실</span>
         <input

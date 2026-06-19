@@ -2,6 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { isCardDueSoon, isCardOverdue, isCommentEdited, splitTextBySearchQuery, canDeleteCard, findDuplicateCards, titlesAreSimilar, isCardSnoozed, getStaleLevel, getHoldStaleLevel, isStaleCard, isLongHoldCard, needsComplaintFirstResponse } from '@/lib/handover/card-utils';
 import {
+  formatComplaintRemedies,
+  hasComplaintRemedies,
+  sanitizeComplaintRemediesForCategory,
+} from '@/lib/handover/complaint-remedies';
+import {
   getTickerActionLabel,
   getTickerItemHref,
   isTickerItemClickable,
@@ -857,7 +862,7 @@ test('facility stats include archived cards in room history', () => {
 });
 
 test('cardFormSnapshotsEqual detects unsaved edits', () => {
-  const { cardFormSnapshotsEqual } = require('@/lib/handover/card-draft') as typeof import('@/lib/handover/card-draft');
+  const { cardFormSnapshotsEqual, normalizeCardInput } = require('@/lib/handover/card-draft') as typeof import('@/lib/handover/card-draft');
   const base = {
     form: {
       column_id: 'progress' as const,
@@ -884,6 +889,22 @@ test('cardFormSnapshotsEqual detects unsaved edits', () => {
     }),
     false,
   );
+  const legacy = normalizeCardInput({
+    column_id: 'progress',
+    priority: 'today',
+    category: '기타',
+    room: '',
+    title: '제목',
+    details: '',
+    resolution: '',
+    next_action: '',
+    author: '',
+    assignee_shift: '',
+    assignee_name: '',
+    due_at: null,
+  });
+  assert.deepEqual(legacy.complaint_remedies, []);
+  assert.equal(legacy.complaint_remedy_other, '');
 });
 
 test('sessionProgressLabel summarizes rate confirm item status', () => {
@@ -1163,6 +1184,25 @@ test('stale and long hold helpers', () => {
   );
 });
 
+test('complaint remedy helpers', () => {
+  assert.equal(
+    formatComplaintRemedies(['breakfast', 'gift_card'], ''),
+    '조식권 · 기프트 카드 보상 (약 1만원 상당)',
+  );
+  assert.equal(formatComplaintRemedies(['amenity'], '와인 1병'), '어메니티 · 기타: 와인 1병');
+  assert.equal(hasComplaintRemedies([], ''), false);
+  assert.equal(hasComplaintRemedies(['snacks'], ''), true);
+
+  assert.deepEqual(sanitizeComplaintRemediesForCategory('기타', ['breakfast'], 'x'), {
+    complaint_remedies: [],
+    complaint_remedy_other: '',
+  });
+  assert.deepEqual(sanitizeComplaintRemediesForCategory('컴플레인', ['breakfast', 'invalid'], '  쿠폰 '), {
+    complaint_remedies: ['breakfast'],
+    complaint_remedy_other: '쿠폰',
+  });
+});
+
 test('ticker navigation hrefs', () => {
   assert.equal(getTickerItemHref('idle'), null);
   assert.equal(getTickerItemHref('notice-abc'), '/notices?id=abc');
@@ -1395,6 +1435,32 @@ test('parcel delivery token hash is stable', () => {
   assert.match(buildParcelSignUrl('https://hotel.example.com', generated), /^https:\/\/hotel\.example\.com\/parcels\/sign\//);
 });
 
+test('parcel input validation requires room or reservation', () => {
+  const { validateParcelInput } = require('@/lib/parcels/validate') as typeof import('@/lib/parcels/validate');
+  const { emptyParcelInput } = require('@/lib/parcels/types') as typeof import('@/lib/parcels/types');
+
+  const base = emptyParcelInput('staff');
+  assert.match(validateParcelInput(base), /객실번호 또는 예약번호/);
+
+  assert.equal(validateParcelInput({ ...base, room_number: '1207' }), null);
+
+  assert.match(validateParcelInput({ ...base, reservation_number: 'RSV-100' }), /체크인 예정일/);
+
+  assert.equal(
+    validateParcelInput({
+      ...base,
+      reservation_number: 'RSV-100',
+      check_in_date: '2026-06-10',
+    }),
+    null,
+  );
+
+  assert.match(
+    validateParcelInput({ ...base, room_number: '1207', reservation_number: 'RSV-100' }),
+    /하나만/,
+  );
+});
+
 test('parcel overdue helper', () => {
   const { isParcelOverdue } = require('@/lib/parcels/types') as typeof import('@/lib/parcels/types');
 
@@ -1404,7 +1470,7 @@ test('parcel overdue helper', () => {
     received_at: '2026-06-07T10:00:00Z',
   } as import('@/lib/parcels/types').Parcel;
   const old = {
-    status: 'ready',
+    status: 'stored',
     received_at: '2026-06-01T10:00:00Z',
   } as import('@/lib/parcels/types').Parcel;
   const done = {

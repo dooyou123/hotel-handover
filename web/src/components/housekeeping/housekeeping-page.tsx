@@ -453,9 +453,9 @@ export function HousekeepingPageClient() {
 
   return (
     <>
-      <section className={`housekeeping-page${hkView ? ' housekeeping-page--hk' : ''}`}>
+      <section className={`project-board housekeeping-page${hkView ? ' housekeeping-page--hk' : ''}`}>
         {hkView ? (
-          <div className="housekeeping-page__toolbar">
+          <div className="project-board__toolbar housekeeping-page__toolbar">
             <button
               type="button"
               className="btn btn--outline"
@@ -497,9 +497,9 @@ export function HousekeepingPageClient() {
             </button>
           </div>
         ) : (
-          <div className="housekeeping-page__header">
+          <header className="project-board__head">
             <div>
-              <h2>{pageMeta.label}</h2>
+              <h1>{pageMeta.label}</h1>
               <p>{pageMeta.description}</p>
             </div>
             <div className="housekeeping-page__actions">
@@ -521,7 +521,7 @@ export function HousekeepingPageClient() {
                 {saveMutation.isPending ? '저장 중…' : '저장'}
               </button>
             </div>
-          </div>
+          </header>
         )}
 
         {hkView ? (

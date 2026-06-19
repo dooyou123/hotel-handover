@@ -11,6 +11,7 @@ import {
   getTickerActionLabel,
   getTickerIcon,
   getTickerItemHref,
+  sortTickerItemsForDisplay,
   TICKER_RIBBON_MAX_VISIBLE,
 } from '@/lib/handover/ticker-nav';
 
@@ -49,11 +50,12 @@ export function AppTicker() {
     queryFn: fetchCards,
   });
 
-  const items = useMemo(() => buildTickerItems(notices, cards), [notices, cards]);
+  const items = useMemo(() => sortTickerItemsForDisplay(buildTickerItems(notices, cards)), [notices, cards]);
   const idle = isTickerIdle(items);
 
-  const visible = idle ? [] : items.slice(0, TICKER_RIBBON_MAX_VISIBLE);
-  const overflow = idle ? 0 : Math.max(0, items.length - TICKER_RIBBON_MAX_VISIBLE);
+  const primary = idle ? [] : items.slice(0, TICKER_RIBBON_MAX_VISIBLE);
+  const overflowItems = idle ? [] : items.slice(TICKER_RIBBON_MAX_VISIBLE);
+  const overflow = overflowItems.length;
 
   function handleNavigate(id: string) {
     const href = getTickerItemHref(id);
@@ -63,14 +65,22 @@ export function AppTicker() {
   if (idle) return null;
 
   return (
-    <div className="app-ticker app-ticker--ribbons" aria-live="polite" aria-label="업무 알림">
-      {visible.map((item) => (
+    <div className="app-ticker app-ticker--ribbons" aria-label="업무 알림">
+      {primary.map((item) => (
         <TickerRibbon key={item.id} item={item} onNavigate={handleNavigate} />
       ))}
       {overflow > 0 ? (
-        <button type="button" className="app-ticker__more" onClick={() => router.push('/handover')}>
-          +{overflow}건 더 보기
-        </button>
+        <details className="app-ticker__overflow">
+          <summary className="app-ticker__more">
+            <span className="app-ticker__more-label app-ticker__more-label--closed">+{overflow}건 더 보기</span>
+            <span className="app-ticker__more-label app-ticker__more-label--open">접기</span>
+          </summary>
+          <div className="app-ticker__overflow-panel">
+            {overflowItems.map((item) => (
+              <TickerRibbon key={item.id} item={item} onNavigate={handleNavigate} />
+            ))}
+          </div>
+        </details>
       ) : null}
     </div>
   );

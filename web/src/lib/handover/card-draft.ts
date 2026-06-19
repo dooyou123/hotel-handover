@@ -1,6 +1,33 @@
 import type { CardInput } from '@/lib/handover/types';
+import { EMPTY_COMPLAINT_REMEDIES } from '@/lib/handover/complaint-remedies';
 
 const STORAGE_KEY = 'handover-card-create-draft';
+
+export const DEFAULT_CARD_INPUT: CardInput = {
+  column_id: 'progress',
+  priority: 'today',
+  category: '기타',
+  room: '',
+  title: '',
+  details: '',
+  resolution: '',
+  next_action: '',
+  author: '',
+  assignee_shift: '',
+  assignee_name: '',
+  due_at: null,
+  ...EMPTY_COMPLAINT_REMEDIES,
+};
+
+/** 세션 스토리지·HMR 등으로 필드가 빠진 폼을 안전하게 복원 */
+export function normalizeCardInput(form: Partial<CardInput>): CardInput {
+  return {
+    ...DEFAULT_CARD_INPUT,
+    ...form,
+    complaint_remedies: form.complaint_remedies ?? [],
+    complaint_remedy_other: form.complaint_remedy_other ?? '',
+  };
+}
 
 export type CardCreateDraft = {
   form: CardInput;
@@ -9,13 +36,16 @@ export type CardCreateDraft = {
   updatedAt: string;
 };
 
-export function hasCardDraftContent(form: CardInput): boolean {
+export function hasCardDraftContent(form: Partial<CardInput>): boolean {
+  const normalized = normalizeCardInput(form);
   return Boolean(
-    form.title.trim() ||
-      form.details.trim() ||
-      form.next_action.trim() ||
-      form.resolution.trim() ||
-      form.room.trim(),
+    normalized.title.trim() ||
+      normalized.details.trim() ||
+      normalized.next_action.trim() ||
+      normalized.resolution.trim() ||
+      normalized.room.trim() ||
+      normalized.complaint_remedies.length > 0 ||
+      normalized.complaint_remedy_other.trim(),
   );
 }
 
@@ -26,7 +56,10 @@ export function loadCardCreateDraft(): CardCreateDraft | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as CardCreateDraft;
     if (!parsed?.form) return null;
-    return parsed;
+    return {
+      ...parsed,
+      form: normalizeCardInput(parsed.form),
+    };
   } catch {
     return null;
   }
@@ -71,6 +104,8 @@ export function cardFormSnapshotsEqual(a: CardFormSnapshot, b: CardFormSnapshot)
     a.form.author === b.form.author &&
     a.form.assignee_shift === b.form.assignee_shift &&
     a.form.assignee_name === b.form.assignee_name &&
-    a.form.due_at === b.form.due_at
+    a.form.due_at === b.form.due_at &&
+    (a.form.complaint_remedies ?? []).join('\0') === (b.form.complaint_remedies ?? []).join('\0') &&
+    (a.form.complaint_remedy_other ?? '') === (b.form.complaint_remedy_other ?? '')
   );
 }

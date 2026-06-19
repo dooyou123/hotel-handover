@@ -208,52 +208,54 @@ export function RetailPageClient() {
   const closedPeriods = (historyQuery.data ?? []).filter((period) => period.status === 'closed');
 
   return (
-    <section className="retail-page">
-      <header className="retail-page__header schedule-panel">
-        <div className="retail-page__headline">
-          <h2 className="retail-page__title">{pageMeta.label}</h2>
-          <p className="retail-page__desc">{pageMeta.description}</p>
+    <section className="project-board retail-page">
+      <header className="project-board__head retail-page__head">
+        <div>
+          <h1>{pageMeta.label}</h1>
+          <p>{pageMeta.description}</p>
         </div>
-        <div className="retail-page__month-nav">
-          <button
-            type="button"
-            className="btn btn--ghost btn--small"
-            onClick={() => setYearMonth((prev) => shiftYearMonth(prev, -1))}
-          >
-            ← 이전 달
-          </button>
-          <strong className="retail-page__month-label">{formatYearMonthLabel(yearMonth)}</strong>
-          <button
-            type="button"
-            className="btn btn--ghost btn--small"
-            onClick={() => setYearMonth((prev) => shiftYearMonth(prev, 1))}
-          >
-            다음 달 →
-          </button>
-        </div>
-        <div className="retail-page__actions">
-          {isClosed ? (
-            <span className="retail-page__status retail-page__status--closed">마감됨</span>
-          ) : (
-            <>
-              <button
-                type="button"
-                className="btn btn--outline btn--small"
-                disabled={!hasSession || saving || !dirty}
-                onClick={() => void handleSave()}
-              >
-                {saving ? '저장 중…' : '저장'}
-              </button>
-              <button
-                type="button"
-                className="btn btn--primary btn--small"
-                disabled={!hasSession || closing || dirty}
-                onClick={() => void handleClose()}
-              >
-                {closing ? '마감 중…' : '마감'}
-              </button>
-            </>
-          )}
+        <div className="retail-page__head-actions">
+          <div className="retail-page__month-nav">
+            <button
+              type="button"
+              className="btn btn--ghost btn--small"
+              onClick={() => setYearMonth((prev) => shiftYearMonth(prev, -1))}
+            >
+              ← 이전 달
+            </button>
+            <strong className="retail-page__month-label">{formatYearMonthLabel(yearMonth)}</strong>
+            <button
+              type="button"
+              className="btn btn--ghost btn--small"
+              onClick={() => setYearMonth((prev) => shiftYearMonth(prev, 1))}
+            >
+              다음 달 →
+            </button>
+          </div>
+          <div className="retail-page__actions">
+            {isClosed ? (
+              <span className="retail-page__status retail-page__status--closed">마감됨</span>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="btn btn--outline btn--small"
+                  disabled={!hasSession || saving || !dirty}
+                  onClick={() => void handleSave()}
+                >
+                  {saving ? '저장 중…' : '저장'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--primary btn--small"
+                  disabled={!hasSession || closing || dirty}
+                  onClick={() => void handleClose()}
+                >
+                  {closing ? '마감 중…' : '마감'}
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </header>
 

@@ -1,4 +1,5 @@
 import { HIGHLIGHT_KEYWORDS } from '@/lib/handover/constants';
+import { formatComplaintRemedies } from '@/lib/handover/complaint-remedies';
 import type { Card, CardComment, CardInput, ColumnId, QuickFilter, WorkSession } from '@/lib/handover/types';
 
 export type ProjectListSection = {
@@ -247,6 +248,8 @@ export function buildDuplicateCardInput(
     assignee_shift: source.assignee_shift || assigneeShift,
     assignee_name: source.assignee_name || assigneeName,
     due_at: source.due_at,
+    complaint_remedies: [...(source.complaint_remedies ?? [])],
+    complaint_remedy_other: source.complaint_remedy_other ?? '',
   };
 }
 
@@ -300,6 +303,7 @@ export function filterCards(
       card.category,
       card.assignee_name,
       card.assignee_shift,
+      formatComplaintRemedies(card.complaint_remedies, card.complaint_remedy_other),
       commentText,
     ]
       .join(' ')

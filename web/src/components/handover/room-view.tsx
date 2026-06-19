@@ -11,6 +11,7 @@ import {
   isUrgentPriorityCard,
   sortRoomKeys,
 } from '@/lib/handover/card-utils';
+import { formatComplaintRemedies, hasComplaintRemedies } from '@/lib/handover/complaint-remedies';
 import type { Card } from '@/lib/handover/types';
 
 type RoomViewProps = {
@@ -98,6 +99,12 @@ export function RoomView({ cards, onOpenCard }: RoomViewProps) {
                     </span>
                   </div>
                   <p className="room-timeline-item__title">{card.title}</p>
+                  {card.category === '컴플레인' &&
+                  hasComplaintRemedies(card.complaint_remedies, card.complaint_remedy_other) ? (
+                    <p className="room-timeline-item__action">
+                      제공: {formatComplaintRemedies(card.complaint_remedies, card.complaint_remedy_other)}
+                    </p>
+                  ) : null}
                   {card.next_action ? (
                     <p className="room-timeline-item__action">다음: {card.next_action}</p>
                   ) : null}

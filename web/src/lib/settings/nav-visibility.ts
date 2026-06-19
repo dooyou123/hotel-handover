@@ -18,6 +18,9 @@ export type NavItem = (typeof APP_NAV)[number];
 const navSettingsPool = {
   channel: null as RealtimeChannel | null,
   listeners: new Set<QueryClient>(),
+  subscribed: false,
+  closing: false,
+  retryTimer: null as ReturnType<typeof setTimeout> | null,
 };
 
 function notifyNavSettingsListeners() {
@@ -26,23 +29,101 @@ function notifyNavSettingsListeners() {
   });
 }
 
-function ensureNavSettingsChannel(supabase: SupabaseClient) {
-  if (navSettingsPool.channel) return;
+function clearNavRetry() {
+  if (navSettingsPool.retryTimer) {
+    clearTimeout(navSettingsPool.retryTimer);
+    navSettingsPool.retryTimer = null;
+  }
+}
 
-  navSettingsPool.channel = supabase
+function scheduleNavReconnect(supabase: SupabaseClient) {
+  if (navSettingsPool.listeners.size === 0 || navSettingsPool.retryTimer || navSettingsPool.closing) return;
+  navSettingsPool.retryTimer = setTimeout(() => {
+    navSettingsPool.retryTimer = null;
+    ensureNavSettingsChannel(supabase);
+  }, 3000);
+}
+
+function failNavSettingsChannel(supabase: SupabaseClient) {
+  navSettingsPool.subscribed = false;
+  clearNavRetry();
+  const channel = navSettingsPool.channel;
+  navSettingsPool.channel = null;
+  if (!channel) {
+    scheduleNavReconnect(supabase);
+    return;
+  }
+
+  navSettingsPool.closing = true;
+  void supabase.removeChannel(channel).finally(() => {
+    navSettingsPool.closing = false;
+    if (navSettingsPool.listeners.size > 0) scheduleNavReconnect(supabase);
+  });
+}
+
+function ensureNavSettingsChannel(supabase: SupabaseClient) {
+  if (navSettingsPool.listeners.size === 0) return;
+  if (navSettingsPool.subscribed && navSettingsPool.channel) return;
+
+  if (navSettingsPool.closing) {
+    scheduleNavReconnect(supabase);
+    return;
+  }
+
+  clearNavRetry();
+
+  if (navSettingsPool.channel) {
+    navSettingsPool.closing = true;
+    const existing = navSettingsPool.channel;
+    navSettingsPool.channel = null;
+    navSettingsPool.subscribed = false;
+    void supabase.removeChannel(existing).finally(() => {
+      navSettingsPool.closing = false;
+      if (navSettingsPool.listeners.size > 0) ensureNavSettingsChannel(supabase);
+    });
+    return;
+  }
+
+  const channel = supabase
     .channel('hotel-nav-settings')
     .on(
       'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'hotels', filter: `id=eq.${DEFAULT_HOTEL_ID}` },
       () => notifyNavSettingsListeners(),
-    )
-    .subscribe();
+    );
+
+  navSettingsPool.channel = channel;
+  navSettingsPool.subscribed = false;
+  channel.subscribe((status) => {
+    if (navSettingsPool.closing) return;
+
+    if (status === 'SUBSCRIBED') {
+      navSettingsPool.subscribed = true;
+      return;
+    }
+
+    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+      failNavSettingsChannel(supabase);
+      return;
+    }
+
+    if (status === 'CLOSED' && navSettingsPool.listeners.size > 0) {
+      failNavSettingsChannel(supabase);
+    }
+  });
 }
 
 function releaseNavSettingsChannel(supabase: SupabaseClient) {
-  if (navSettingsPool.listeners.size > 0 || !navSettingsPool.channel) return;
-  supabase.removeChannel(navSettingsPool.channel);
+  if (navSettingsPool.listeners.size > 0) return;
+  clearNavRetry();
+  navSettingsPool.subscribed = false;
+  const channel = navSettingsPool.channel;
   navSettingsPool.channel = null;
+  if (!channel) return;
+  navSettingsPool.closing = true;
+  void supabase.removeChannel(channel).finally(() => {
+    navSettingsPool.closing = false;
+  });
 }
 
 export function subscribeHotelNavSettings(queryClient: QueryClient): () => void {

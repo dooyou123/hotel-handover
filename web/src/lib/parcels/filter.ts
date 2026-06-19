@@ -2,7 +2,7 @@ import { isParcelOverdue, type Parcel, type ParcelDirection } from '@/lib/parcel
 
 export type ParcelBoardTab = ParcelDirection | 'completed';
 
-export type ParcelActiveStatusFilter = 'all' | 'stored' | 'ready' | 'overdue';
+export type ParcelActiveStatusFilter = 'all' | 'stored' | 'overdue';
 
 export const PARCEL_BOARD_TABS: { id: ParcelBoardTab; label: string }[] = [
   { id: 'out_to_room', label: 'OUT TO ROOM' },
@@ -13,7 +13,6 @@ export const PARCEL_BOARD_TABS: { id: ParcelBoardTab; label: string }[] = [
 export const PARCEL_ACTIVE_STATUS_FILTERS: { id: ParcelActiveStatusFilter; label: string }[] = [
   { id: 'all', label: '전체' },
   { id: 'stored', label: '보관 중' },
-  { id: 'ready', label: '인도 대기' },
   { id: 'overdue', label: '장기 미인도' },
 ];
 
@@ -44,14 +43,16 @@ function matchesParcelSearch(parcel: Parcel, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;
   return (
-    parcel.room_number.toLowerCase().includes(q) ||
-    parcel.guest_name.toLowerCase().includes(q) ||
-    parcel.storage_slot.toLowerCase().includes(q) ||
-    parcel.description.toLowerCase().includes(q) ||
-    parcel.contact_notes.toLowerCase().includes(q) ||
-    parcel.checkout_date.includes(q) ||
-    parcel.recipient_name.toLowerCase().includes(q) ||
-    parcel.notes.toLowerCase().includes(q)
+    (parcel.room_number ?? '').toLowerCase().includes(q) ||
+    (parcel.reservation_number ?? '').toLowerCase().includes(q) ||
+    (parcel.guest_name ?? '').toLowerCase().includes(q) ||
+    (parcel.storage_slot ?? '').toLowerCase().includes(q) ||
+    (parcel.description ?? '').toLowerCase().includes(q) ||
+    (parcel.contact_notes ?? '').toLowerCase().includes(q) ||
+    (parcel.checkout_date ?? '').includes(q) ||
+    (parcel.check_in_date ?? '').includes(q) ||
+    (parcel.recipient_name ?? '').toLowerCase().includes(q) ||
+    (parcel.notes ?? '').toLowerCase().includes(q)
   );
 }
 

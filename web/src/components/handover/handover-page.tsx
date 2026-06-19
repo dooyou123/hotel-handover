@@ -6,7 +6,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { cardSummaryLabel, logActivity } from '@/lib/handover/activity';
+import { EMPTY_COMPLAINT_REMEDIES } from '@/lib/handover/complaint-remedies';
 import { filterCards, isArchivedCard, CARD_SNOOZE_MS, isCardDueActive, needsComplaintFirstResponse, buildDuplicateCardInput } from '@/lib/handover/card-utils';
+import { formatSupabaseClientError } from '@/lib/supabase/env';
 import { cardInputFromNotice } from '@/lib/handover/notice-to-card';
 import { buildShiftSummaryData, todayDateString } from '@/lib/handover/shift-summary';
 import { useNotices } from '@/lib/handover/use-notices';
@@ -712,6 +714,7 @@ export function HandoverPage() {
         assignee_shift: todo.assignee_shift || session.group || session.shift,
         assignee_name: todo.assignee_name || session.name,
         due_at: todo.due_date ? `${todo.due_date}T12:00:00` : null,
+        ...EMPTY_COMPLAINT_REMEDIES,
       });
       await updateCard.mutateAsync({ id: created.id, input: { linked_todo_id: todo.id } });
       await updateTodoMutation.mutateAsync({ id: todo.id, input: { linked_card_id: created.id } });
@@ -909,8 +912,8 @@ export function HandoverPage() {
 
   if (error) {
     return (
-      <div className="empty-state" style={{ color: '#b91c1c', borderColor: 'rgba(220,38,38,0.25)' }}>
-        카드를 불러오지 못했습니다. Supabase migration과 RLS 설정을 확인해 주세요.
+      <div className="empty-state" style={{ color: '#b91c1c', borderColor: 'rgba(220,38,38,0.25)', whiteSpace: 'pre-line' }}>
+        {formatSupabaseClientError(error)}
       </div>
     );
   }

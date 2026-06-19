@@ -55,6 +55,8 @@ export type Card = {
   archived_at: string | null;
   linked_todo_id: string | null;
   first_response_at?: string | null;
+  complaint_remedies?: string[];
+  complaint_remedy_other?: string;
   created_by?: string | null;
   snoozed_until?: string | null;
   created_at: string;
@@ -139,6 +141,8 @@ export type CardInput = {
   assignee_shift: string;
   assignee_name: string;
   due_at: string | null;
+  complaint_remedies: string[];
+  complaint_remedy_other: string;
 };
 
 export type WorkSession = {

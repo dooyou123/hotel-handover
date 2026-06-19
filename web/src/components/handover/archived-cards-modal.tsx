@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { formatArchiveTime, formatAssigneeLabel, formatTime } from '@/lib/handover/card-utils';
+import { formatComplaintRemedies } from '@/lib/handover/complaint-remedies';
 import type { Card } from '@/lib/handover/types';
 
 type ArchivedCardsModalProps = {
@@ -29,7 +30,15 @@ export function ArchivedCardsModal({
     const q = query.trim().toLowerCase();
     if (!q) return cards;
     return cards.filter((card) => {
-      const haystack = [card.room, card.title, card.details, card.resolution, card.category, card.author]
+      const haystack = [
+        card.room,
+        card.title,
+        card.details,
+        card.resolution,
+        card.category,
+        card.author,
+        formatComplaintRemedies(card.complaint_remedies, card.complaint_remedy_other),
+      ]
         .join(' ')
         .toLowerCase();
       return haystack.includes(q);

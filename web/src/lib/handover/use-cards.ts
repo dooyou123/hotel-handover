@@ -15,6 +15,8 @@ function normalizeCard(row: Card): Card {
     ...row,
     archived_at: row.archived_at ?? null,
     linked_todo_id: row.linked_todo_id ?? null,
+    complaint_remedies: row.complaint_remedies ?? [],
+    complaint_remedy_other: row.complaint_remedy_other ?? '',
     card_acknowledgments: row.card_acknowledgments ?? [],
     card_comments: [...(row.card_comments ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at)),
     card_attachments: row.card_attachments ?? [],

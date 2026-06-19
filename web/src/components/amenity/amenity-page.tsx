@@ -129,10 +129,12 @@ export function AmenityPageClient() {
   const activeTabCopy = AMENITY_WORKSPACE_TABS[workspaceTab];
 
   return (
-    <section className="amenity-page">
-      <header className="amenity-page__header">
-        <h2 className="amenity-page__title">{amenityTitle || '어메니티'}</h2>
-        <p className="amenity-page__desc">{amenityDescription}</p>
+    <section className="project-board amenity-page">
+      <header className="project-board__head">
+        <div>
+          <h1>{amenityTitle || '어메니티'}</h1>
+          <p>{amenityDescription}</p>
+        </div>
       </header>
 
       {!hasSession ? (
@@ -146,7 +148,7 @@ export function AmenityPageClient() {
         createTodoBusy={todoBusy}
       />
 
-      <div className="amenity-page__tabs" role="tablist" aria-label="어메니티 보기">
+      <div className="project-board__toolbar amenity-page__tabs" role="tablist" aria-label="어메니티 보기">
         {(Object.keys(AMENITY_WORKSPACE_TABS) as AmenityWorkspaceTab[]).map((tabId) => {
           const tab = AMENITY_WORKSPACE_TABS[tabId];
           return (

@@ -16,6 +16,7 @@ import { DEFAULT_HOTEL_ID, formatShiftChecklistTitle } from '@/lib/constants';
 import { getNavPageMeta } from '@/lib/nav/page-meta';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { NightRegisterPanel } from '@/components/checklist/night-register-panel';
+import { ChecklistMemoPanel } from '@/components/checklist/checklist-memo-panel';
 import { ChecklistProgressBar } from '@/components/checklist/checklist-progress-bar';
 
 function formatWorkDate(value: string): string {
@@ -277,7 +278,13 @@ export function ChecklistPageClient() {
 
   if (!ready) {
     return (
-      <section className="checklist-page">
+      <section className="project-board checklist-page">
+        <header className="project-board__head">
+          <div>
+            <h1>{pageMeta.label}</h1>
+            <p>{pageMeta.description}</p>
+          </div>
+        </header>
         <p className="empty-state">상단 「지금 근무」에서 조와 담당자를 선택하면 체크리스트가 표시됩니다.</p>
       </section>
     );
@@ -305,16 +312,16 @@ export function ChecklistPageClient() {
     : `${group}조 · ${items.length ? `${completed}/${items.length} 완료` : '등록된 항목 없음'}`;
 
   return (
-    <section className="checklist-page">
-      <div className="checklist-page__header">
+    <section className="project-board checklist-page">
+      <header className="project-board__head">
         <div>
-          <h2>{pageMeta.label}</h2>
+          <h1>{pageMeta.label}</h1>
           <p>{pageMeta.description}</p>
         </div>
         <Link href="/settings" className="btn btn--ghost">
           항목 관리
         </Link>
-      </div>
+      </header>
 
       <p className="checklist-page__meta">{metaText}</p>
 
@@ -410,6 +417,20 @@ export function ChecklistPageClient() {
           />
         </div>
       )}
+
+      {data?.work_date ? (
+        <ChecklistMemoPanel
+          workDate={data.work_date}
+          shift={shift}
+          workGroup={group}
+          authorLabel={authorLabel}
+          requireSession={requireSession}
+          onSaved={(message) => {
+            setToast(message);
+            window.setTimeout(() => setToast(null), 2500);
+          }}
+        />
+      ) : null}
 
       {group === 'C' && data?.work_date ? (
         <NightRegisterPanel

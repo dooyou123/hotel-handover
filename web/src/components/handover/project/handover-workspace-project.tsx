@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { HandoverRecordsTab } from '@/lib/handover/records';
 import type { ShiftSummaryData } from '@/lib/handover/shift-summary';
 import type { Card, HandoverViewMode, QuickFilter, WorkSession } from '@/lib/handover/types';
@@ -11,6 +11,7 @@ import { RoomView } from '@/components/handover/room-view';
 import { HandoverArchiveProject } from './handover-archive-project';
 import { HandoverAsideProject } from './handover-aside-project';
 import { HandoverMobilePanel } from './handover-mobile-panel';
+import { HandoverMobileViewTabs, type HandoverMobileView } from './handover-mobile-view-tabs';
 import { HandoverListProject } from './handover-list-project';
 import { HandoverShiftBriefProject } from './handover-shift-brief-project';
 import { HandoverToolbarProject } from './handover-toolbar-project';
@@ -142,6 +143,11 @@ export function HandoverWorkspaceProject({
 }: HandoverWorkspaceProjectProps) {
   const isBriefView = viewMode === 'brief';
   const panelViewMode = isBriefView ? 'board' : viewMode;
+  const [mobileView, setMobileView] = useState<HandoverMobileView>('list');
+  const mobilePanelBadge = useMemo(
+    () => summaryData.unackedUrgent.length + alerts.length,
+    [summaryData.unackedUrgent.length, alerts.length],
+  );
 
   useEffect(() => {
     if (!isBriefView) return;
@@ -185,7 +191,11 @@ export function HandoverWorkspaceProject({
         </div>
       ) : null}
 
-      <div className="project-handover__split">
+      <HandoverMobileViewTabs view={mobileView} panelBadge={mobilePanelBadge} onChange={setMobileView} />
+
+      <div
+        className={`project-handover__split project-handover__split--mobile-${mobileView}`}
+      >
         <div className="project-handover__main">
           <div className="project-handover__main-head">
             <HandoverToolbarProject
@@ -268,6 +278,7 @@ export function HandoverWorkspaceProject({
       </div>
 
       <HandoverMobilePanel
+        hidden={mobileView === 'panel'}
         summaryData={summaryData}
         cards={cards}
         todos={todos}
