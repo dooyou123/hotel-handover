@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { buildWorkHubHref } from '@/lib/work/work-hub';
 import { useMemo } from 'react';
 import { getTodayLabel } from '@/lib/handover/shift-summary';
 import type { Card } from '@/lib/handover/types';
@@ -104,8 +105,8 @@ export function HandoverTodaySidebar({
         <div className="handover-today-sidebar__panel">
           <div className="handover-today-sidebar__panel-head">
             <h4>오늘 업무 일정</h4>
-            <Link href="/todos" className="today-dashboard__link">
-              업무 일정
+            <Link href={buildWorkHubHref('schedule')} className="today-dashboard__link">
+              할일·일정
             </Link>
           </div>
           {todayWorkItems.length ? (

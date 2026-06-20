@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { buildWorkHubHref } from '@/lib/work/work-hub';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -760,7 +761,7 @@ export function CardModal({
       {linkedTodo ? (
         <p className="drawer-section__hint">
           연결된 할일:{' '}
-          <Link href="/todos" className="drawer-link">
+          <Link href={buildWorkHubHref('schedule')} className="drawer-link">
             {linkedTodo.title}
           </Link>
         </p>

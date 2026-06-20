@@ -8,6 +8,7 @@ import {
   countParcelsForBoardTab,
   filterParcelsForBoard,
   isParcelCompleted,
+  splitCompletedParcels,
   PARCEL_ACTIVE_STATUS_FILTERS,
   PARCEL_BOARD_TABS,
   type ParcelActiveStatusFilter,
@@ -65,6 +66,11 @@ export function ParcelsPageClient() {
     () => filterParcelsForBoard(parcels, boardTab, search, statusFilter),
     [parcels, boardTab, search, statusFilter],
   );
+
+  const completedSections = useMemo(() => {
+    if (boardTab !== 'completed') return null;
+    return splitCompletedParcels(filtered);
+  }, [boardTab, filtered]);
 
   const tabCounts = useMemo(() => {
     return Object.fromEntries(
@@ -156,6 +162,153 @@ export function ParcelsPageClient() {
 
   const isCompletedTab = boardTab === 'completed';
 
+  function renderParcelCard(parcel: Parcel) {
+    const overdue = !isCompletedTab && isParcelOverdue(parcel);
+    const completed = isParcelCompleted(parcel);
+    const dateHint = parcelDateHint(parcel);
+    const hasDateHint = Boolean(dateHint);
+
+    return (
+      <article
+        key={parcel.id}
+        className={[
+          'parcel-card',
+          `parcel-card--${parcel.status}`,
+          `parcel-card--${parcel.direction}`,
+          overdue ? 'parcel-card--overdue' : '',
+          completed ? 'parcel-card--completed' : '',
+          hasDateHint ? 'parcel-card--checkout' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
+        <div
+          className={`parcel-card__status-bar parcel-card__status-bar--${parcel.status}${
+            overdue ? ' is-overdue' : ''
+          }`}
+        >
+          <span className="parcel-card__status-bar-label">{PARCEL_STATUS_LABELS[parcel.status]}</span>
+          {overdue ? <span className="parcel-card__status-bar-warn">3일+ 미인도</span> : null}
+          {!completed && parcel.direction === 'out_to_room' ? (
+            <span className="parcel-card__status-bar-hint">서명 후 인도</span>
+          ) : null}
+          {!completed && parcel.direction === 'room_to_out' ? (
+            <span className="parcel-card__status-bar-hint">픽업·인도 처리</span>
+          ) : null}
+        </div>
+
+        <header className="parcel-card__head">
+          <div className="parcel-card__badges">
+            <span className={`parcel-card__direction parcel-card__direction--${parcel.direction}`}>
+              {PARCEL_DIRECTION_LABELS[parcel.direction]}
+            </span>
+            <span className={`parcel-card__status parcel-card__status--${parcel.status}`}>
+              {PARCEL_STATUS_LABELS[parcel.status]}
+            </span>
+          </div>
+          <button
+            type="button"
+            className="parcel-card__delete"
+            onClick={() => void handleDelete(parcel)}
+            aria-label="기록 삭제"
+          >
+            삭제
+          </button>
+        </header>
+
+        <div className={hasDateHint ? 'parcel-card__highlight' : 'parcel-card__identity'}>
+          <p className="parcel-card__guest">{parcel.guest_name || '게스트 미입력'}</p>
+          <p className={`parcel-card__room${hasDateHint ? ' parcel-card__room--emph' : ''}`}>
+            {parcelPrimaryLabel(parcel)}
+          </p>
+          {dateHint ? <p className="parcel-card__checkout">{dateHint}</p> : null}
+        </div>
+
+        <dl className="parcel-card__meta">
+          {parcel.storage_slot ? (
+            <>
+              <dt>보관</dt>
+              <dd>{parcel.storage_slot}</dd>
+            </>
+          ) : null}
+          {parcel.description ? (
+            <>
+              <dt>내용</dt>
+              <dd>{parcel.description}</dd>
+            </>
+          ) : null}
+          {parcel.contact_notes ? (
+            <>
+              <dt>연락</dt>
+              <dd className="parcel-card__memo">{parcel.contact_notes}</dd>
+            </>
+          ) : null}
+          {parcel.notes ? (
+            <>
+              <dt>메모</dt>
+              <dd className="parcel-card__memo">{parcel.notes}</dd>
+            </>
+          ) : null}
+          <dt>접수</dt>
+          <dd className="parcel-card__time">{formatReceivedAt(parcel.received_at)}</dd>
+        </dl>
+        {overdue ? <p className="parcel-card__overdue">3일 이상 미인도</p> : null}
+        {completed ? (
+          <p className="parcel-card__delivered">
+            {parcel.status === 'returned' ? '반송 처리' : '인도 완료'}
+            {parcel.recipient_name ? ` · ${parcel.recipient_name}` : ''}
+            {parcel.delivered_at ? ` · ${formatReceivedAt(parcel.delivered_at)}` : ''}
+          </p>
+        ) : null}
+
+        <div className={`parcel-card__actions${completed ? ' parcel-card__actions--done' : ''}`}>
+          {!completed ? (
+            <div className="parcel-card__actions-primary">
+              {parcel.direction === 'out_to_room' ? (
+                <button type="button" className="btn btn--primary btn--small" onClick={() => openSign(parcel)}>
+                  인도 서명
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn--primary btn--small"
+                  onClick={async () => {
+                    if (!requireSession('인도 완료')) return;
+                    try {
+                      await updateParcel.mutateAsync({
+                        id: parcel.id,
+                        input: { status: 'delivered', updated_by: authorLabel },
+                      });
+                      showToast('인도 완료 · 완료 탭에서 확인할 수 있습니다.');
+                    } catch (caught) {
+                      showToast(formatSupabaseClientError(caught));
+                    }
+                  }}
+                >
+                  인도 완료
+                </button>
+              )}
+            </div>
+          ) : null}
+          <div className="parcel-card__actions-secondary">
+            <button type="button" className="btn btn--ghost btn--small" onClick={() => void openDetail(parcel)}>
+              상세
+            </button>
+            {!completed ? (
+              <button type="button" className="btn btn--ghost btn--small" onClick={() => openEdit(parcel)}>
+                수정
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </article>
+    );
+  }
+
+  function renderParcelList(items: Parcel[]) {
+    return <div className="parcels-page__list">{items.map((parcel) => renderParcelCard(parcel))}</div>;
+  }
+
   return (
     <section className="project-board parcels-page">
       <header className="project-board__head">
@@ -169,8 +322,8 @@ export function ParcelsPageClient() {
       </header>
 
       <p className="parcels-page__hint" role="note">
-        인도 완료 항목은 <strong>24시간 후</strong> OUT TO ROOM · ROOM TO OUT 목록에서 숨겨집니다.
-        이전 기록은 <strong>완료</strong> 탭에서 검색해 확인하세요.
+        인도·반송 완료 항목은 <strong>완료</strong> 탭에서만 볼 수 있습니다. 오늘 처리한 항목은{' '}
+        <strong>오늘 완료</strong> 섹션에 모입니다.
       </p>
 
       <div className="project-board__controls parcels-page__controls">
@@ -218,7 +371,7 @@ export function ParcelsPageClient() {
                   type="button"
                   className={`segmented-control__btn${statusFilter === opt.id ? ' is-active' : ''}${
                     opt.id === 'overdue' ? ' segmented-control__btn--warning' : ''
-                  }`}
+                  }${opt.id === 'stored' ? ' segmented-control__btn--stored' : ''}`}
                   onClick={() => setStatusFilter(opt.id)}
                 >
                   {opt.label}
@@ -242,138 +395,44 @@ export function ParcelsPageClient() {
           {parcels.length
             ? isCompletedTab
               ? '조건에 맞는 완료 항목이 없습니다.'
-              : '조건에 맞는 항목이 없습니다.'
+              : '처리할 항목이 없습니다.'
             : '등록된 항목이 없습니다.'}
         </p>
-      ) : (
-        <div className="parcels-page__list">
-          {filtered.map((parcel) => {
-            const overdue = !isCompletedTab && isParcelOverdue(parcel);
-            const completed = isParcelCompleted(parcel);
-            const dateHint = parcelDateHint(parcel);
-            const hasDateHint = Boolean(dateHint);
-            return (
-              <article
-                key={parcel.id}
-                className={[
-                  'parcel-card',
-                  `parcel-card--${parcel.status}`,
-                  `parcel-card--${parcel.direction}`,
-                  overdue ? 'parcel-card--overdue' : '',
-                  completed ? 'parcel-card--completed' : '',
-                  hasDateHint ? 'parcel-card--checkout' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-              >
-                <header className="parcel-card__head">
-                  <div className="parcel-card__badges">
-                    <span className={`parcel-card__direction parcel-card__direction--${parcel.direction}`}>
-                      {PARCEL_DIRECTION_LABELS[parcel.direction]}
-                    </span>
-                    <span className={`parcel-card__status parcel-card__status--${parcel.status}`}>
-                      {PARCEL_STATUS_LABELS[parcel.status]}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    className="parcel-card__delete"
-                    onClick={() => void handleDelete(parcel)}
-                    aria-label="기록 삭제"
-                  >
-                    삭제
-                  </button>
-                </header>
+      ) : isCompletedTab && completedSections ? (
+        <div className="parcels-page__sections">
+          <section className="parcels-page__section parcels-page__section--today" aria-labelledby="parcels-today-heading">
+            <header className="parcels-page__section-head">
+              <h2 id="parcels-today-heading">오늘 완료</h2>
+              <span className="parcels-page__section-count">{completedSections.today.length}건</span>
+            </header>
+            {completedSections.today.length ? (
+              renderParcelList(completedSections.today)
+            ) : (
+              <p className="parcels-page__section-empty">오늘 완료한 항목이 없습니다.</p>
+            )}
+          </section>
 
-                <div className={hasDateHint ? 'parcel-card__highlight' : 'parcel-card__identity'}>
-                  <p className={`parcel-card__room${hasDateHint ? ' parcel-card__room--emph' : ''}`}>
-                    {parcelPrimaryLabel(parcel)}
-                  </p>
-                  <p className={`parcel-card__guest${hasDateHint ? ' parcel-card__guest--emph' : ''}`}>
-                    {parcel.guest_name || '게스트 미입력'}
-                  </p>
-                  {dateHint ? <p className="parcel-card__checkout">{dateHint}</p> : null}
-                </div>
-
-                <dl className="parcel-card__meta">
-                  {parcel.storage_slot ? (
-                    <>
-                      <dt>보관</dt>
-                      <dd>{parcel.storage_slot}</dd>
-                    </>
-                  ) : null}
-                  {parcel.description ? (
-                    <>
-                      <dt>내용</dt>
-                      <dd>{parcel.description}</dd>
-                    </>
-                  ) : null}
-                  {parcel.contact_notes ? (
-                    <>
-                      <dt>연락</dt>
-                      <dd className="parcel-card__memo">{parcel.contact_notes}</dd>
-                    </>
-                  ) : null}
-                  {parcel.notes ? (
-                    <>
-                      <dt>메모</dt>
-                      <dd className="parcel-card__memo">{parcel.notes}</dd>
-                    </>
-                  ) : null}
-                </dl>
-
-                <p className="parcel-card__time">접수 {formatReceivedAt(parcel.received_at)}</p>
-                {overdue ? <p className="parcel-card__overdue">3일 이상 미인도</p> : null}
-                {completed ? (
-                  <p className="parcel-card__delivered">
-                    {parcel.status === 'returned' ? '반송 처리' : '인도 완료'}
-                    {parcel.recipient_name ? ` · ${parcel.recipient_name}` : ''}
-                    {parcel.delivered_at ? ` · ${formatReceivedAt(parcel.delivered_at)}` : ''}
-                  </p>
-                ) : null}
-
-                <div className="parcel-card__actions">
-                  {!completed ? (
-                    <>
-                      {parcel.direction === 'out_to_room' ? (
-                        <button type="button" className="btn btn--primary btn--small" onClick={() => openSign(parcel)}>
-                          인도 서명
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="btn btn--primary btn--small"
-                          onClick={async () => {
-                            if (!requireSession('인도 완료')) return;
-                            try {
-                              await updateParcel.mutateAsync({
-                                id: parcel.id,
-                                input: { status: 'delivered', updated_by: authorLabel },
-                              });
-                              showToast('인도 완료로 처리했습니다.');
-                            } catch (caught) {
-                              showToast(formatSupabaseClientError(caught));
-                            }
-                          }}
-                        >
-                          인도 완료
-                        </button>
-                      )}
-                    </>
-                  ) : null}
-                  <button type="button" className="btn btn--ghost btn--small" onClick={() => void openDetail(parcel)}>
-                    상세
-                  </button>
-                  {!completed ? (
-                    <button type="button" className="btn btn--ghost btn--small" onClick={() => openEdit(parcel)}>
-                      수정
-                    </button>
-                  ) : null}
-                </div>
-              </article>
-            );
-          })}
+          {completedSections.earlier.length ? (
+            <section
+              className="parcels-page__section parcels-page__section--earlier"
+              aria-labelledby="parcels-earlier-heading"
+            >
+              <header className="parcels-page__section-head">
+                <h2 id="parcels-earlier-heading">이전 완료</h2>
+                <span className="parcels-page__section-count">{completedSections.earlier.length}건</span>
+              </header>
+              {renderParcelList(completedSections.earlier)}
+            </section>
+          ) : null}
         </div>
+      ) : (
+        <section className="parcels-page__section parcels-page__section--pending" aria-labelledby="parcels-pending-heading">
+          <header className="parcels-page__section-head">
+            <h2 id="parcels-pending-heading">처리 필요</h2>
+            <span className="parcels-page__section-count">{filtered.length}건</span>
+          </header>
+          {renderParcelList(filtered)}
+        </section>
       )}
 
       <ParcelFormModal
@@ -391,9 +450,7 @@ export function ParcelsPageClient() {
         staffName={authorLabel || session.name}
         onClose={() => setSignParcel(null)}
         onDelivered={(parcel) => {
-          showToast(
-            `${parcelPrimaryLabel(parcel)} 인도가 완료되었습니다.`,
-          );
+          showToast(`${parcelPrimaryLabel(parcel)} 인도 완료 · 완료 탭에서 확인할 수 있습니다.`);
         }}
         onToast={showToast}
       />

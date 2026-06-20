@@ -8,6 +8,7 @@ import { filterPendingTodayTaxi } from '@/lib/today/alerts';
 import { filterNoticesForFeed } from '@/lib/notices/status';
 import type { TransportBooking } from '@/lib/transport/types';
 import type { Todo } from '@/lib/todos/types';
+import { WORK_HUB_PATH } from '@/lib/work/work-hub';
 
 export type NavBadgeTone = 'urgent' | 'warn' | 'info';
 
@@ -49,19 +50,21 @@ export function computeNavBadges(input: {
     (notice) => notice.type === 'change' && notice.created_at.slice(0, 10) === today,
   ).length;
   const noticesCount = pinnedNotices + todayChanges;
-  if (noticesCount > 0) {
-    badges['/notices'] = { count: noticesCount, tone: todayChanges > 0 ? 'warn' : 'info' };
-  }
-
   const overdueTodos = input.todos.filter(isTodoOverdue).length;
   const dueTodayTodos = input.todos.filter((todo) => isTodoDueToday(todo) && !isTodoOverdue(todo)).length;
   const todayEvents = filterTodayEvents(input.events);
   const vipToday = todayEvents.filter((event) => event.category === 'VIP').length;
   const workScheduleCount = overdueTodos + dueTodayTodos + todayEvents.length;
-  if (workScheduleCount > 0) {
-    badges['/todos'] = {
-      count: workScheduleCount,
-      tone: overdueTodos > 0 ? 'urgent' : vipToday > 0 || dueTodayTodos > 0 ? 'warn' : 'info',
+  const workHubCount = noticesCount + workScheduleCount;
+  if (workHubCount > 0) {
+    badges[WORK_HUB_PATH] = {
+      count: workHubCount,
+      tone:
+        overdueTodos > 0
+          ? 'urgent'
+          : todayChanges > 0 || vipToday > 0 || dueTodayTodos > 0
+            ? 'warn'
+            : 'info',
     };
   }
 

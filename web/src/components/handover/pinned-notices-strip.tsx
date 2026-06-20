@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { buildWorkHubHref } from '@/lib/work/work-hub';
 import { formatExpiryLabel } from '@/lib/handover/shift-summary';
 import { noticeTypeShort } from '@/lib/handover/notice-utils';
 import type { Notice } from '@/lib/handover/types';
@@ -21,7 +22,7 @@ export function PinnedNoticesStrip({ notices }: PinnedNoticesStripProps) {
         return (
           <Link
             key={notice.id}
-            href={`/notices?channel=${notice.type}&id=${notice.id}`}
+            href={buildWorkHubHref('notices', { channel: notice.type, id: notice.id })}
             className={`pinned-notices-strip__item pinned-notices-strip__item--${notice.type}`}
           >
             <span className="pinned-notices-strip__tag">📌 {noticeTypeShort(notice.type)}</span>
@@ -36,8 +37,8 @@ export function PinnedNoticesStrip({ notices }: PinnedNoticesStripProps) {
           </Link>
         );
       })}
-      <Link href="/notices" className="pinned-notices-strip__more">
-        게시판 전체 →
+      <Link href={buildWorkHubHref('notices')} className="pinned-notices-strip__more">
+        팀 소식·일정 →
       </Link>
     </section>
   );

@@ -87,10 +87,15 @@ const FILTERS: { id: TodoFilter; label: string }[] = [
 
 type TodoScope = 'team' | 'personal';
 
-export function TodosPageClient() {
+type TodosPageClientProps = {
+  embedded?: boolean;
+  forceScope?: TodoScope;
+};
+
+export function TodosPageClient({ embedded = false, forceScope }: TodosPageClientProps) {
   const pageMeta = getNavPageMeta('/todos');
   const searchParams = useSearchParams();
-  const initialScope = searchParams.get('view') === 'personal' ? 'personal' : 'team';
+  const initialScope = forceScope ?? (searchParams.get('view') === 'personal' ? 'personal' : 'team');
   const [scope, setScope] = useState<TodoScope>(initialScope);
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const { session, authorLabel, requireSession } = useWorkSession();
@@ -112,6 +117,15 @@ export function TodosPageClient() {
   const [staffNames, setStaffNames] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [pastEventsExpanded, setPastEventsExpanded] = useState(false);
+  const activeScope = forceScope ?? scope;
+
+  useEffect(() => {
+    if (forceScope) {
+      setScope(forceScope);
+      return;
+    }
+    setScope(searchParams.get('view') === 'personal' ? 'personal' : 'team');
+  }, [forceScope, searchParams]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -286,44 +300,50 @@ export function TodosPageClient() {
 
   return (
     <>
-      <section className="project-board todos-page">
-        <header className="project-board__head">
-          <div>
-            <h1>{pageMeta.label}</h1>
-            <p>
-              {scope === 'personal' ? '로그인한 직원만 보는 개인 할 일입니다.' : pageMeta.description}
-            </p>
+      <section className={`project-board todos-page${embedded ? ' todos-page--embedded' : ''}`}>
+        {embedded ? null : (
+          <header className="project-board__head">
+            <div>
+              <h1>{pageMeta.label}</h1>
+              <p>
+                {activeScope === 'personal'
+                  ? '로그인한 직원만 보는 개인 할 일입니다.'
+                  : pageMeta.description}
+              </p>
+            </div>
+          </header>
+        )}
+
+        {embedded || forceScope ? null : (
+          <div className="todos-page__scope" role="tablist" aria-label="업무 일정 종류">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeScope === 'team'}
+              className={`todos-page__scope-btn${activeScope === 'team' ? ' is-active' : ''}`}
+              onClick={() => setScope('team')}
+            >
+              팀 업무 일정
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeScope === 'personal'}
+              className={`todos-page__scope-btn${activeScope === 'personal' ? ' is-active' : ''}`}
+              onClick={() => setScope('personal')}
+            >
+              내 할 일
+            </button>
           </div>
-        </header>
+        )}
 
-        <div className="todos-page__scope" role="tablist" aria-label="업무 일정 종류">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={scope === 'team'}
-            className={`todos-page__scope-btn${scope === 'team' ? ' is-active' : ''}`}
-            onClick={() => setScope('team')}
-          >
-            팀 업무 일정
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={scope === 'personal'}
-            className={`todos-page__scope-btn${scope === 'personal' ? ' is-active' : ''}`}
-            onClick={() => setScope('personal')}
-          >
-            내 할 일
-          </button>
-        </div>
-
-        {scope === 'personal' ? (
+        {activeScope === 'personal' ? (
           <article className="schedule-panel">
             <PersonalTasksPanel variant="page" onToast={showToast} />
           </article>
         ) : null}
 
-        {scope === 'team' ? (
+        {activeScope === 'team' && !embedded ? (
           <>
             <div className="todos-page__toolbar">
               <label className="schedule-field todos-page__month">

@@ -1,12 +1,14 @@
+import { buildWorkHubHref } from '@/lib/work/work-hub';
+
 export function getTickerItemHref(id: string): string | null {
   if (id === 'idle') return null;
 
   if (id.startsWith('notice-expiry-')) {
-    return `/notices?id=${id.slice('notice-expiry-'.length)}`;
+    return buildWorkHubHref('notices', { id: id.slice('notice-expiry-'.length) });
   }
 
   if (id.startsWith('notice-')) {
-    return `/notices?id=${id.slice('notice-'.length)}`;
+    return buildWorkHubHref('notices', { id: id.slice('notice-'.length) });
   }
 
   const cardPrefixes = ['unacked-', 'urgent-', 'due-overdue-', 'due-soon-', 'stale-', 'hold-long-'] as const;

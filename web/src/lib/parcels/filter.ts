@@ -16,6 +16,7 @@ export const PARCEL_ACTIVE_STATUS_FILTERS: { id: ParcelActiveStatusFilter; label
   { id: 'overdue', label: '장기 미인도' },
 ];
 
+/** @deprecated 완료 항목은 활성 탭에서 즉시 숨김. 완료 탭에서만 표시. */
 export const PARCEL_COMPLETED_HIDE_MS = 24 * 60 * 60 * 1000;
 
 export function isParcelCompleted(parcel: Pick<Parcel, 'status'>): boolean {
@@ -32,11 +33,49 @@ export function getParcelCompletedAt(parcel: Parcel): Date | null {
   return null;
 }
 
+function formatLocalDateKey(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+export function getParcelCompletedDateKey(parcel: Parcel): string | null {
+  const completedAt = getParcelCompletedAt(parcel);
+  if (!completedAt || Number.isNaN(completedAt.getTime())) return null;
+  return formatLocalDateKey(completedAt);
+}
+
+export function isParcelCompletedToday(parcel: Parcel, now = new Date()): boolean {
+  const completedKey = getParcelCompletedDateKey(parcel);
+  if (!completedKey) return false;
+  return completedKey === formatLocalDateKey(now);
+}
+
 export function isParcelHiddenAfterCompletion(parcel: Parcel, now = new Date()): boolean {
   if (!isParcelCompleted(parcel)) return false;
   const completedAt = getParcelCompletedAt(parcel);
   if (!completedAt || Number.isNaN(completedAt.getTime())) return true;
   return now.getTime() - completedAt.getTime() > PARCEL_COMPLETED_HIDE_MS;
+}
+
+function sortCompletedNewestFirst(a: Parcel, b: Parcel): number {
+  const aTime = getParcelCompletedAt(a)?.getTime() ?? 0;
+  const bTime = getParcelCompletedAt(b)?.getTime() ?? 0;
+  return bTime - aTime;
+}
+
+export function splitCompletedParcels(
+  parcels: Parcel[],
+  now = new Date(),
+): { today: Parcel[]; earlier: Parcel[] } {
+  const today: Parcel[] = [];
+  const earlier: Parcel[] = [];
+  for (const parcel of parcels) {
+    if (isParcelCompletedToday(parcel, now)) today.push(parcel);
+    else earlier.push(parcel);
+  }
+  today.sort(sortCompletedNewestFirst);
+  earlier.sort(sortCompletedNewestFirst);
+  return { today, earlier };
 }
 
 function matchesParcelSearch(parcel: Parcel, query: string): boolean {
@@ -74,9 +113,7 @@ export function filterParcelsForBoard(
       return isParcelCompleted(parcel);
     }
     if (parcel.direction !== tab) return false;
-    if (isParcelCompleted(parcel)) {
-      return !isParcelHiddenAfterCompletion(parcel, now);
-    }
+    if (isParcelCompleted(parcel)) return false;
     return matchesActiveStatus(parcel, statusFilter);
   });
 
@@ -90,7 +127,6 @@ export function countParcelsForBoardTab(parcels: Parcel[], tab: ParcelBoardTab, 
   }
   return parcels.filter((parcel) => {
     if (parcel.direction !== tab) return false;
-    if (isParcelCompleted(parcel)) return !isParcelHiddenAfterCompletion(parcel, now);
-    return true;
+    return !isParcelCompleted(parcel);
   }).length;
 }

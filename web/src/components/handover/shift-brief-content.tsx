@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { buildWorkHubHref } from '@/lib/work/work-hub';
 import { ACTION_LABELS } from '@/lib/handover/activity';
 import { formatTime } from '@/lib/handover/card-utils';
 import { formatComplaintRemedies, hasComplaintRemedies } from '@/lib/handover/complaint-remedies';
@@ -295,7 +296,7 @@ function BriefTodoItem({ todo, onOpenTodo }: { todo: Todo; onOpenTodo?: (todo: T
 
   return (
     <article className={`brief-item${overdue ? ' brief-item--warn' : ''}`}>
-      <Link href="/todos" className="brief-item__open">
+      <Link href={buildWorkHubHref('schedule')} className="brief-item__open">
         {body}
       </Link>
     </article>
@@ -355,7 +356,7 @@ function BriefEventItem({ event, onOpenEvent }: { event: HotelEvent; onOpenEvent
 
   return (
     <article className="brief-item">
-      <Link href="/todos" className="brief-item__open">
+      <Link href={buildWorkHubHref('schedule')} className="brief-item__open">
         {body}
       </Link>
     </article>

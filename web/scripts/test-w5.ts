@@ -1222,7 +1222,7 @@ test('splitTextWithLinks detects http(s) URLs and preserves trailing punctuation
 
 test('ticker navigation hrefs', () => {
   assert.equal(getTickerItemHref('idle'), null);
-  assert.equal(getTickerItemHref('notice-abc'), '/notices?id=abc');
+  assert.equal(getTickerItemHref('notice-abc'), '/work?tab=notices&id=abc');
   assert.equal(getTickerItemHref('unacked-card-1'), '/handover?card=card-1');
   assert.equal(getTickerItemHref('due-soon-x'), '/handover?card=x');
   assert.equal(isTickerItemClickable('urgent-1'), true);
@@ -1504,9 +1504,13 @@ test('parcel overdue helper', () => {
   assert.equal(isParcelOverdue(done, 3, now), false);
 });
 
-test('parcel board filter hides completed after 24h and supports completed tab', () => {
-  const { filterParcelsForBoard, isParcelHiddenAfterCompletion } =
-    require('@/lib/parcels/filter') as typeof import('@/lib/parcels/filter');
+test('parcel board filter hides completed from active tabs and supports completed tab sections', () => {
+  const {
+    filterParcelsForBoard,
+    isParcelHiddenAfterCompletion,
+    isParcelCompletedToday,
+    splitCompletedParcels,
+  } = require('@/lib/parcels/filter') as typeof import('@/lib/parcels/filter');
 
   const now = new Date('2026-06-08T12:00:00');
   const active = {
@@ -1541,12 +1545,18 @@ test('parcel board filter hides completed after 24h and supports completed tab',
 
   assert.equal(isParcelHiddenAfterCompletion(oldDone, now), true);
   assert.equal(isParcelHiddenAfterCompletion(recentDone, now), false);
+  assert.equal(isParcelCompletedToday(recentDone, now), true);
+  assert.equal(isParcelCompletedToday(oldDone, now), false);
 
   const outTab = filterParcelsForBoard([active, recentDone, oldDone], 'out_to_room', '', 'all', now);
-  assert.deepEqual(outTab.map((p) => p.id), ['1', '2']);
+  assert.deepEqual(outTab.map((p) => p.id), ['1']);
 
   const completedTab = filterParcelsForBoard([active, recentDone, oldDone], 'completed', '', 'all', now);
   assert.equal(completedTab.length, 2);
+
+  const sections = splitCompletedParcels(completedTab, now);
+  assert.deepEqual(sections.today.map((p) => p.id), ['2']);
+  assert.deepEqual(sections.earlier.map((p) => p.id), ['3']);
 
   const completedSearch = filterParcelsForBoard(
     [{ ...oldDone, guest_name: 'Park' }, recentDone],

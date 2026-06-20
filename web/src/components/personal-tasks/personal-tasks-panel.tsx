@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { buildWorkHubHref } from '@/lib/work/work-hub';
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { PromotePersonalTaskModal } from '@/components/personal-tasks/promote-personal-task-modal';
@@ -86,7 +87,7 @@ export function PersonalTasksPanel({ variant = 'page', onToast }: PersonalTasksP
           {!compact ? <p>{staffName}님만 보는 개인 체크리스트입니다.</p> : null}
         </div>
         {compact ? (
-          <Link href="/todos?view=personal" className="aside-card__link">
+          <Link href={buildWorkHubHref('personal')} className="aside-card__link">
             전체
           </Link>
         ) : null}

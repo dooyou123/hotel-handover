@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { buildWorkHubHref } from '@/lib/work/work-hub';
 import { useEffect, useMemo, useState } from 'react';
 import { isUnackedUrgentCard } from '@/lib/handover/card-utils';
 import { getTodayLabel } from '@/lib/handover/shift-summary';
@@ -264,7 +265,7 @@ export function HandoverMobilePanel({
               <section className="handover-mobile__section">
                 <div className="handover-mobile__section-head">
                   <h3>오늘 일정·할일</h3>
-                  <Link href="/todos" className="handover-mobile__link" onClick={() => setOpen(false)}>
+                  <Link href={buildWorkHubHref('schedule')} className="handover-mobile__link" onClick={() => setOpen(false)}>
                     전체
                   </Link>
                 </div>

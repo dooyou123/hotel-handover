@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { APP_NAV, DEFAULT_HOTEL_ID } from '@/lib/constants';
+import { migrateHiddenNavHrefs } from '@/lib/work/work-hub';
 import { createClient } from '@/lib/supabase/client';
 import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
 
@@ -139,7 +140,9 @@ export function subscribeHotelNavSettings(queryClient: QueryClient): () => void 
 
 function normalizeHiddenNavHrefs(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
-  return value.filter((href): href is string => typeof href === 'string' && CONFIGURABLE_NAV_HREFS.has(href));
+  const raw = value.filter((href): href is string => typeof href === 'string');
+  const migrated = migrateHiddenNavHrefs(raw);
+  return migrated.filter((href) => CONFIGURABLE_NAV_HREFS.has(href));
 }
 
 export function filterVisibleNav<T extends { href: string }>(items: readonly T[], hiddenHrefs: string[]): T[] {

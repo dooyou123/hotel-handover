@@ -1,5 +1,6 @@
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
+import { buildWorkHubHref } from '@/lib/work/work-hub';
 
 export type GlobalSearchHitKind =
   | 'handover'
@@ -178,7 +179,7 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
       id: notice.id,
       title: line,
       subtitle: `${notice.type === 'change' ? '업무 변경' : '업무 공지'} · ${notice.author || '—'}`,
-      href: `/notices?id=${notice.id}`,
+      href: buildWorkHubHref('notices', { id: notice.id }),
       at: notice.updated_at || notice.created_at,
     });
   }
@@ -189,7 +190,7 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
       id: todo.id,
       title: todo.title,
       subtitle: `${todo.status === 'done' ? '완료' : '진행'}${todo.due_date ? ` · 마감 ${todo.due_date}` : ''}${todo.assignee_name ? ` · ${todo.assignee_name}` : ''}`,
-      href: '/todos',
+      href: buildWorkHubHref('schedule'),
       at: todo.updated_at || todo.created_at,
     });
   }

@@ -257,6 +257,7 @@ export function TaxiReservationCard({
               className={`taxi-card__status-btn ${STATUS_BTN_CLASS[status]}${
                 booking.status === status ? ' is-active' : ''
               }`}
+              aria-pressed={booking.status === status}
               onClick={() => onStatusChange(status)}
             >
               {transportStatusLabel(status)}

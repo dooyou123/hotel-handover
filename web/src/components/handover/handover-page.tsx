@@ -31,6 +31,7 @@ import { useTodayTaxiBookings } from '@/lib/transport/use-transport';
 import type { Todo, TodoInput, TodoPriority } from '@/lib/todos/types';
 import { useTodos } from '@/lib/todos/use-todos';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
+import { buildWorkHubHref } from '@/lib/work/work-hub';
 import { EventModal } from '@/components/schedule/event-modal';
 import { TodoModal } from '@/components/todos/todo-modal';
 import { HandoverRecordsModal } from './handover-records-modal';
@@ -972,7 +973,7 @@ export function HandoverPage() {
       return;
     }
     if (id === 'notice-expiry') {
-      router.push('/notices?renewal=1');
+      router.push(buildWorkHubHref('notices', { renewal: '1' }));
       return;
     }
     if (id === 'taxi-needs-input') {

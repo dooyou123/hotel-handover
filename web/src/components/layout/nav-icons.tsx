@@ -23,6 +23,13 @@ export function NavIcon({ href, className }: NavIconProps) {
           <path d="M8 6h8M8 10h8M8 14h5M6 4h12a2 2 0 0 1 2 2v12l-3-2-3 2-3-2-3 2-3-2V6a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.75" strokeLinejoin="round" />
         </IconShell>
       );
+    case '/work':
+      return (
+        <IconShell className={className}>
+          <path d="M6 8.5V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v12l-4-2.5L10 18V8.5H6Z" stroke="currentColor" strokeWidth="1.75" strokeLinejoin="round" />
+          <path d="M9 11l2 2 4-4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+        </IconShell>
+      );
     case '/notices':
       return (
         <IconShell className={className}>

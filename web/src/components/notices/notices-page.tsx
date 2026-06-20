@@ -24,6 +24,24 @@ import { isNoticeCompleted } from '@/lib/notices/status';
 import { getNavPageMeta } from '@/lib/nav/page-meta';
 import type { Notice, NoticeInput, NoticeType } from '@/lib/handover/types';
 import { NoticeDrawer, type NoticeDrawerMode } from './notice-drawer';
+import { buildWorkHubHref } from '@/lib/work/work-hub';
+import {
+  WorkHubEmpty,
+  WorkHubFilterTabs,
+  WorkHubList,
+  WorkHubPanel,
+  WorkHubRow,
+  WorkHubSearch,
+  WorkHubSection,
+  WorkHubToolbar,
+  WorkHubToolbarGroup,
+} from '@/components/work/work-hub-list';
+import { LinkifiedText } from '@/components/ui/linkified-text';
+
+type NoticesPageClientProps = {
+  /** 팀 소식·일정 허브 안에 임베드 */
+  embedded?: boolean;
+};
 
 function NoticeExpiryBadge({ expiresAt }: { expiresAt: string | null }) {
   const expiry = formatExpiryLabel(expiresAt);
@@ -38,7 +56,7 @@ function NoticeExpiryBadge({ expiresAt }: { expiresAt: string | null }) {
   );
 }
 
-export function NoticesPageClient() {
+export function NoticesPageClient({ embedded = false }: NoticesPageClientProps) {
   const pageMeta = getNavPageMeta('/notices');
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -116,6 +134,13 @@ export function NoticesPageClient() {
   }
 
   function syncUrl(nextTab: NoticeBoardTab, noticeId?: string | null) {
+    if (embedded) {
+      const params: Record<string, string | null | undefined> = { tab: 'notices' };
+      if (nextTab !== 'announcement') params.channel = nextTab;
+      if (noticeId) params.id = noticeId;
+      router.replace(buildWorkHubHref('notices', params), { scroll: false });
+      return;
+    }
     const params = new URLSearchParams();
     if (nextTab !== 'announcement') params.set('channel', nextTab);
     if (noticeId) params.set('id', noticeId);
@@ -262,18 +287,136 @@ export function NoticesPageClient() {
     return <div className="empty-state">게시판을 불러오는 중…</div>;
   }
 
+  if (embedded) {
+    return (
+      <>
+        <WorkHubPanel>
+          {myUnreadPinned > 0 ? (
+            <div className="notice-read-banner" role="status">
+              📌 필독 공지 <strong>{myUnreadPinned}건</strong>을 아직 확인하지 않았습니다. 글을 열면 확인으로 기록됩니다.
+            </div>
+          ) : null}
+
+          <WorkHubToolbar>
+            <WorkHubToolbarGroup>
+              <WorkHubFilterTabs
+                ariaLabel="공지 분류"
+                items={NOTICE_BOARD_TABS.map((item) => ({
+                  id: item.id,
+                  label: item.label,
+                  count: tabCounts[item.id],
+                }))}
+                value={boardTab}
+                onChange={selectTab}
+              />
+              <WorkHubSearch
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="제목·내용·작성자 검색…"
+                ariaLabel="게시판 검색"
+              />
+            </WorkHubToolbarGroup>
+            <WorkHubToolbarGroup>
+              <span className="work-hub__count">{filtered.length}건</span>
+              <button type="button" className="btn btn--primary btn--small" onClick={() => openCompose()}>
+                + 글쓰기
+              </button>
+            </WorkHubToolbarGroup>
+          </WorkHubToolbar>
+
+          {filtered.length ? (
+            <WorkHubSection id="work-hub-notices-list" title={NOTICE_BOARD_TABS.find((t) => t.id === boardTab)?.label ?? '공지'}>
+              <WorkHubList>
+                {filtered.map((notice) => {
+                  const isDone = isNoticeCompleted(notice);
+                  const expiry = formatExpiryLabel(notice.expires_at);
+                  return (
+                    <WorkHubRow
+                      key={notice.id}
+                      kind={noticeTypeShort(notice.type)}
+                      title={<LinkifiedText text={noticeListTitle(notice.content)} />}
+                      meta={
+                        <>
+                          {notice.is_pinned ? '📌 ' : ''}
+                          {isDone ? '완료 · ' : ''}
+                          {notice.author || '—'}
+                          {' · '}
+                          {formatTime(notice.updated_at || notice.created_at)}
+                          {expiry ? ` · ${expiry.text}` : ''}
+                        </>
+                      }
+                      rowClassName={[
+                        notice.is_pinned ? 'is-pinned' : '',
+                        activeNotice?.id === notice.id ? 'is-reading' : '',
+                        isDone ? 'is-done' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ') || undefined}
+                      onClick={() => openRead(notice)}
+                    />
+                  );
+                })}
+              </WorkHubList>
+            </WorkHubSection>
+          ) : (
+            <WorkHubEmpty>
+              {searchQuery
+                ? '검색 조건에 맞는 글이 없습니다.'
+                : boardTab === 'completed'
+                  ? '완료된 글이 없습니다.'
+                  : boardTab === 'change'
+                    ? '진행 중인 변경 글이 없습니다.'
+                    : '진행 중인 공지가 없습니다.'}
+            </WorkHubEmpty>
+          )}
+        </WorkHubPanel>
+
+        <NoticeDrawer
+          open={drawerOpen}
+          mode={drawerMode}
+          notice={activeNotice}
+          defaultType={defaultType}
+          authorLabel={authorLabel}
+          isManager={isManager}
+          onClose={closeDrawer}
+          onModeChange={setDrawerMode}
+          onSave={handleSave}
+          onDelete={handleDelete}
+          onTogglePin={handleTogglePin}
+          onToggleComplete={handleToggleComplete}
+          onCreateHandover={handleCreateHandover}
+          activeStaffNames={staffNames}
+          currentStaffName={session.name}
+        />
+
+        {toast ? <div className="toast toast--project">{toast}</div> : null}
+      </>
+    );
+  }
+
   return (
     <>
-      <section className="project-board">
-        <header className="project-board__head">
-          <div>
-            <h1>{pageMeta.label}</h1>
-            <p>{pageMeta.description}</p>
+      <section className={`project-board${embedded ? ' project-board--embedded' : ''}`}>
+        {embedded ? null : (
+          <header className="project-board__head">
+            <div>
+              <h1>{pageMeta.label}</h1>
+              <p>{pageMeta.description}</p>
+            </div>
+            <button type="button" className="btn btn--primary" onClick={() => openCompose()}>
+              + 글쓰기
+            </button>
+          </header>
+        )}
+
+        {embedded ? (
+          <div className="project-board__head project-board__head--compact">
+            <p className="project-board__head-desc">기간 있는 공지·변경 사항을 올리고 확인합니다.</p>
+            <button type="button" className="btn btn--primary btn--small" onClick={() => openCompose()}>
+              + 글쓰기
+            </button>
           </div>
-          <button type="button" className="btn btn--primary" onClick={() => openCompose()}>
-            + 글쓰기
-          </button>
-        </header>
+        ) : null}
 
         {myUnreadPinned > 0 ? (
           <div className="notice-read-banner" role="status">

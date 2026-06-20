@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { buildWorkHubHref } from '@/lib/work/work-hub';
 import { WORK_GROUPS, formatWorkGroupLabel } from '@/lib/constants';
 import { formatAssigneeLabel, isUnackedUrgentCard } from '@/lib/handover/card-utils';
 import { getTodayLabel } from '@/lib/handover/shift-summary';
@@ -95,8 +96,8 @@ export function HandoverTodayDashboard({
         <section className="today-dashboard__panel">
           <div className="today-dashboard__panel-head">
             <h4>오늘 업무 일정</h4>
-            <Link href="/todos" className="today-dashboard__link">
-              업무 일정
+            <Link href={buildWorkHubHref('schedule')} className="today-dashboard__link">
+              할일·일정
             </Link>
           </div>
           {todayWorkItems.length ? (
@@ -173,14 +174,14 @@ export function HandoverTodayDashboard({
           <section className="today-dashboard__panel today-dashboard__panel--wide">
             <div className="today-dashboard__panel-head">
               <h4>고정 공지</h4>
-              <Link href="/notices" className="today-dashboard__link">
-                게시판 전체
+              <Link href={buildWorkHubHref('notices')} className="today-dashboard__link">
+                공지·변경
               </Link>
             </div>
             <ul className="today-dashboard__list">
               {pinnedNotices.map((notice) => (
                 <li key={notice.id} className="today-dashboard__row">
-                  <Link href={`/notices?channel=${notice.type}&id=${notice.id}`} className="today-dashboard__main today-dashboard__main--link">
+                  <Link href={buildWorkHubHref('notices', { channel: notice.type, id: notice.id })} className="today-dashboard__main today-dashboard__main--link">
                     <span className="today-dashboard__meta">{notice.type === 'change' ? '변경' : '공지'}</span>
                     <span className="today-dashboard__title">{notice.content.split('\n')[0]}</span>
                   </Link>
