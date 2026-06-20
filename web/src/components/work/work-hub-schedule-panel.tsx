@@ -453,6 +453,7 @@ export function WorkHubSchedulePanel() {
         linkedCard={linkedCard}
         authorLabel={authorLabel}
         defaultShift={session.shift}
+        defaultName={session.name}
         staffNames={staffNames}
         onClose={() => setModalOpen(false)}
         onSave={handleSave}
