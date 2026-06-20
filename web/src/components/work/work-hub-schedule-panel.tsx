@@ -457,7 +457,7 @@ export function WorkHubSchedulePanel() {
         onClose={() => setModalOpen(false)}
         onSave={handleSave}
         onDelete={handleDelete}
-        onCreateCard={handleCreateCardFromTodo}
+        onCreateCard={editingTodo ? () => handleCreateCardFromTodo(editingTodo) : undefined}
       />
 
       <EventModal
