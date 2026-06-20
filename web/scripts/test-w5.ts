@@ -1330,6 +1330,8 @@ test('notice expiry urgency within 7 days', () => {
         { expires_at: '2026-06-20' },
         { expires_at: null },
       ] as import('@/lib/handover/types').Notice[],
+      7,
+      today,
     ).length,
     1,
   );

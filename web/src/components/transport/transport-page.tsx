@@ -43,6 +43,15 @@ function addDays(date: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+const COMPLETED_HIDE_AFTER_MS = 60 * 60 * 1000;
+
+function isCompletedHiddenFromAll(booking: TransportBooking, now = Date.now()): boolean {
+  if (booking.status !== 'completed') return false;
+  const completedAt = new Date(booking.updated_at).getTime();
+  if (Number.isNaN(completedAt)) return false;
+  return now - completedAt > COMPLETED_HIDE_AFTER_MS;
+}
+
 export function TransportPageClient() {
   const pageMeta = getNavPageMeta('/transport');
   const searchParams = useSearchParams();
@@ -55,7 +64,7 @@ export function TransportPageClient() {
     searchParams.get('filter') === 'needs_input' ? 'needs_input' : 'all';
 
   const [tab, setTab] = useState<TaxiTab>('list');
-  const [fromDate, setFromDate] = useState(today);
+  const [fromDate, setFromDate] = useState(() => `${today.slice(0, 7)}-01`);
   const [toDate, setToDate] = useState(() => addDays(today, 90));
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialStatusFilter);
@@ -84,6 +93,11 @@ export function TransportPageClient() {
     const q = search.trim().toLowerCase();
     let list = [...bookings];
 
+    if (statusFilter === 'all') {
+      const now = Date.now();
+      list = list.filter((b) => !isCompletedHiddenFromAll(b, now));
+    }
+
     if (statusFilter === 'pending') {
       list = list.filter((b) => b.status === 'pending');
     } else if (statusFilter === 'needs_input') {
@@ -110,8 +124,10 @@ export function TransportPageClient() {
   }, [bookings, search, statusFilter]);
 
   const statusCounts = useMemo(() => {
-    const counts = { all: bookings.length, pending: 0, needs_input: 0, completed: 0, cancelled: 0 };
+    const now = Date.now();
+    const counts = { all: 0, pending: 0, needs_input: 0, completed: 0, cancelled: 0 };
     for (const b of bookings) {
+      if (!isCompletedHiddenFromAll(b, now)) counts.all += 1;
       if (b.status === 'pending') counts.pending += 1;
       else if (b.status === 'completed') counts.completed += 1;
       else if (b.status === 'cancelled') counts.cancelled += 1;

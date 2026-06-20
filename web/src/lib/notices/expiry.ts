@@ -23,14 +23,22 @@ export function getNoticeExpiryUrgency(
   return null;
 }
 
-export function isNoticeExpiringSoon(notice: Pick<Notice, 'expires_at'>, withinDays = 7): boolean {
+export function isNoticeExpiringSoon(
+  notice: Pick<Notice, 'expires_at'>,
+  withinDays = 7,
+  today = todayDateString(),
+): boolean {
   if (!notice.expires_at) return false;
-  const days = daysUntilNoticeExpiry(notice.expires_at);
+  const days = daysUntilNoticeExpiry(notice.expires_at, today);
   return !Number.isNaN(days) && days >= 0 && days <= withinDays;
 }
 
-export function filterNoticesExpiringSoon(notices: Notice[], withinDays = 7): Notice[] {
-  return notices.filter((notice) => isNoticeExpiringSoon(notice, withinDays));
+export function filterNoticesExpiringSoon(
+  notices: Notice[],
+  withinDays = 7,
+  today = todayDateString(),
+): Notice[] {
+  return notices.filter((notice) => isNoticeExpiringSoon(notice, withinDays, today));
 }
 
 export function formatNoticeExpiryAlertDetail(
