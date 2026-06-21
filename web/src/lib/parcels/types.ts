@@ -136,6 +136,24 @@ export function isParcelOverdue(parcel: Parcel, days = PARCEL_OVERDUE_DAYS, now 
   return received.getTime() < cutoff.getTime();
 }
 
+export type ParcelDeliveryUrgency = 'checkout_today' | 'checkin_today';
+
+export function getParcelDeliveryUrgency(
+  parcel: Pick<Parcel, 'status' | 'checkout_date' | 'check_in_date'>,
+  today?: string,
+): ParcelDeliveryUrgency | null {
+  if (parcel.status !== 'stored') return null;
+  const todayStr = today ?? new Date().toISOString().slice(0, 10);
+  if (parcel.checkout_date.trim() === todayStr) return 'checkout_today';
+  if (parcel.check_in_date.trim() === todayStr) return 'checkin_today';
+  return null;
+}
+
+export function parcelDeliveryUrgencyMessage(urgency: ParcelDeliveryUrgency): string {
+  if (urgency === 'checkout_today') return '꼭 전달해주세요.';
+  return '체크인 시 꼭 전달하세요.';
+}
+
 export type ParcelSignPreview = {
   direction: ParcelDirection;
   room_number: string;

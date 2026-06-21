@@ -51,7 +51,7 @@ test.describe('스테이징 UAT smoke (로그인 계정 필요)', () => {
   test('도움말 페이지', async ({ page }) => {
     await page.getByRole('link', { name: '도움말' }).click();
     await expect(page).toHaveURL(/\/help/);
-    await expect(page.getByRole('heading', { name: '사용 안내' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '처음 시작하기' })).toBeVisible();
     await expect(page.getByRole('heading', { name: '객실료 컨펌' })).toBeVisible();
   });
 

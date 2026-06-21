@@ -64,7 +64,7 @@ export function StaffOnboardingModal() {
         aria-labelledby="staff-onboarding-title"
       >
         <header className="staff-onboarding__head">
-          <p className="staff-onboarding__eyebrow">신규 직원 안내 · 1분</p>
+          <p className="staff-onboarding__eyebrow">신규 직원 안내 · 약 1분</p>
           <h2 id="staff-onboarding-title">{current.title}</h2>
           <div className="staff-onboarding__steps" aria-hidden>
             {STAFF_ONBOARDING_STEPS.map((item) => (
@@ -104,7 +104,7 @@ export function StaffOnboardingModal() {
             ) : null}
             {isLast ? (
               <Link href="/help" className="btn btn--ghost btn--small" onClick={dismiss}>
-                도움말
+                시작 가이드
               </Link>
             ) : null}
             <button type="button" className="btn btn--primary btn--small" onClick={next}>

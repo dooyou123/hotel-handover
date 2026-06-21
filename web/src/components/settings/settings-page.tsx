@@ -13,6 +13,7 @@ import {
   deactivateStaff,
   invalidateSettingsQueries,
   saveCardTemplate,
+  swapStaffSortOrder,
   updateStaffName,
   useCardTemplates,
   useChecklistDefinitions,
@@ -239,6 +240,7 @@ export function SettingsPageClient() {
   const { data: templates = [], refetch: refetchTemplates } = useCardTemplates();
 
   const [staffName, setStaffName] = useState('');
+  const [staffBusyId, setStaffBusyId] = useState<string | null>(null);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<CardTemplate | null>(null);
   const [activeTab, setActiveTab] = useState<SettingsTab>('staff');
@@ -329,7 +331,7 @@ export function SettingsPageClient() {
               <div className="schedule-panel__header">
                 <div>
                   <h3>직원 목록</h3>
-                  <p>「지금 근무」 담당자 선택 목록에 반영됩니다.</p>
+                  <p>↑↓로 순서를 바꿀 수 있습니다. 「지금 근무」 담당자 선택 목록에 반영됩니다.</p>
                 </div>
                 <span className="shift-stat">
                   <strong>{activeStaff.length}</strong>명
@@ -360,13 +362,65 @@ export function SettingsPageClient() {
                 {!activeStaff.length ? (
                   <li className="staff-list__empty">등록된 직원이 없습니다.</li>
                 ) : (
-                  activeStaff.map((member) => (
+                  activeStaff.map((member, index) => (
                     <li key={member.id} className="staff-list__item">
+                      <span className="staff-list__order" aria-hidden>
+                        {index + 1}
+                      </span>
                       <span className="staff-list__name">{member.name}</span>
                       <div className="staff-list__actions">
                         <button
                           type="button"
+                          className="btn btn--ghost btn--xs"
+                          title="위로"
+                          disabled={index === 0 || staffBusyId === member.id}
+                          onClick={async () => {
+                            const neighbor = activeStaff[index - 1];
+                            if (!neighbor) return;
+                            setStaffBusyId(member.id);
+                            try {
+                              await swapStaffSortOrder(
+                                member.id,
+                                neighbor.id,
+                                member.sort_order,
+                                neighbor.sort_order,
+                              );
+                              refreshAll();
+                            } finally {
+                              setStaffBusyId(null);
+                            }
+                          }}
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn--ghost btn--xs"
+                          title="아래로"
+                          disabled={index === activeStaff.length - 1 || staffBusyId === member.id}
+                          onClick={async () => {
+                            const neighbor = activeStaff[index + 1];
+                            if (!neighbor) return;
+                            setStaffBusyId(member.id);
+                            try {
+                              await swapStaffSortOrder(
+                                member.id,
+                                neighbor.id,
+                                member.sort_order,
+                                neighbor.sort_order,
+                              );
+                              refreshAll();
+                            } finally {
+                              setStaffBusyId(null);
+                            }
+                          }}
+                        >
+                          ↓
+                        </button>
+                        <button
+                          type="button"
                           className="btn btn--ghost btn--small"
+                          disabled={staffBusyId === member.id}
                           onClick={async () => {
                             const next = window.prompt('새 이름', member.name);
                             if (!next?.trim()) return;
@@ -379,6 +433,7 @@ export function SettingsPageClient() {
                         <button
                           type="button"
                           className="btn btn--danger btn--small"
+                          disabled={staffBusyId === member.id}
                           onClick={async () => {
                             const ok = await confirm({
                               title: '직원 삭제',

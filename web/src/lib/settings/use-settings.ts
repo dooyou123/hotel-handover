@@ -135,6 +135,22 @@ export async function deactivateStaff(id: string) {
   if (error) throw error;
 }
 
+export async function swapStaffSortOrder(
+  id: string,
+  neighborId: string,
+  currentOrder: number,
+  neighborOrder: number,
+) {
+  const supabase = createClient();
+  const { error: firstError } = await supabase.from('staff').update({ sort_order: neighborOrder }).eq('id', id);
+  if (firstError) throw firstError;
+  const { error: secondError } = await supabase
+    .from('staff')
+    .update({ sort_order: currentOrder })
+    .eq('id', neighborId);
+  if (secondError) throw secondError;
+}
+
 export async function createChecklistDefinition(label: string, workGroup: string = 'common') {
   const supabase = createClient();
   const { data: maxRow } = await supabase

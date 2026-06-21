@@ -500,14 +500,27 @@ textarea {
 }
 
 .staff-list__item {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   gap: 0.75rem;
   align-items: center;
   padding: 0.7rem 0.8rem;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface-2);
+}
+
+.staff-list__order {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.08);
+  color: #2563eb;
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .staff-list__name {
@@ -1015,6 +1028,161 @@ textarea {
   margin: 0;
   color: var(--text-muted);
   font-size: 0.92rem;
+}
+
+.help-start-steps {
+  list-style: none;
+  margin: 0 0 1.5rem;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.help-start-step {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.help-start-step__num {
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.help-start-step h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.95rem;
+}
+
+.help-start-step p {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.help-page__section-head {
+  margin-bottom: 0.85rem;
+}
+
+.help-page__section-head h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+}
+
+.help-page__section-head p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+.help-features-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.help-feature-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.help-feature-card:hover {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+}
+
+.help-feature-card__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+}
+
+.help-feature-card__index {
+  flex-shrink: 0;
+  min-width: 1.35rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  padding-top: 0.15rem;
+}
+
+.help-feature-card__icon {
+  flex-shrink: 0;
+  width: 2.1rem;
+  height: 2.1rem;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: 1.05rem;
+}
+
+.help-feature-card__head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.help-feature-card__tagline {
+  margin: 0.15rem 0 0;
+  font-size: 0.82rem;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.help-feature-card__when {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.help-feature-card__when strong {
+  color: var(--text);
+}
+
+.help-feature-card__tips {
+  margin: 0;
+  padding-left: 1.05rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.help-feature-card__tips li + li {
+  margin-top: 0.3rem;
+}
+
+.help-feature-card__cta {
+  margin-top: auto;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.help-guide-grid--compact {
+  margin-top: 0.5rem;
 }
 
 .help-page__quick {
@@ -8135,8 +8303,13 @@ textarea {
 @media (max-width: 980px) {
   .settings-tabs,
   .help-page__grid,
+  .help-features-grid,
   .help-guide-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .help-start-steps {
+    grid-template-columns: 1fr;
   }
 
   .checklist-admin-grid,
@@ -9746,6 +9919,48 @@ textarea {
   color: var(--text-muted);
   border-bottom: 1px solid var(--border);
   background: var(--surface);
+}
+
+.brief-section--memo .brief-section__lead {
+  border-bottom: 0;
+  padding-bottom: 0.35rem;
+}
+
+.brief-memo-form {
+  padding: 0 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.brief-memo-form__input {
+  width: 100%;
+  min-height: 4.5rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font: inherit;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.brief-memo-form__input:focus {
+  outline: 2px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  border-color: var(--primary);
+}
+
+.brief-memo-form__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.brief-item__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
 }
 
 .brief-item--clickable {
@@ -14631,6 +14846,7 @@ textarea {
   }
 
   .help-page__grid,
+  .help-features-grid,
   .help-guide-grid {
     grid-template-columns: 1fr;
   }
@@ -15959,6 +16175,17 @@ textarea {
   border-bottom-color: rgba(234, 88, 12, 0.3);
 }
 
+.parcel-card__status-bar--stored.is-delivery-today {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-bottom-color: rgba(239, 68, 68, 0.28);
+}
+
+.parcel-card__status-bar-warn--delivery {
+  background: rgba(255, 255, 255, 0.72);
+  color: #b91c1c;
+}
+
 .parcel-card__status-bar--delivered {
   background: #ecfdf5;
   color: #166534;
@@ -16142,6 +16369,23 @@ textarea {
   font-size: 0.9rem;
   font-weight: 800;
   color: #b45309;
+}
+
+.parcel-card__delivery-urgency {
+  margin: 0.45rem 0 0;
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.22);
+  color: #b91c1c;
+  font-size: 0.84rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.parcel-card--delivery-today {
+  border-color: rgba(239, 68, 68, 0.35);
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.08);
 }
 
 .parcel-card__delivered {
@@ -16480,6 +16724,11 @@ textarea {
 .parcel-detail dd {
   margin: 0;
   color: var(--text);
+}
+
+.parcel-detail__delivery-urgency {
+  color: #b91c1c;
+  font-weight: 800;
 }
 
 .parcel-detail__signature {

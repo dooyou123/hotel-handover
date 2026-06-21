@@ -19,7 +19,9 @@ import {
   formatParcelCheckoutDate,
   PARCEL_DIRECTION_LABELS,
   PARCEL_STATUS_LABELS,
+  getParcelDeliveryUrgency,
   isParcelOverdue,
+  parcelDeliveryUrgencyMessage,
   type Parcel,
   type ParcelDirection,
   type ParcelInput,
@@ -164,6 +166,8 @@ export function ParcelsPageClient() {
 
   function renderParcelCard(parcel: Parcel) {
     const overdue = !isCompletedTab && isParcelOverdue(parcel);
+    const deliveryUrgency = !isCompletedTab ? getParcelDeliveryUrgency(parcel) : null;
+    const deliveryMessage = deliveryUrgency ? parcelDeliveryUrgencyMessage(deliveryUrgency) : null;
     const completed = isParcelCompleted(parcel);
     const dateHint = parcelDateHint(parcel);
     const hasDateHint = Boolean(dateHint);
@@ -176,6 +180,7 @@ export function ParcelsPageClient() {
           `parcel-card--${parcel.status}`,
           `parcel-card--${parcel.direction}`,
           overdue ? 'parcel-card--overdue' : '',
+          deliveryUrgency ? 'parcel-card--delivery-today' : '',
           completed ? 'parcel-card--completed' : '',
           hasDateHint ? 'parcel-card--checkout' : '',
         ]
@@ -185,9 +190,14 @@ export function ParcelsPageClient() {
         <div
           className={`parcel-card__status-bar parcel-card__status-bar--${parcel.status}${
             overdue ? ' is-overdue' : ''
-          }`}
+          }${deliveryUrgency ? ' is-delivery-today' : ''}`}
         >
           <span className="parcel-card__status-bar-label">{PARCEL_STATUS_LABELS[parcel.status]}</span>
+          {deliveryMessage ? (
+            <span className="parcel-card__status-bar-warn parcel-card__status-bar-warn--delivery">
+              {deliveryMessage}
+            </span>
+          ) : null}
           {overdue ? <span className="parcel-card__status-bar-warn">3일+ 미인도</span> : null}
           {!completed && parcel.direction === 'out_to_room' ? (
             <span className="parcel-card__status-bar-hint">서명 후 인도</span>
@@ -222,6 +232,11 @@ export function ParcelsPageClient() {
             {parcelPrimaryLabel(parcel)}
           </p>
           {dateHint ? <p className="parcel-card__checkout">{dateHint}</p> : null}
+          {deliveryMessage ? (
+            <p className="parcel-card__delivery-urgency" role="status">
+              {deliveryMessage}
+            </p>
+          ) : null}
         </div>
 
         <dl className="parcel-card__meta">
@@ -486,6 +501,16 @@ export function ParcelsPageClient() {
                     ? formatParcelCheckoutDate(detailParcel.checkout_date)
                     : '—'}
                 </dd>
+                {(() => {
+                  const urgency = getParcelDeliveryUrgency(detailParcel);
+                  if (!urgency) return null;
+                  return (
+                    <>
+                      <dt>전달 안내</dt>
+                      <dd className="parcel-detail__delivery-urgency">{parcelDeliveryUrgencyMessage(urgency)}</dd>
+                    </>
+                  );
+                })()}
                 <dt>상태</dt>
                 <dd>{PARCEL_STATUS_LABELS[detailParcel.status]}</dd>
                 <dt>보관</dt>

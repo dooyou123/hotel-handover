@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { buildWorkHubHref } from '@/lib/work/work-hub';
 import { ACTION_LABELS } from '@/lib/handover/activity';
@@ -42,9 +42,13 @@ export type ShiftBriefContentProps = {
   isLoading?: boolean;
   ackBusyId: string | null;
   followUpBusyId: string | null;
+  reviewActionBusyId?: string | null;
   savingHandover: boolean;
+  briefMemoSaving?: boolean;
   onAcknowledge: (cardId: string) => void;
   onFollowUp: (review: GuestReview) => void;
+  onCompleteReviewAction?: (review: GuestReview) => void;
+  onSaveBriefMemo?: (text: string) => Promise<void>;
   onLogShiftStart: () => void;
   onOpenCard?: (card: Card) => void;
   todayTodos?: Todo[];
@@ -381,12 +385,18 @@ function BriefWorkScheduleItem({
 
 function BriefReviewItem({
   review,
-  busy,
+  followUpBusy,
+  actionBusy,
   onFollowUp,
+  onCompleteAction,
+  canCompleteAction = true,
 }: {
   review: GuestReview;
-  busy: boolean;
+  followUpBusy: boolean;
+  actionBusy: boolean;
   onFollowUp: () => void;
+  onCompleteAction: () => void;
+  canCompleteAction?: boolean;
 }) {
   return (
     <article className="brief-item brief-item--warn">
@@ -400,10 +410,67 @@ function BriefReviewItem({
         <LinkifiedText text={review.content_ko} as="span" />
       </p>
       <p className="brief-item__meta">{formatTime(review.created_at)}</p>
-      <button type="button" className="btn btn--outline btn--xs" disabled={busy} onClick={onFollowUp}>
-        {busy ? '…' : '인수인계 카드 만들기'}
-      </button>
+      <div className="brief-item__actions">
+        <button type="button" className="btn btn--outline btn--xs" disabled={followUpBusy} onClick={onFollowUp}>
+          {followUpBusy ? '…' : '인수인계 카드 만들기'}
+        </button>
+        <button
+          type="button"
+          className="btn btn--primary btn--xs"
+          disabled={actionBusy || !canCompleteAction}
+          onClick={onCompleteAction}
+        >
+          {actionBusy ? '…' : '조치 완료'}
+        </button>
+      </div>
     </article>
+  );
+}
+
+function BriefMemoSection({
+  sessionReady,
+  saving,
+  onSave,
+}: {
+  sessionReady: boolean;
+  saving: boolean;
+  onSave: (text: string) => Promise<void>;
+}) {
+  const [memo, setMemo] = useState('');
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    const text = memo.trim();
+    if (!text || !sessionReady || saving) return;
+    await onSave(text);
+    setMemo('');
+  }
+
+  return (
+    <section className="brief-section brief-section--memo">
+      <h2>교대 메모</h2>
+      <p className="brief-section__lead">인계하면서 떠오른 할 일을 적어 두세요. 저장하면 오늘 할일에 추가됩니다.</p>
+      <form className="brief-memo-form" onSubmit={(e) => void handleSubmit(e)}>
+        <textarea
+          className="brief-memo-form__input"
+          value={memo}
+          onChange={(e) => setMemo(e.target.value)}
+          rows={3}
+          placeholder="예) 1207호 추가 수건 요청 확인 · VIP 도착 전 객실 점검"
+          aria-label="교대 메모"
+          disabled={!sessionReady || saving}
+        />
+        <div className="brief-memo-form__actions">
+          <button
+            type="submit"
+            className="btn btn--primary btn--small"
+            disabled={!memo.trim() || !sessionReady || saving}
+          >
+            {saving ? '저장 중…' : '오늘 할일로 저장'}
+          </button>
+        </div>
+      </form>
+    </section>
   );
 }
 
@@ -417,9 +484,13 @@ export function ShiftBriefContent({
   isLoading = false,
   ackBusyId,
   followUpBusyId,
+  reviewActionBusyId = null,
   savingHandover,
+  briefMemoSaving = false,
   onAcknowledge,
   onFollowUp,
+  onCompleteReviewAction,
+  onSaveBriefMemo,
   onLogShiftStart,
   onOpenCard,
   todayTodos = [],
@@ -553,6 +624,10 @@ export function ShiftBriefContent({
         <p className="empty-state">인계 내용을 불러오는 중…</p>
       ) : (
         <div className="shift-brief__sections">
+          {onSaveBriefMemo ? (
+            <BriefMemoSection sessionReady={sessionReady} saving={briefMemoSaving} onSave={onSaveBriefMemo} />
+          ) : null}
+
           {hkDayNotes ? (
             <section className="brief-section">
               <h2>하우스키핑 전달 메모</h2>
@@ -680,13 +755,17 @@ export function ShiftBriefContent({
           {pendingNegativeReviews.length ? (
             <section className="brief-section brief-section--warn">
               <h2>후속 필요 리뷰</h2>
+              <p className="brief-section__lead">조치가 끝났으면 「조치 완료」를 눌러 인계 목록에서 숨깁니다.</p>
               <div className="brief-section__list">
                 {pendingNegativeReviews.map((review) => (
                   <BriefReviewItem
                     key={review.id}
                     review={review}
-                    busy={followUpBusyId === review.id}
+                    followUpBusy={followUpBusyId === review.id}
+                    actionBusy={reviewActionBusyId === review.id}
                     onFollowUp={() => onFollowUp(review)}
+                    onCompleteAction={() => onCompleteReviewAction?.(review)}
+                    canCompleteAction={Boolean(onCompleteReviewAction)}
                   />
                 ))}
               </div>

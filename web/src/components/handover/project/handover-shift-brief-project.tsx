@@ -25,7 +25,10 @@ import {
 } from '@/lib/handover/use-activity-logs';
 import type { ActivityLog, ShiftHandover } from '@/lib/handover/types';
 import { createFollowUpCardFromReview } from '@/lib/reviews/follow-up-card';
+import { filterPendingFollowUpReviews } from '@/lib/reviews/pending-follow-up';
 import { useReviews } from '@/lib/reviews/use-reviews';
+import { briefMemoToTodoInput } from '@/lib/todos/brief-memo';
+import { useTodos } from '@/lib/todos/use-todos';
 import type { Card, WorkSession } from '@/lib/handover/types';
 import type { GuestReview } from '@/lib/reviews/types';
 import type { HotelEvent } from '@/lib/events/types';
@@ -64,7 +67,8 @@ export function HandoverShiftBriefProject({
   onToast,
 }: HandoverShiftBriefProjectProps) {
   const queryClient = useQueryClient();
-  const { reviews, isLoading: reviewsLoading } = useReviews();
+  const { reviews, isLoading: reviewsLoading, completeRoomAction } = useReviews();
+  const { createTodo } = useTodos();
   const { data: todayTaxi = [], isLoading: taxiLoading } = useTodayTaxiBookings();
 
   const todayTodos = useMemo(() => filterTodayTodos(todos), [todos]);
@@ -93,6 +97,8 @@ export function HandoverShiftBriefProject({
   const [checklist, setChecklist] = useState({ total: 0, incomplete: 0 });
   const [ackBusyId, setAckBusyId] = useState<string | null>(null);
   const [followUpBusyId, setFollowUpBusyId] = useState<string | null>(null);
+  const [reviewActionBusyId, setReviewActionBusyId] = useState<string | null>(null);
+  const [briefMemoSaving, setBriefMemoSaving] = useState(false);
   const [savingHandover, setSavingHandover] = useState(false);
   const [todayLogs, setTodayLogs] = useState<ActivityLog[]>([]);
   const [todayShiftLogs, setTodayShiftLogs] = useState<ShiftHandover[]>([]);
@@ -122,15 +128,7 @@ export function HandoverShiftBriefProject({
       }));
   }, [amenityData]);
 
-  const pendingNegativeReviews = useMemo(() => {
-    const cutoff = Date.now() - 14 * 86_400_000;
-    return reviews.filter(
-      (review) =>
-        review.sentiment === 'negative' &&
-        !review.follow_up_card_id &&
-        new Date(review.created_at).getTime() >= cutoff,
-    );
-  }, [reviews]);
+  const pendingNegativeReviews = useMemo(() => filterPendingFollowUpReviews(reviews), [reviews]);
 
   const loadChecklist = useCallback(async () => {
     if (!session.group) {
@@ -169,6 +167,37 @@ export function HandoverShiftBriefProject({
       onToast('긴급 확인에 실패했습니다.');
     } finally {
       setAckBusyId(null);
+    }
+  }
+
+  async function handleCompleteReviewAction(review: GuestReview) {
+    if (!requireSession('조치 완료')) return;
+    setReviewActionBusyId(review.id);
+    try {
+      await completeRoomAction.mutateAsync({ id: review.id, by: authorLabel });
+      onToast('리뷰 조치 완료로 표시했습니다. 인계 목록에서 숨깁니다.');
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : '조치 완료 처리에 실패했습니다.');
+    } finally {
+      setReviewActionBusyId(null);
+    }
+  }
+
+  async function handleSaveBriefMemo(text: string) {
+    if (!requireSession('오늘 할일 저장')) return;
+    setBriefMemoSaving(true);
+    try {
+      const input = briefMemoToTodoInput(text, {
+        author: authorLabel,
+        assigneeName: session.name,
+        assigneeShift: session.shift || session.group,
+      });
+      await createTodo.mutateAsync(input);
+      onToast(`오늘 할일에 추가했습니다. (${input.title})`);
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : '할일 저장에 실패했습니다.');
+    } finally {
+      setBriefMemoSaving(false);
     }
   }
 
@@ -275,9 +304,13 @@ export function HandoverShiftBriefProject({
       exportingImage={exportingImage}
       ackBusyId={ackBusyId}
       followUpBusyId={followUpBusyId}
+      reviewActionBusyId={reviewActionBusyId}
+      briefMemoSaving={briefMemoSaving}
       savingHandover={savingHandover}
       onAcknowledge={(cardId) => void handleAcknowledge(cardId)}
       onFollowUp={(review) => void handleFollowUp(review)}
+      onCompleteReviewAction={(review) => void handleCompleteReviewAction(review)}
+      onSaveBriefMemo={(text) => handleSaveBriefMemo(text)}
       onLogShiftStart={() => void handleLogShiftStart()}
       onOpenCard={onOpenCard}
       todayTodos={todayTodos}

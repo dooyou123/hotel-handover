@@ -1622,6 +1622,81 @@ test('parcel overdue helper', () => {
   assert.equal(isParcelOverdue(done, 3, now), false);
 });
 
+test('parcel delivery urgency warns for stored items due today', () => {
+  const {
+    getParcelDeliveryUrgency,
+    parcelDeliveryUrgencyMessage,
+  } = require('@/lib/parcels/types') as typeof import('@/lib/parcels/types');
+
+  const today = '2026-06-08';
+  const checkoutToday = {
+    status: 'stored',
+    checkout_date: today,
+    check_in_date: '',
+  } as import('@/lib/parcels/types').Parcel;
+  const checkinToday = {
+    status: 'stored',
+    checkout_date: '',
+    check_in_date: today,
+  } as import('@/lib/parcels/types').Parcel;
+  const delivered = {
+    status: 'delivered',
+    checkout_date: today,
+    check_in_date: '',
+  } as import('@/lib/parcels/types').Parcel;
+
+  assert.equal(getParcelDeliveryUrgency(checkoutToday, today), 'checkout_today');
+  assert.equal(parcelDeliveryUrgencyMessage('checkout_today'), '꼭 전달해주세요.');
+  assert.equal(getParcelDeliveryUrgency(checkinToday, today), 'checkin_today');
+  assert.equal(parcelDeliveryUrgencyMessage('checkin_today'), '체크인 시 꼭 전달하세요.');
+  assert.equal(getParcelDeliveryUrgency(delivered, today), null);
+  assert.equal(getParcelDeliveryUrgency(checkoutToday, '2026-06-09'), null);
+});
+
+test('review pending follow-up hides completed and linked reviews', () => {
+  const {
+    filterPendingFollowUpReviews,
+    isReviewPendingFollowUp,
+  } = require('@/lib/reviews/pending-follow-up') as typeof import('@/lib/reviews/pending-follow-up');
+
+  const now = new Date('2026-06-08T12:00:00').getTime();
+  const pending = {
+    sentiment: 'negative',
+    follow_up_card_id: null,
+    room_action_completed_at: null,
+    created_at: '2026-06-07T10:00:00Z',
+  } as import('@/lib/reviews/types').GuestReview;
+  const completed = {
+    ...pending,
+    room_action_completed_at: '2026-06-07T12:00:00Z',
+  } as import('@/lib/reviews/types').GuestReview;
+  const linked = {
+    ...pending,
+    follow_up_card_id: 'card-1',
+  } as import('@/lib/reviews/types').GuestReview;
+
+  assert.equal(isReviewPendingFollowUp(pending, now), true);
+  assert.equal(isReviewPendingFollowUp(completed, now), false);
+  assert.equal(isReviewPendingFollowUp(linked, now), false);
+  assert.equal(filterPendingFollowUpReviews([pending, completed, linked], now).length, 1);
+});
+
+test('brief memo converts to today todo input', () => {
+  const { briefMemoToTodoInput } = require('@/lib/todos/brief-memo') as typeof import('@/lib/todos/brief-memo');
+  const { todayDateString } = require('@/lib/handover/shift-summary') as typeof import('@/lib/handover/shift-summary');
+
+  const input = briefMemoToTodoInput('1207호 수건 확인\nVIP 도착 전 점검', {
+    author: 'B조 · 강두훈',
+    assigneeName: '강두훈',
+    assigneeShift: 'B',
+  });
+
+  assert.equal(input.title, '1207호 수건 확인');
+  assert.equal(input.description, 'VIP 도착 전 점검');
+  assert.equal(input.due_date, todayDateString());
+  assert.equal(input.assignee_name, '강두훈');
+});
+
 test('parcel board filter hides completed from active tabs and supports completed tab sections', () => {
   const {
     filterParcelsForBoard,
