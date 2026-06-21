@@ -10,6 +10,7 @@ import {
 } from '@/lib/handover/card-utils';
 import type { Card, WorkSession } from '@/lib/handover/types';
 import { SearchHighlight } from '@/components/handover/search-highlight';
+import { HandoverCardBodyPreview } from './handover-card-body-preview';
 
 type HandoverArchiveProjectProps = {
   cards: Card[];
@@ -173,9 +174,7 @@ export function HandoverArchiveProject({
                         </span>
 
                         {resolution ? (
-                          <span className="project-list-row__preview" title={resolution}>
-                            <SearchHighlight text={resolution} query={searchQuery} />
-                          </span>
+                          <HandoverCardBodyPreview searchQuery={searchQuery} resolution={resolution} />
                         ) : null}
 
                         <span className="project-list-row__foot">

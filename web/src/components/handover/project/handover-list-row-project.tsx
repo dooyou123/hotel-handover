@@ -22,6 +22,7 @@ import type { Card } from '@/lib/handover/types';
 import { formatComplaintRemedies, hasComplaintRemedies } from '@/lib/handover/complaint-remedies';
 import { ComplaintSlaBadge } from '@/components/handover/complaint-sla-badge';
 import { SearchHighlight } from '@/components/handover/search-highlight';
+import { HandoverCardBodyPreview } from './handover-card-body-preview';
 import { HandoverCardCommentSection } from './handover-card-comment-section';
 import { HandoverListRowMoreMenu } from './handover-list-row-more-menu';
 
@@ -80,7 +81,9 @@ export function HandoverListRowProject({
   const needsFirstResponse = needsComplaintFirstResponse(card);
   const activeCommentCount = countActiveCardComments(card);
   const hasComments = hasActiveCardComments(card);
-  const preview = card.next_action?.trim() || card.details?.trim() || card.resolution?.trim() || '';
+  const nextAction = card.next_action?.trim() || '';
+  const details = card.details?.trim() || '';
+  const resolution = card.resolution?.trim() || '';
   const remedySummary =
     card.category === '컴플레인' && hasComplaintRemedies(card.complaint_remedies, card.complaint_remedy_other)
       ? formatComplaintRemedies(card.complaint_remedies, card.complaint_remedy_other)
@@ -142,7 +145,18 @@ export function HandoverListRowProject({
         </label>
       ) : null}
       <div className="project-list-row__body">
-        <button type="button" className="project-list-row__main" onClick={onOpen}>
+        <div
+          className="project-list-row__main"
+          role="button"
+          tabIndex={0}
+          onClick={onOpen}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              onOpen();
+            }
+          }}
+        >
           <div className="project-list-row__top">
             <span className={`project-list-row__status project-list-row__status--${statusClass}`}>
               {status}
@@ -196,11 +210,13 @@ export function HandoverListRowProject({
             </span>
           ) : null}
 
-          {preview ? (
-            <span className="project-list-row__preview" title={preview}>
-              <SearchHighlight text={preview} query={searchQuery} />
-            </span>
-          ) : null}
+          <HandoverCardBodyPreview
+            searchQuery={searchQuery}
+            nextAction={nextAction}
+            details={details}
+            resolution={card.column_id === 'done' || archived ? resolution : ''}
+            clampLines={hasComments ? 2 : undefined}
+          />
 
           <span className="project-list-row__foot">
             <span className="project-list-row__foot-meta">
@@ -229,7 +245,7 @@ export function HandoverListRowProject({
               </time>
             ) : null}
           </span>
-        </button>
+        </div>
         <HandoverCardCommentSection
           card={card}
           staffName={staffName}

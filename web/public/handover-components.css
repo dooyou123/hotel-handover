@@ -229,7 +229,7 @@ a.help-quick-link:hover {
   font-weight: 600;
 }
 
-.field input,
+.field input:not([type="radio"]):not([type="checkbox"]),
 .field select,
 .field textarea {
   width: 100%;
@@ -238,6 +238,17 @@ a.help-quick-link:hover {
   border-radius: 10px;
   background: var(--surface-2);
   color: var(--text);
+}
+
+.field input[type="radio"],
+.field input[type="checkbox"] {
+  width: auto;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .field select,
@@ -292,6 +303,85 @@ a.help-quick-link:hover {
 .notice-drawer__body .linkified-text__link,
 .notice-read__body .linkified-text__link {
   color: #2563eb;
+}
+
+.modal--image-preview {
+  width: min(28rem, calc(100vw - 1.5rem));
+  max-height: min(85vh, calc(100vh - 2rem));
+  overflow: hidden;
+}
+
+.image-preview-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.image-preview-modal__title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.image-preview-modal__body {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.85rem;
+  background: color-mix(in srgb, var(--surface-2) 70%, var(--surface));
+}
+
+.image-preview-modal__body img {
+  display: block;
+  max-width: 100%;
+  max-height: min(58vh, 28rem);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: #fff;
+}
+
+.image-preview-modal__nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--text-secondary);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.image-preview-modal__nav:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+  background: var(--surface);
+}
+
+.image-preview-modal__nav--prev {
+  left: 0.45rem;
+}
+
+.image-preview-modal__nav--next {
+  right: 0.45rem;
+}
+
+.image-preview-modal__caption {
+  margin: 0;
+  padding: 0.55rem 0.9rem 0.75rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  word-break: break-all;
 }
 
 .toast {

@@ -1015,17 +1015,30 @@ test('sessionProgressLabel summarizes rate confirm item status', () => {
   );
 });
 
-test('isDoneTodoHiddenFromList hides done todos older than 7 days', () => {
+test('isLongPreviewText detects multiline and long single-line card bodies', () => {
+  const { CARD_BODY_PREVIEW_MAX_LINES, isLongPreviewText } =
+    require('@/lib/handover/card-body-preview') as typeof import('@/lib/handover/card-body-preview');
+
+  assert.equal(CARD_BODY_PREVIEW_MAX_LINES, 4);
+  assert.equal(isLongPreviewText('짧은 메모'), false);
+  assert.equal(isLongPreviewText('1\n2\n3\n4'), false);
+  assert.equal(isLongPreviewText('1\n2\n3\n4\n5'), true);
+  assert.equal(isLongPreviewText('a'.repeat(241)), true);
+});
+
+test('isDoneTodoHiddenFromList hides done todos older than 30 days', () => {
   const {
     DONE_TODO_HIDE_AFTER_DAYS,
     isDoneTodoHiddenFromList,
+    matchesTodoOpenFilter,
+    matchesEventOpenFilter,
     isPastHotelEvent,
     isCompletedHotelEvent,
     isPastOrCompletedHotelEvent,
     todayDateString,
   } = require('@/lib/work-items/schedule-filters') as typeof import('@/lib/work-items/schedule-filters');
 
-  assert.equal(DONE_TODO_HIDE_AFTER_DAYS, 7);
+  assert.equal(DONE_TODO_HIDE_AFTER_DAYS, 30);
 
   const now = new Date('2026-06-08T12:00:00');
   assert.equal(
@@ -1038,8 +1051,23 @@ test('isDoneTodoHiddenFromList hides done todos older than 7 days', () => {
   );
   assert.equal(
     isDoneTodoHiddenFromList({ status: 'done', completed_at: '2026-05-31T09:00:00Z' }, now),
+    false,
+  );
+  assert.equal(
+    isDoneTodoHiddenFromList({ status: 'done', completed_at: '2026-05-01T09:00:00Z' }, now),
     true,
   );
+  assert.equal(
+    matchesTodoOpenFilter({ status: 'done', completed_at: '2026-05-31T09:00:00Z' }, now),
+    true,
+  );
+  assert.equal(
+    matchesTodoOpenFilter({ status: 'done', completed_at: '2026-05-01T09:00:00Z' }, now),
+    false,
+  );
+  assert.equal(matchesEventOpenFilter({ completed_at: null }, now), true);
+  assert.equal(matchesEventOpenFilter({ completed_at: '2026-06-01T09:00:00Z' }, now), true);
+  assert.equal(matchesEventOpenFilter({ completed_at: '2026-04-01T09:00:00Z' }, now), false);
   assert.equal(isPastHotelEvent({ event_date: '2026-06-07', end_date: null }, todayDateString(now)), true);
   assert.equal(isPastHotelEvent({ event_date: '2026-06-08', end_date: null }, todayDateString(now)), false);
   assert.equal(

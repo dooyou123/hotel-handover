@@ -109,11 +109,14 @@ export function ShiftBriefPageClient() {
     }
   }
 
-  async function handleCompleteReviewAction(review: Parameters<typeof createFollowUpCardFromReview>[0]['review']) {
+  async function handleCompleteReviewAction(
+    review: Parameters<typeof createFollowUpCardFromReview>[0]['review'],
+    note: string,
+  ) {
     if (!requireSession('조치 완료')) return;
     setReviewActionBusyId(review.id);
     try {
-      await completeRoomAction.mutateAsync({ id: review.id, by: authorLabel });
+      await completeRoomAction.mutateAsync({ id: review.id, by: authorLabel, note });
       showToast('리뷰 조치 완료로 표시했습니다. 인계 목록에서 숨깁니다.');
     } catch (error) {
       showToast(error instanceof Error ? error.message : '조치 완료 처리에 실패했습니다.');
@@ -214,7 +217,7 @@ export function ShiftBriefPageClient() {
         savingHandover={savingHandover}
         onAcknowledge={(cardId) => void handleAcknowledge(cardId)}
         onFollowUp={(review) => void handleFollowUp(review)}
-        onCompleteReviewAction={(review) => void handleCompleteReviewAction(review)}
+        onCompleteReviewAction={(review, note) => handleCompleteReviewAction(review, note)}
         onSaveBriefMemo={(text) => handleSaveBriefMemo(text)}
         onLogShiftStart={() => void handleLogShiftStart()}
         todayTodos={todayTodos}

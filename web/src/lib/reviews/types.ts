@@ -33,6 +33,7 @@ export type GuestReview = {
   room_number: string;
   room_action_completed_at: string | null;
   room_action_completed_by: string;
+  room_action_note: string;
   ota_source: string;
   rating: number | null;
   account: string;

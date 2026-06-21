@@ -8,20 +8,31 @@ type SearchHighlightProps = {
   className?: string;
 };
 
-export function SearchHighlight({ text, query, className }: SearchHighlightProps) {
+function renderHighlightedLine(text: string, query: string, lineKey: string) {
   const parts = splitTextBySearchQuery(text, query);
+
+  return parts.map((part, index) =>
+    part.match ? (
+      <mark key={`${lineKey}-${index}`} className="search-mark">
+        {part.text}
+      </mark>
+    ) : (
+      <span key={`${lineKey}-${index}`}>{part.text}</span>
+    ),
+  );
+}
+
+export function SearchHighlight({ text, query, className }: SearchHighlightProps) {
+  const lines = text.split('\n');
 
   return (
     <span className={className}>
-      {parts.map((part, index) =>
-        part.match ? (
-          <mark key={index} className="search-mark">
-            {part.text}
-          </mark>
-        ) : (
-          <span key={index}>{part.text}</span>
-        ),
-      )}
+      {lines.map((line, lineIndex) => (
+        <span key={lineIndex}>
+          {lineIndex > 0 ? <br /> : null}
+          {renderHighlightedLine(line, query, String(lineIndex))}
+        </span>
+      ))}
     </span>
   );
 }

@@ -26,14 +26,19 @@ export function mergeWorkScheduleItems(input: {
   events: HotelEvent[];
   month: string;
   includeUndatedOpenTodos?: boolean;
+  /** 기본: 미완료만. 호출 측에서 이미 필터한 목록이면 `(todo) => !todo.due_date` 등으로 덮어쓸 수 있음 */
+  includeUndatedTodo?: (todo: Todo) => boolean;
 }): WorkScheduleItem[] {
-  const { todos, events, month, includeUndatedOpenTodos = true } = input;
+  const { todos, events, month, includeUndatedOpenTodos = true, includeUndatedTodo } = input;
   const items: WorkScheduleItem[] = [];
 
   for (const todo of todos) {
     if (todo.due_date && isInMonth(todo.due_date, month)) {
       items.push({ kind: 'todo', todo, sortAt: todoSortAt(todo) });
-    } else if (!todo.due_date && includeUndatedOpenTodos && todo.status === 'open') {
+    } else if (
+      !todo.due_date &&
+      (includeUndatedTodo?.(todo) ?? (includeUndatedOpenTodos && todo.status === 'open'))
+    ) {
       items.push({ kind: 'todo', todo, sortAt: todoSortAt(todo) });
     }
   }

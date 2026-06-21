@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ActivityRecordItem,
   ShiftHandoverRecordItem,
@@ -56,8 +57,6 @@ export function HandoverRecordsModal({
     enabled: open && tab === 'activity',
   });
 
-  if (!open) return null;
-
   function updateShiftFilters(patch: Partial<ShiftHandoverFilters>) {
     setShiftFilters((prev) => ({ ...prev, ...patch }));
   }
@@ -66,8 +65,10 @@ export function HandoverRecordsModal({
     setActivityFilters((prev) => ({ ...prev, ...patch }));
   }
 
-  return (
-    <div className="modal-overlay" onClick={onClose}>
+  if (!open) return null;
+
+  const dialog = (
+    <div className="modal-overlay modal-overlay--records" onClick={onClose}>
       <div className="modal modal--activity" onClick={(event) => event.stopPropagation()}>
         <div className="activity-modal">
           <div className="modal__header">
@@ -103,45 +104,48 @@ export function HandoverRecordsModal({
 
           {tab === 'shift' ? (
             <div className="activity-modal__filters records-modal__filters">
-              <label className="records-modal__today">
+              <div className="activity-modal__filter-group">
+                <label className="records-modal__today">
+                  <input
+                    type="checkbox"
+                    checked={shiftFilters.todayOnly && !shiftFilters.workDate.trim()}
+                    onChange={(event) => {
+                      if (event.target.checked) {
+                        updateShiftFilters({ todayOnly: true, workDate: '' });
+                      } else {
+                        updateShiftFilters({ todayOnly: false });
+                      }
+                    }}
+                  />
+                  오늘만
+                </label>
                 <input
-                  type="checkbox"
-                  checked={shiftFilters.todayOnly && !shiftFilters.workDate.trim()}
-                  onChange={(event) => {
-                    if (event.target.checked) {
-                      updateShiftFilters({ todayOnly: true, workDate: '' });
-                    } else {
-                      updateShiftFilters({ todayOnly: false });
-                    }
-                  }}
+                  type="date"
+                  value={shiftFilters.workDate}
+                  max={todayDateString()}
+                  onChange={(event) =>
+                    updateShiftFilters({
+                      workDate: event.target.value,
+                      todayOnly: !event.target.value,
+                    })
+                  }
+                  aria-label="날짜"
                 />
-                오늘만
-              </label>
-              <input
-                type="date"
-                value={shiftFilters.workDate}
-                max={todayDateString()}
-                onChange={(event) =>
-                  updateShiftFilters({
-                    workDate: event.target.value,
-                    todayOnly: !event.target.value,
-                  })
-                }
-                aria-label="날짜"
-              />
-              <select
-                value={shiftFilters.shift}
-                onChange={(event) => updateShiftFilters({ shift: event.target.value })}
-                aria-label="교대 필터"
-              >
-                {SHIFT_HANDOVER_SHIFT_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                <select
+                  value={shiftFilters.shift}
+                  onChange={(event) => updateShiftFilters({ shift: event.target.value })}
+                  aria-label="교대 필터"
+                >
+                  {SHIFT_HANDOVER_SHIFT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <input
                 type="search"
+                className="activity-modal__filter-search"
                 value={shiftFilters.query}
                 onChange={(event) => updateShiftFilters({ query: event.target.value })}
                 placeholder="이름·메모 검색…"
@@ -152,33 +156,36 @@ export function HandoverRecordsModal({
             <div className="activity-modal__filters">
               <input
                 type="search"
+                className="activity-modal__filter-search"
                 value={activityFilters.query}
                 onChange={(event) => updateActivityFilters({ query: event.target.value })}
                 placeholder="요약·작성자 검색…"
                 aria-label="변경 기록 검색"
               />
-              <select
-                value={activityFilters.entityType}
-                onChange={(event) => updateActivityFilters({ entityType: event.target.value })}
-                aria-label="유형 필터"
-              >
-                {ACTIVITY_ENTITY_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={activityFilters.action}
-                onChange={(event) => updateActivityFilters({ action: event.target.value })}
-                aria-label="동작 필터"
-              >
-                {ACTIVITY_ACTION_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+              <div className="activity-modal__filter-group">
+                <select
+                  value={activityFilters.entityType}
+                  onChange={(event) => updateActivityFilters({ entityType: event.target.value })}
+                  aria-label="유형 필터"
+                >
+                  {ACTIVITY_ENTITY_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={activityFilters.action}
+                  onChange={(event) => updateActivityFilters({ action: event.target.value })}
+                  aria-label="동작 필터"
+                >
+                  {ACTIVITY_ACTION_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           )}
 
@@ -203,4 +210,6 @@ export function HandoverRecordsModal({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(dialog, document.body) : null;
 }

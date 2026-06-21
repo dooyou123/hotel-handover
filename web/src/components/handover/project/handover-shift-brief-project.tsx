@@ -170,11 +170,11 @@ export function HandoverShiftBriefProject({
     }
   }
 
-  async function handleCompleteReviewAction(review: GuestReview) {
+  async function handleCompleteReviewAction(review: GuestReview, note: string) {
     if (!requireSession('조치 완료')) return;
     setReviewActionBusyId(review.id);
     try {
-      await completeRoomAction.mutateAsync({ id: review.id, by: authorLabel });
+      await completeRoomAction.mutateAsync({ id: review.id, by: authorLabel, note });
       onToast('리뷰 조치 완료로 표시했습니다. 인계 목록에서 숨깁니다.');
     } catch (error) {
       onToast(error instanceof Error ? error.message : '조치 완료 처리에 실패했습니다.');
@@ -309,7 +309,7 @@ export function HandoverShiftBriefProject({
       savingHandover={savingHandover}
       onAcknowledge={(cardId) => void handleAcknowledge(cardId)}
       onFollowUp={(review) => void handleFollowUp(review)}
-      onCompleteReviewAction={(review) => void handleCompleteReviewAction(review)}
+      onCompleteReviewAction={(review, note) => handleCompleteReviewAction(review, note)}
       onSaveBriefMemo={(text) => handleSaveBriefMemo(text)}
       onLogShiftStart={() => void handleLogShiftStart()}
       onOpenCard={onOpenCard}

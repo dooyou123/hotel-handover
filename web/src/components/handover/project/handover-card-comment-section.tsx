@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { ImagePreviewModal } from '@/components/ui/image-preview-modal';
 import { formatTime, getLatestActiveCardComment, getLatestCardComment, isCommentDeleted, isCommentEdited, formatDeletedCommentLabel, countActiveCardComments, hasActiveCardComments } from '@/lib/handover/card-utils';
 import type { Card } from '@/lib/handover/types';
 import { CardCommentComposer } from '@/components/handover/card-comment-composer';
@@ -26,6 +27,7 @@ export function HandoverCardCommentSection({
   const latestComment = hasActiveComments ? getLatestActiveCardComment(card) : getLatestCardComment(card);
   const attachments = card.card_attachments.filter((item) => item.url);
   const [expanded, setExpanded] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const hasComments = comments.length > 0;
 
   function commentPreviewText(comment: (typeof comments)[number]): string {
@@ -155,14 +157,30 @@ export function HandoverCardCommentSection({
       {attachments.length ? (
         <div className="project-list-row__photos">
           <span className="project-list-row__photos-label">사진 {attachments.length}</span>
-          <div className="project-list-row__photo-strip" aria-hidden>
-            {attachments.slice(0, 2).map((attachment) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={attachment.id} src={attachment.url} alt="" />
+          <div className="project-list-row__photo-strip">
+            {attachments.slice(0, 2).map((attachment, attachmentIndex) => (
+              <button
+                key={attachment.id}
+                type="button"
+                className="project-list-row__photo-thumb"
+                aria-label={`첨부 사진 ${attachmentIndex + 1} 보기`}
+                onClick={() => setPreviewIndex(attachmentIndex)}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={attachment.url} alt="" />
+              </button>
             ))}
           </div>
         </div>
       ) : null}
+
+      <ImagePreviewModal
+        open={previewIndex !== null}
+        attachments={attachments}
+        index={previewIndex ?? 0}
+        onClose={() => setPreviewIndex(null)}
+        onChangeIndex={setPreviewIndex}
+      />
     </div>
   );
 }

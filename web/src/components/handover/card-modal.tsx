@@ -570,6 +570,9 @@ export function CardModal({
           onChange={(event) => setForm({ ...form, details: event.target.value })}
           placeholder="상황·배경을 구체적으로 적어 주세요"
         />
+        <span className="field-hint">
+          Enter로 줄바꿈, 1. 2.로 항목을 나누면 목록에서 읽기 쉽습니다.
+        </span>
       </label>
       {form.column_id === 'done' ? (
         <label className="field">
@@ -589,6 +592,7 @@ export function CardModal({
           onChange={(event) => setForm({ ...form, next_action: event.target.value })}
           placeholder="다음 교대가 할 일"
         />
+        <span className="field-hint">목록에 한 줄로 보입니다. 요약만 적어 주세요.</span>
       </label>
     </>
   );

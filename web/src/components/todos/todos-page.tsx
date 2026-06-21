@@ -27,7 +27,7 @@ import { getNavPageMeta } from '@/lib/nav/page-meta';
 import { useTodos } from '@/lib/todos/use-todos';
 import { formatEventTimeRange, mergeWorkScheduleItems, type WorkScheduleItem } from '@/lib/work-items/merge';
 import { formatEventDateRange, isDateInEventRange } from '@/lib/events/event-dates';
-import { isDoneTodoHiddenFromList, isPastOrCompletedHotelEvent } from '@/lib/work-items/schedule-filters';
+import { isDoneTodoHiddenFromList, isPastOrCompletedHotelEvent, matchesEventOpenFilter, matchesTodoOpenFilter } from '@/lib/work-items/schedule-filters';
 import { todayDateString } from '@/lib/handover/shift-summary';
 import { TodoModal } from './todo-modal';
 
@@ -80,7 +80,7 @@ function todoPriorityToCard(priority: TodoPriority): Priority {
 
 const FILTERS: { id: TodoFilter; label: string }[] = [
   { id: 'all', label: '전체' },
-  { id: 'open', label: '미완료' },
+  { id: 'open', label: '미완료 · 최근완료' },
   { id: 'done', label: '완료' },
   { id: 'mine', label: '내 담당' },
 ];
@@ -139,7 +139,7 @@ export function TodosPageClient({ embedded = false, forceScope }: TodosPageClien
 
   const filteredTodos = useMemo(() => {
     return todos.filter((todo) => {
-      if (filter === 'open') return todo.status === 'open';
+      if (filter === 'open') return matchesTodoOpenFilter(todo);
       if (filter === 'done') return todo.status === 'done';
       if (filter === 'mine') {
         if (!session.name) return false;
@@ -160,11 +160,14 @@ export function TodosPageClient({ embedded = false, forceScope }: TodosPageClien
         ? events.filter((event) => Boolean(event.completed_at))
         : filter === 'mine'
           ? []
-          : events;
+          : filter === 'open'
+            ? events.filter((event) => matchesEventOpenFilter(event))
+            : events;
     const merged = mergeWorkScheduleItems({
       todos: filteredTodos,
       events: eventsForList,
       month,
+      includeUndatedTodo: (todo) => !todo.due_date,
     });
 
     if (filter === 'done') {
@@ -401,7 +404,9 @@ export function TodosPageClient({ embedded = false, forceScope }: TodosPageClien
               </p>
             ) : !activeItems.length && !pastEvents.length ? (
               <p className="empty-state">
-                {filter === 'open' ? '이 달에 표시할 미완료 업무 일정이 없습니다.' : '표시할 항목이 없습니다.'}
+                {filter === 'open'
+                  ? '이 달에 표시할 미완료·최근 완료 업무 일정이 없습니다.'
+                  : '표시할 항목이 없습니다.'}
               </p>
             ) : (
               <>

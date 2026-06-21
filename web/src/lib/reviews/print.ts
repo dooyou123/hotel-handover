@@ -55,7 +55,12 @@ export function buildReviewPrintHtml(
   const updatedLabel = formatReviewDate(review.updated_at || review.created_at);
   const roomLabel = review.room_number ? `${review.room_number}호` : '';
   const actionDone = review.room_action_completed_at
-    ? `완료 · ${review.room_action_completed_by || '—'} · ${formatReviewDate(review.room_action_completed_at)}`
+    ? [
+        `완료 · ${review.room_action_completed_by || '—'} · ${formatReviewDate(review.room_action_completed_at)}`,
+        review.room_action_note?.trim() ? `조치: ${review.room_action_note.trim()}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n')
     : '';
 
   const metaRows = [

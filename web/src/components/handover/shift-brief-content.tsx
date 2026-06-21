@@ -23,6 +23,7 @@ import { TODO_PRIORITY_LABELS, type Todo } from '@/lib/todos/types';
 import { transportStatusLabel, type TransportBooking } from '@/lib/transport/types';
 import { formatEventTimeRange, mergeWorkScheduleItems, type WorkScheduleItem } from '@/lib/work-items/merge';
 import { LinkifiedText } from '@/components/ui/linkified-text';
+import { ReviewActionCompleteModal } from '@/components/reviews/review-action-complete-modal';
 
 export type AmenityBriefAlert = {
   id: number;
@@ -47,7 +48,7 @@ export type ShiftBriefContentProps = {
   briefMemoSaving?: boolean;
   onAcknowledge: (cardId: string) => void;
   onFollowUp: (review: GuestReview) => void;
-  onCompleteReviewAction?: (review: GuestReview) => void;
+  onCompleteReviewAction?: (review: GuestReview, note: string) => Promise<void>;
   onSaveBriefMemo?: (text: string) => Promise<void>;
   onLogShiftStart: () => void;
   onOpenCard?: (card: Card) => void;
@@ -91,27 +92,32 @@ function BriefCardItem({
     card.category === '컴플레인' && hasComplaintRemedies(card.complaint_remedies, card.complaint_remedy_other)
       ? formatComplaintRemedies(card.complaint_remedies, card.complaint_remedy_other)
       : '';
-  const body = (
+
+  const ackButton =
+    unacked && onAcknowledge ? (
+      <button
+        type="button"
+        className="btn btn--danger btn--xs"
+        disabled={ackBusy}
+        onClick={(event) => {
+          event.stopPropagation();
+          onAcknowledge();
+        }}
+      >
+        {ackBusy ? '…' : '긴급 확인'}
+      </button>
+    ) : null;
+
+  const topBar = (
+    <div className={`brief-item__top${onOpenCard ? ' brief-item__top--clickable' : ''}`}>
+      <span className="brief-item__status">{cardStatusLabel(card)}</span>
+      {card.room ? <span className="brief-item__room card-room-badge">{card.room}</span> : null}
+      {ackButton}
+    </div>
+  );
+
+  const content = (
     <>
-      <div className="brief-item__top">
-        <span className="brief-item__status">{cardStatusLabel(card)}</span>
-        {card.room ? (
-          <span className="brief-item__room card-room-badge">{card.room}</span>
-        ) : null}
-        {unacked && onAcknowledge ? (
-          <button
-            type="button"
-            className="btn btn--danger btn--xs"
-            disabled={ackBusy}
-            onClick={(event) => {
-              event.stopPropagation();
-              onAcknowledge();
-            }}
-          >
-            {ackBusy ? '…' : '긴급 확인'}
-          </button>
-        ) : null}
-      </div>
       <p className="brief-item__title">{card.title}</p>
       {remedySummary ? <p className="brief-item__sub">제공: {remedySummary}</p> : null}
       {card.next_action ? (
@@ -133,14 +139,31 @@ function BriefCardItem({
   if (onOpenCard) {
     return (
       <article className={`brief-item brief-item--clickable${warn ? ' brief-item--warn' : ''}`}>
-        <button type="button" className="brief-item__open" onClick={() => onOpenCard(card)}>
-          {body}
-        </button>
+        {topBar}
+        <div
+          role="button"
+          tabIndex={0}
+          className="brief-item__open brief-item__open--stacked"
+          onClick={() => onOpenCard(card)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              onOpenCard(card);
+            }
+          }}
+        >
+          {content}
+        </div>
       </article>
     );
   }
 
-  return <article className={`brief-item${warn ? ' brief-item--warn' : ''}`}>{body}</article>;
+  return (
+    <article className={`brief-item${warn ? ' brief-item--warn' : ''}`}>
+      {topBar}
+      {content}
+    </article>
+  );
 }
 
 function BriefNoticeItem({ notice }: { notice: Notice }) {
@@ -514,6 +537,7 @@ export function ShiftBriefContent({
   className = '',
   hkDayNotes = null,
 }: ShiftBriefContentProps) {
+  const [actionReview, setActionReview] = useState<GuestReview | null>(null);
   const todayMonth = new Date().toISOString().slice(0, 7);
   const todayWorkItems = mergeWorkScheduleItems({
     todos: todayTodos,
@@ -764,7 +788,7 @@ export function ShiftBriefContent({
                     followUpBusy={followUpBusyId === review.id}
                     actionBusy={reviewActionBusyId === review.id}
                     onFollowUp={() => onFollowUp(review)}
-                    onCompleteAction={() => onCompleteReviewAction?.(review)}
+                    onCompleteAction={() => setActionReview(review)}
                     canCompleteAction={Boolean(onCompleteReviewAction)}
                   />
                 ))}
@@ -829,6 +853,20 @@ export function ShiftBriefContent({
             {savingHandover ? '기록 중…' : '교대 인수 기록'}
           </button>
         </footer>
+      ) : null}
+
+      {onCompleteReviewAction ? (
+        <ReviewActionCompleteModal
+          open={Boolean(actionReview)}
+          review={actionReview}
+          busy={Boolean(actionReview && reviewActionBusyId === actionReview.id)}
+          onClose={() => setActionReview(null)}
+          onConfirm={async (note) => {
+            if (!actionReview) return;
+            await onCompleteReviewAction(actionReview, note);
+            setActionReview(null);
+          }}
+        />
       ) : null}
     </div>
   );

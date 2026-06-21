@@ -29,6 +29,7 @@ import {
 import { useReviews } from '@/lib/reviews/use-reviews';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { OtaPastePanel, parsedOtaToReviewInput } from '@/components/reviews/ota-paste-panel';
+import { ReviewActionCompleteModal } from '@/components/reviews/review-action-complete-modal';
 import { otaSourceLabel, type OtaSource } from '@/lib/reviews/parse-ota';
 
 type ReviewModalProps = {
@@ -380,7 +381,7 @@ export function ReviewsPageClient() {
   const queryClient = useQueryClient();
   const { session, requireSession, authorLabel } = useWorkSession();
   const { confirm } = useConfirmDialog();
-  const { reviews, isLoading, error, createReview, updateReview, deleteReview, completeRoomAction, cancelRoomAction } =
+  const { reviews, isLoading, error, createReview, updateReview, deleteReview, completeRoomAction, updateRoomActionNote, cancelRoomAction } =
     useReviews();
   const [filter, setFilter] = useState<ReviewFilter>('전체');
   const [query, setQuery] = useState('');
@@ -389,6 +390,8 @@ export function ReviewsPageClient() {
   const [toast, setToast] = useState<string | null>(null);
   const [followUpBusyId, setFollowUpBusyId] = useState<string | null>(null);
   const [actionBusyId, setActionBusyId] = useState<string | null>(null);
+  const [actionReview, setActionReview] = useState<GuestReview | null>(null);
+  const [actionReviewMode, setActionReviewMode] = useState<'complete' | 'edit'>('complete');
   const [printOpenId, setPrintOpenId] = useState<string | null>(null);
 
   function handlePrint(review: GuestReview, recipient: (typeof REVIEW_PRINT_RECIPIENTS)[number]['value']) {
@@ -431,14 +434,29 @@ export function ReviewsPageClient() {
     window.setTimeout(() => setToast(null), 2500);
   }
 
-  async function handleRoomActionComplete(review: GuestReview) {
+  async function handleRoomActionComplete(review: GuestReview, note: string) {
     if (!requireSession('객실 조치 완료')) return;
     setActionBusyId(review.id);
     try {
-      await completeRoomAction.mutateAsync({ id: review.id, by: authorLabel });
+      await completeRoomAction.mutateAsync({ id: review.id, by: authorLabel, note });
       showToast('객실 조치 완료로 기록했습니다.');
+      setActionReview(null);
     } catch (caught) {
       showToast(caught instanceof Error ? caught.message : '기록에 실패했습니다.');
+    } finally {
+      setActionBusyId(null);
+    }
+  }
+
+  async function handleRoomActionNoteEdit(review: GuestReview, note: string) {
+    if (!requireSession('조치 내용 수정')) return;
+    setActionBusyId(review.id);
+    try {
+      await updateRoomActionNote.mutateAsync({ id: review.id, note });
+      showToast('조치 내용을 수정했습니다.');
+      setActionReview(null);
+    } catch (caught) {
+      showToast(caught instanceof Error ? caught.message : '수정에 실패했습니다.');
     } finally {
       setActionBusyId(null);
     }
@@ -612,16 +630,23 @@ export function ReviewsPageClient() {
                 </div>
 
                 <div className="review-card__footer">
-                  <p>
-                    {review.author || '등록자 미입력'} · {formatReviewDate(review.updated_at || review.created_at)}
-                    {review.room_number ? ` · ${review.room_number}호` : ''}
-                  </p>
-                  {review.room_action_completed_at ? (
-                    <p className="review-card__action-done">
-                      객실 조치 완료 · {review.room_action_completed_by || '—'} ·{' '}
-                      {formatReviewDate(review.room_action_completed_at)}
+                  <div className="review-card__footer-body">
+                    <p className="review-card__footer-meta">
+                      {review.author || '등록자 미입력'} · {formatReviewDate(review.updated_at || review.created_at)}
+                      {review.room_number ? ` · ${review.room_number}호` : ''}
                     </p>
-                  ) : null}
+                    {review.room_action_completed_at ? (
+                      <div className="review-card__action-block">
+                        <p className="review-card__action-done">
+                          객실 조치 완료 · {review.room_action_completed_by || '—'} ·{' '}
+                          {formatReviewDate(review.room_action_completed_at)}
+                        </p>
+                        {review.room_action_note?.trim() ? (
+                          <p className="review-card__action-note">{review.room_action_note}</p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
                   <div className="review-card__footer-actions">
                     <div className="review-card__print-wrap">
                       <button
@@ -677,24 +702,39 @@ export function ReviewsPageClient() {
                         disabled={actionBusyId === review.id}
                         onClick={(event) => {
                           event.stopPropagation();
-                          void handleRoomActionComplete(review);
+                          setActionReviewMode('complete');
+                          setActionReview(review);
                         }}
                       >
                         {actionBusyId === review.id ? '…' : '객실 조치 완료'}
                       </button>
                     ) : null}
                     {review.sentiment === 'negative' && review.room_action_completed_at ? (
-                      <button
-                        type="button"
-                        className="btn btn--ghost btn--xs"
-                        disabled={actionBusyId === review.id}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          void handleRoomActionCancel(review);
-                        }}
-                      >
-                        {actionBusyId === review.id ? '…' : '조치 완료 취소'}
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          className="btn btn--ghost btn--xs"
+                          disabled={actionBusyId === review.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setActionReview(review);
+                            setActionReviewMode('edit');
+                          }}
+                        >
+                          조치 내용 수정
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn--ghost btn--xs"
+                          disabled={actionBusyId === review.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void handleRoomActionCancel(review);
+                          }}
+                        >
+                          {actionBusyId === review.id ? '…' : '조치 완료 취소'}
+                        </button>
+                      </>
                     ) : null}
                   </div>
                 </div>
@@ -741,6 +781,22 @@ export function ReviewsPageClient() {
           showToast('리뷰가 삭제되었습니다.');
         }}
         onPrint={editing ? (recipient) => handlePrint(editing, recipient) : undefined}
+      />
+
+      <ReviewActionCompleteModal
+        open={Boolean(actionReview)}
+        review={actionReview}
+        mode={actionReviewMode}
+        busy={Boolean(actionReview && actionBusyId === actionReview.id)}
+        onClose={() => setActionReview(null)}
+        onConfirm={async (note) => {
+          if (!actionReview) return;
+          if (actionReviewMode === 'edit') {
+            await handleRoomActionNoteEdit(actionReview, note);
+            return;
+          }
+          await handleRoomActionComplete(actionReview, note);
+        }}
       />
 
       {toast ? <div className="toast">{toast}</div> : null}

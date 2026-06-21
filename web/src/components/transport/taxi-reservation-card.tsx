@@ -96,14 +96,10 @@ export function TaxiReservationCard({
   return (
     <article
       className={`taxi-card ${cardStatusClass(booking.status, booking)}${
-        isJumbo ? ' taxi-card--jumbo' : ' taxi-card--regular'
-      }${needsInputImminent ? ' taxi-card--needs-input' : ''}`}
+        needsInputImminent ? ' taxi-card--needs-input' : ''
+      }`}
     >
-      <div
-        className={`taxi-card__banner${
-          isJumbo ? ' taxi-card__banner--jumbo' : ' taxi-card__banner--regular'
-        }`}
-      >
+      <div className="taxi-card__banner">
         <div className="taxi-card__banner-meta">
           <span className="taxi-card__visual-type">{isJumbo ? '점보' : '일반'}</span>
           {countdown ? <span className="taxi-card__countdown">{countdown}</span> : null}
@@ -142,13 +138,7 @@ export function TaxiReservationCard({
         ) : null}
 
         <div className="taxi-card__chips">
-          <span
-            className={`taxi-card__chip taxi-card__chip--vehicle${
-              isJumbo ? ' taxi-card__chip--jumbo' : ''
-            }`}
-          >
-            {isJumbo ? '점보' : '일반'}
-          </span>
+          <span className="taxi-card__chip taxi-card__chip--vehicle">{isJumbo ? '점보' : '일반'}</span>
           <span className="taxi-card__chip">{formatTaxiPriceDisplay(booking.price)}</span>
           <span className="taxi-card__chip taxi-card__chip--muted">
             {booking.passengers}명 · 짐 {booking.baggage_count}개

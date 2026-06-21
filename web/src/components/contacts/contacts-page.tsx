@@ -185,7 +185,6 @@ function isEmailOrId(value: string): boolean {
 
 function ContactPhone({
   value,
-  label,
   onCopy,
   variant = 'primary',
 }: {
@@ -197,20 +196,15 @@ function ContactPhone({
   if (!value) return null;
   const href = isDialable(value) ? phoneHref(value) : null;
   const isId = isEmailOrId(value);
-  const display = label ?? value;
 
   if (href) {
     return (
       <a
         href={href}
-        className={`contact-card__phone contact-card__phone--${variant}`}
+        className={`contact-card__number contact-card__number--${variant}`}
         onClick={(e) => e.stopPropagation()}
-        title={display}
       >
-        <span className="contact-card__phone-icon" aria-hidden>
-          📞
-        </span>
-        <span className="contact-card__phone-text">{display}</span>
+        {value}
       </a>
     );
   }
@@ -218,17 +212,16 @@ function ContactPhone({
   return (
     <button
       type="button"
-      className={`contact-card__copy-id contact-card__copy-id--${variant}${isId ? ' contact-card__copy-id--id' : ''}`}
+      className={`contact-card__number contact-card__number--copy contact-card__number--${variant}${
+        isId ? ' contact-card__number--id' : ''
+      }`}
       onClick={(e) => {
         e.stopPropagation();
         void onCopy(value);
       }}
-      title={`${value}\n클릭하여 복사`}
+      title="클릭하여 복사"
     >
-      <span className="contact-card__phone-icon" aria-hidden>
-        {value.includes('@') ? '✉' : '📋'}
-      </span>
-      <span className="contact-card__phone-text">{display}</span>
+      {value}
     </button>
   );
 }
@@ -251,56 +244,64 @@ function ContactCard({
 
   return (
     <article className="contact-card contact-card--tile">
-      <button
-        type="button"
-        className={`contact-card__pin${contact.is_pinned ? ' is-active' : ''}`}
-        aria-label={contact.is_pinned ? '즐겨찾기 해제' : '즐겨찾기'}
-        onClick={() => onTogglePin(contact)}
-      >
-        ⭐
-      </button>
-
-      <div className="contact-card__body">
+      <div className="contact-card__top-row">
         <div className="contact-card__head">
           {showDepartment ? <span className="contact-card__dept">{contact.department}</span> : null}
           <h3 className="contact-card__name">{contact.name}</h3>
         </div>
+        <button
+          type="button"
+          className={`contact-card__pin${contact.is_pinned ? ' is-active' : ''}`}
+          aria-label={contact.is_pinned ? '즐겨찾기 해제' : '즐겨찾기'}
+          onClick={() => onTogglePin(contact)}
+        >
+          ★
+        </button>
+      </div>
 
+      <div className="contact-card__body">
         <div className="contact-card__phones">
           <ContactPhone value={contact.phone} onCopy={onCopy} />
           <ContactPhone value={contact.phone_alt} onCopy={onCopy} variant="alt" />
         </div>
 
         {contact.note ? (
-          <button
-            type="button"
+          <p
             className="contact-card__note"
             onClick={() => onCopy(contact.note)}
-            title={contact.note}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onCopy(contact.note);
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            title="클릭하여 복사"
           >
             {contact.note}
-          </button>
+          </p>
         ) : null}
       </div>
 
-      <div className="contact-card__actions">
+      <footer className="contact-card__actions">
         {primaryHref ? (
-          <a href={primaryHref} className="contact-card__quick contact-card__quick--primary">
+          <a href={primaryHref} className="btn btn--primary btn--xs contact-card__action">
             전화
           </a>
         ) : (
           <button
             type="button"
-            className="contact-card__quick contact-card__quick--primary"
+            className="btn btn--outline btn--xs contact-card__action"
             onClick={() => onCopy(contact.phone)}
           >
             복사
           </button>
         )}
-        <button type="button" className="contact-card__quick" onClick={() => onEdit(contact)}>
+        <button type="button" className="btn btn--ghost btn--xs contact-card__action" onClick={() => onEdit(contact)}>
           수정
         </button>
-      </div>
+      </footer>
     </article>
   );
 }

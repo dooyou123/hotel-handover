@@ -37,11 +37,11 @@ import {
 import { useTodos } from '@/lib/todos/use-todos';
 import { formatCalendarDateLabel, sortCalendarItemsByDone } from '@/lib/work/calendar-month';
 import { formatEventTimeRange } from '@/lib/work-items/merge';
-import { isDoneTodoHiddenFromList } from '@/lib/work-items/schedule-filters';
+import { isDoneTodoHiddenFromList, matchesEventOpenFilter, matchesTodoOpenFilter } from '@/lib/work-items/schedule-filters';
 
 const FILTERS: { id: TodoFilter; label: string }[] = [
   { id: 'all', label: '전체' },
-  { id: 'open', label: '미완료' },
+  { id: 'open', label: '미완료 · 최근완료' },
   { id: 'done', label: '완료' },
   { id: 'mine', label: '내 담당' },
 ];
@@ -59,7 +59,7 @@ function todoPriorityToCard(priority: TodoPriority): Priority {
 
 function eventMatchesFilter(event: HotelEvent, filter: TodoFilter): boolean {
   if (filter === 'done') return Boolean(event.completed_at);
-  if (filter === 'open') return !event.completed_at;
+  if (filter === 'open') return matchesEventOpenFilter(event);
   if (filter === 'mine') return false;
   return true;
 }
@@ -109,7 +109,7 @@ export function WorkHubSchedulePanel() {
 
   const filteredTodos = useMemo(() => {
     return todos.filter((todo) => {
-      if (filter === 'open') return todo.status === 'open';
+      if (filter === 'open') return matchesTodoOpenFilter(todo);
       if (filter === 'done') return todo.status === 'done';
       if (filter === 'mine') {
         if (!session.name) return false;
@@ -131,7 +131,7 @@ export function WorkHubSchedulePanel() {
   const undatedTodos = useMemo(
     () =>
       filteredTodos.filter(
-        (todo) => !todo.due_date && (filter !== 'open' || todo.status === 'open'),
+        (todo) => !todo.due_date && (filter !== 'open' || matchesTodoOpenFilter(todo)),
       ),
     [filteredTodos, filter],
   );

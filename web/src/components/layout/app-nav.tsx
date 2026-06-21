@@ -8,7 +8,6 @@ import { useIsManager } from '@/lib/handover/use-cards';
 import { useNavBadges } from '@/lib/nav/use-nav-badges';
 import { useNavItemsForUser, type NavDisplayItem } from '@/lib/settings/nav-visibility';
 import type { NavBadge } from '@/lib/nav/nav-badges';
-import { NavIcon } from '@/components/layout/nav-icons';
 import { useMobileNav } from '@/components/layout/mobile-nav';
 
 type AppNavProps = {
@@ -93,7 +92,6 @@ function NavLink({
       title={item.description}
       onClick={onNavigate}
     >
-      <NavIcon href={item.href} />
       <span className="nav-btn__label">{item.label}</span>
       {badge && badge.count > 0 ? (
         <span

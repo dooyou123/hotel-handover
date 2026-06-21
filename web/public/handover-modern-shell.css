@@ -132,7 +132,7 @@ html[data-ui='project'] .nova-nav__btn {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 0.5rem;
+  gap: 0.35rem;
   padding: 0.55rem 0.7rem;
   border-radius: var(--radius-sm);
   border-left: 3px solid transparent;
@@ -143,15 +143,7 @@ html[data-ui='project'] .nova-nav__btn {
 }
 
 html[data-ui='project'] .nav-btn__icon {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: color-mix(in srgb, var(--text-muted) 82%, var(--primary));
-}
-
-html[data-ui='project'] .nova-nav__btn.is-active .nav-btn__icon {
-  color: var(--primary);
+  display: none;
 }
 
 html[data-ui='project'] .nova-nav__btn .nav-btn__label {

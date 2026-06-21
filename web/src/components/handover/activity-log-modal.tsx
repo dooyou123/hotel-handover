@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { formatTime } from '@/lib/handover/card-utils';
 import {
   activityBadgeLabel,
@@ -33,14 +34,14 @@ export function ActivityLogModal({ open, onClose }: ActivityLogModalProps) {
   const [filters, setFilters] = useState<ActivityLogFilters>(DEFAULT_FILTERS);
   const { data: logs = [], isLoading } = useActivityLogs({ limit: 150, filters, enabled: open });
 
-  if (!open) return null;
-
   function updateFilters(patch: Partial<ActivityLogFilters>) {
     setFilters((prev) => ({ ...prev, ...patch }));
   }
 
-  return (
-    <div className="modal-overlay" onClick={onClose}>
+  if (!open) return null;
+
+  const dialog = (
+    <div className="modal-overlay modal-overlay--records" onClick={onClose}>
       <div className="modal modal--activity" onClick={(event) => event.stopPropagation()}>
         <div className="activity-modal">
           <div className="modal__header">
@@ -56,33 +57,36 @@ export function ActivityLogModal({ open, onClose }: ActivityLogModalProps) {
           <div className="activity-modal__filters">
             <input
               type="search"
+              className="activity-modal__filter-search"
               value={filters.query}
               onChange={(event) => updateFilters({ query: event.target.value })}
               placeholder="요약·작성자 검색…"
               aria-label="변경 기록 검색"
             />
-            <select
-              value={filters.entityType}
-              onChange={(event) => updateFilters({ entityType: event.target.value })}
-              aria-label="유형 필터"
-            >
-              {ACTIVITY_ENTITY_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <select
-              value={filters.action}
-              onChange={(event) => updateFilters({ action: event.target.value })}
-              aria-label="동작 필터"
-            >
-              {ACTIVITY_ACTION_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <div className="activity-modal__filter-group">
+              <select
+                value={filters.entityType}
+                onChange={(event) => updateFilters({ entityType: event.target.value })}
+                aria-label="유형 필터"
+              >
+                {ACTIVITY_ENTITY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filters.action}
+                onChange={(event) => updateFilters({ action: event.target.value })}
+                aria-label="동작 필터"
+              >
+                {ACTIVITY_ACTION_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="activity-modal__body">
@@ -131,4 +135,6 @@ export function ActivityLogModal({ open, onClose }: ActivityLogModalProps) {
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(dialog, document.body) : null;
 }

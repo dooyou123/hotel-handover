@@ -65,14 +65,30 @@ export function useReviews() {
   });
 
   const completeRoomAction = useMutation({
-    mutationFn: async ({ id, by }: { id: string; by: string }) => {
+    mutationFn: async ({ id, by, note = '' }: { id: string; by: string; note?: string }) => {
       const supabase = createClient();
       const { data, error } = await supabase
         .from('guest_reviews')
         .update({
           room_action_completed_at: new Date().toISOString(),
           room_action_completed_by: by.trim(),
+          room_action_note: note.trim(),
         })
+        .eq('id', id)
+        .select('*')
+        .single();
+      if (error) throw error;
+      return data as GuestReview;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  const updateRoomActionNote = useMutation({
+    mutationFn: async ({ id, note }: { id: string; note: string }) => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('guest_reviews')
+        .update({ room_action_note: note.trim() })
         .eq('id', id)
         .select('*')
         .single();
@@ -90,6 +106,7 @@ export function useReviews() {
         .update({
           room_action_completed_at: null,
           room_action_completed_by: '',
+          room_action_note: '',
         })
         .eq('id', id)
         .select('*')
@@ -117,6 +134,7 @@ export function useReviews() {
     updateReview,
     deleteReview,
     completeRoomAction,
+    updateRoomActionNote,
     cancelRoomAction,
   };
 }
