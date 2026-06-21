@@ -5046,6 +5046,22 @@ html[data-ui='project'] .contacts-page__filter.is-active {
   color: #fff;
 }
 
+html[data-ui='project'] .contact-card-list {
+  grid-template-columns: repeat(auto-fill, minmax(172px, 1fr));
+  gap: 0.5rem;
+}
+
+html[data-ui='project'] .contact-card--tile {
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+html[data-ui='project'] .contact-card--tile:hover {
+  border-color: var(--primary);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+}
+
 html[data-ui='project'] .schedule-page .schedule-tabs__btn {
   padding: 0.42rem 0.8rem;
   border: 1px solid var(--border);

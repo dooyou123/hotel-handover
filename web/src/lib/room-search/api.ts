@@ -72,7 +72,9 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
       .limit(40),
     supabase
       .from('guest_reviews')
-      .select('id, guest_name, room_number, sentiment, content_ko, reservation_number, updated_at, created_at')
+      .select(
+        'id, guest_name, room_number, sentiment, content_ko, reservation_number, updated_at, created_at, is_anonymous, check_in_date, check_out_date',
+      )
       .eq('hotel_id', DEFAULT_HOTEL_ID)
       .eq('is_active', true)
       .or(
@@ -153,7 +155,14 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
     hits.push({
       kind: 'review',
       id: review.id,
-      title: review.guest_name || review.content_ko?.slice(0, 40) || '리뷰',
+      title:
+        review.is_anonymous ||
+        (!review.guest_name?.trim() &&
+          !review.reservation_number?.trim() &&
+          !review.check_in_date &&
+          !review.check_out_date)
+          ? '익명 리뷰'
+          : review.guest_name || review.content_ko?.slice(0, 40) || '리뷰',
       subtitle: `${review.sentiment === 'negative' ? '나쁜' : '좋은'} 리뷰${review.room_number ? ` · ${review.room_number}호` : ''}${review.reservation_number ? ` · ${review.reservation_number}` : ''}`,
       href: '/reviews',
       at: review.updated_at || review.created_at,

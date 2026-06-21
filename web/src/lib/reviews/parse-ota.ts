@@ -1,6 +1,6 @@
 import type { ReviewSentiment } from '@/lib/reviews/types';
 
-export type OtaSource = 'booking' | 'agoda' | 'google' | 'expedia' | 'tripadvisor' | 'unknown';
+export type OtaSource = 'booking' | 'agoda' | 'google' | 'expedia' | 'tripadvisor' | 'tripla' | 'unknown';
 
 export type ParsedOtaReview = {
   ota_source: OtaSource;
@@ -41,6 +41,7 @@ function detectSource(text: string): OtaSource {
   if (lower.includes('booking.com') || lower.includes('reservation number')) return 'booking';
   if (lower.includes('agoda') || lower.includes('booking id')) return 'agoda';
   if (lower.includes('expedia') || lower.includes('itinerary')) return 'expedia';
+  if (lower.includes('tripla')) return 'tripla';
   if (lower.includes('tripadvisor') || lower.includes('trip advisor')) return 'tripadvisor';
   if (lower.includes('google') || /★/.test(text)) return 'google';
   return 'unknown';
@@ -180,16 +181,17 @@ export function parseOtaReviewPaste(raw: string): ParsedOtaReview | null {
 export function otaSourceLabel(source: OtaSource): string {
   switch (source) {
     case 'booking':
-      return 'Booking.com';
+      return '부킹닷컴';
     case 'agoda':
-      return 'Agoda';
+      return '아고다';
+    case 'expedia':
+      return '익스피디아';
+    case 'tripla':
+      return '공식홈페이지(tripla)';
     case 'google':
       return 'Google';
-    case 'expedia':
-      return 'Expedia';
     case 'tripadvisor':
-      return 'TripAdvisor';
     default:
-      return 'OTA';
+      return '';
   }
 }

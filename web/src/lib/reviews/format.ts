@@ -1,4 +1,5 @@
-export function formatStayRange(checkIn: string | null, checkOut: string | null): string {
+export function formatStayRange(checkIn: string | null, checkOut: string | null, anonymous = false): string {
+  if (anonymous) return '숙박일 미상';
   if (!checkIn && !checkOut) return '숙박일 미입력';
   const format = (value: string) =>
     new Date(`${value}T12:00:00`).toLocaleDateString('ko-KR', {

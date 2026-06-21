@@ -178,6 +178,11 @@ function isDialable(value: string): boolean {
   return phoneHref(value) !== null;
 }
 
+function isEmailOrId(value: string): boolean {
+  if (isDialable(value)) return false;
+  return value.includes('@') || value.length > 14;
+}
+
 function ContactPhone({
   value,
   label,
@@ -191,6 +196,8 @@ function ContactPhone({
 }) {
   if (!value) return null;
   const href = isDialable(value) ? phoneHref(value) : null;
+  const isId = isEmailOrId(value);
+  const display = label ?? value;
 
   if (href) {
     return (
@@ -198,11 +205,12 @@ function ContactPhone({
         href={href}
         className={`contact-card__phone contact-card__phone--${variant}`}
         onClick={(e) => e.stopPropagation()}
+        title={display}
       >
         <span className="contact-card__phone-icon" aria-hidden>
           📞
         </span>
-        <span>{label ?? value}</span>
+        <span className="contact-card__phone-text">{display}</span>
       </a>
     );
   }
@@ -210,17 +218,17 @@ function ContactPhone({
   return (
     <button
       type="button"
-      className={`contact-card__copy-id contact-card__copy-id--${variant}`}
+      className={`contact-card__copy-id contact-card__copy-id--${variant}${isId ? ' contact-card__copy-id--id' : ''}`}
       onClick={(e) => {
         e.stopPropagation();
         void onCopy(value);
       }}
-      title="클릭하여 복사"
+      title={`${value}\n클릭하여 복사`}
     >
       <span className="contact-card__phone-icon" aria-hidden>
-        📋
+        {value.includes('@') ? '✉' : '📋'}
       </span>
-      <span>{label ?? value}</span>
+      <span className="contact-card__phone-text">{display}</span>
     </button>
   );
 }
@@ -242,7 +250,7 @@ function ContactCard({
   const primaryHref = primaryDialable ? phoneHref(contact.phone) : null;
 
   return (
-    <article className="contact-card contact-card--list">
+    <article className="contact-card contact-card--tile">
       <button
         type="button"
         className={`contact-card__pin${contact.is_pinned ? ' is-active' : ''}`}
@@ -289,11 +297,6 @@ function ContactCard({
             복사
           </button>
         )}
-        {primaryHref ? (
-          <button type="button" className="contact-card__quick" onClick={() => onCopy(contact.phone)}>
-            복사
-          </button>
-        ) : null}
         <button type="button" className="contact-card__quick" onClick={() => onEdit(contact)}>
           수정
         </button>

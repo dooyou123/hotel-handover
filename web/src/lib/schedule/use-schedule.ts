@@ -6,7 +6,7 @@ import { emptyGroupSchedule, normalizeScheduleGroup } from '@/lib/schedule/group
 import { createClient } from '@/lib/supabase/client';
 import { todayDateString } from '@/lib/handover/shift-summary';
 import { monthDateRange } from '@/lib/schedule/month-range';
-import { parseScheduleCsv, type ParsedScheduleRow, type ScheduleEntry } from '@/lib/schedule/parse-csv';
+import { parseSchedulePaste, type ParsedScheduleRow, type ScheduleEntry } from '@/lib/schedule/parse-csv';
 
 export type TodaySchedule = {
   work_date: string;
@@ -65,13 +65,12 @@ export function useTodaySchedule() {
   });
 }
 
-export async function uploadScheduleCsv(
+export async function uploadScheduleEntries(
   month: string,
-  csvText: string,
+  entries: ParsedScheduleRow[],
   replace = true,
-): Promise<{ inserted: number; errors: string[]; schedule: ScheduleEntry[] }> {
-  const parsed = parseScheduleCsv(csvText, month);
-  if ('error' in parsed) throw new Error(parsed.error);
+): Promise<{ inserted: number; schedule: ScheduleEntry[] }> {
+  if (!entries.length) throw new Error('등록할 근무표가 없습니다.');
 
   const supabase = createClient();
   if (replace) {
@@ -85,7 +84,7 @@ export async function uploadScheduleCsv(
     if (error) throw error;
   }
 
-  const rows = parsed.entries.map((entry: ParsedScheduleRow) => ({
+  const rows = entries.map((entry) => ({
     hotel_id: DEFAULT_HOTEL_ID,
     work_date: entry.work_date,
     shift: entry.shift,
@@ -99,7 +98,19 @@ export async function uploadScheduleCsv(
   if (insertError) throw insertError;
 
   const schedule = await fetchMonthSchedule(month);
-  return { inserted: rows.length, errors: parsed.errors, schedule };
+  return { inserted: rows.length, schedule };
+}
+
+export async function uploadScheduleCsv(
+  month: string,
+  csvText: string,
+  replace = true,
+): Promise<{ inserted: number; errors: string[]; schedule: ScheduleEntry[] }> {
+  const parsed = parseSchedulePaste(csvText, month);
+  if ('error' in parsed) throw new Error(parsed.error);
+
+  const result = await uploadScheduleEntries(month, parsed.entries, replace);
+  return { inserted: result.inserted, errors: parsed.errors, schedule: result.schedule };
 }
 
 export type ScheduleEntryInput = {

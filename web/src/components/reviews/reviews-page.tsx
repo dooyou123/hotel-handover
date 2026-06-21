@@ -9,6 +9,14 @@ import { createFollowUpCardFromReview } from '@/lib/reviews/follow-up-card';
 import { getNavPageMeta } from '@/lib/nav/page-meta';
 import { formatReviewDate, formatStayRange } from '@/lib/reviews/format';
 import {
+  formatReviewGuestLabel,
+  isReviewAnonymous,
+  normalizeReviewInput,
+  REVIEW_ANONYMOUS_GUEST_LABEL,
+  shouldSuggestAnonymousReview,
+} from '@/lib/reviews/identity';
+import { printGuestReview, REVIEW_PRINT_RECIPIENTS } from '@/lib/reviews/print';
+import {
   REVIEW_ACCOUNT_PRESETS,
   REVIEW_FILTER_OPTIONS,
   REVIEW_SENTIMENT_LABELS,
@@ -30,6 +38,7 @@ type ReviewModalProps = {
   onClose: () => void;
   onSave: (input: GuestReviewInput, id?: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onPrint?: (recipient: (typeof REVIEW_PRINT_RECIPIENTS)[number]['value']) => void;
 };
 
 const emptyForm = (authorLabel: string): GuestReviewInput => ({
@@ -45,10 +54,19 @@ const emptyForm = (authorLabel: string): GuestReviewInput => ({
   ota_source: '',
   rating: null,
   account: '',
+  is_anonymous: false,
 });
 
-function ReviewModal({ open, review, authorLabel, onClose, onSave, onDelete }: ReviewModalProps) {
+const REVIEW_ACCOUNT_CUSTOM = '__custom__';
+
+function isPresetAccount(account: string | undefined): boolean {
+  const value = (account ?? '').trim();
+  return value !== '' && (REVIEW_ACCOUNT_PRESETS as readonly string[]).includes(value);
+}
+
+function ReviewModal({ open, review, authorLabel, onClose, onSave, onDelete, onPrint }: ReviewModalProps) {
   const [form, setForm] = useState<GuestReviewInput>(emptyForm(authorLabel));
+  const [accountCustom, setAccountCustom] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { confirm } = useConfirmDialog();
@@ -69,9 +87,12 @@ function ReviewModal({ open, review, authorLabel, onClose, onSave, onDelete }: R
         ota_source: review.ota_source || '',
         rating: review.rating,
         account: review.account || '',
+        is_anonymous: review.is_anonymous ?? isReviewAnonymous(review),
       });
+      setAccountCustom(Boolean((review.account || '').trim()) && !isPresetAccount(review.account));
     } else {
       setForm(emptyForm(authorLabel));
+      setAccountCustom(false);
     }
     setError(null);
   }, [open, review, authorLabel]);
@@ -92,7 +113,7 @@ function ReviewModal({ open, review, authorLabel, onClose, onSave, onDelete }: R
     setSaving(true);
     try {
       await onSave(
-        {
+        normalizeReviewInput({
           ...form,
           content_original: form.content_original.trim(),
           content_ko: form.content_ko.trim(),
@@ -101,7 +122,8 @@ function ReviewModal({ open, review, authorLabel, onClose, onSave, onDelete }: R
           room_number: form.room_number.trim(),
           author: form.author.trim() || authorLabel,
           account: (form.account ?? '').trim(),
-        },
+          is_anonymous: form.is_anonymous ?? false,
+        }),
         review?.id,
       );
       onClose();
@@ -125,7 +147,11 @@ function ReviewModal({ open, review, authorLabel, onClose, onSave, onDelete }: R
 
           {!review ? (
             <OtaPastePanel
-              onApply={(parsed) => setForm((prev) => ({ ...prev, ...parsedOtaToReviewInput(parsed, authorLabel) }))}
+              onApply={(parsed) => {
+                const next = parsedOtaToReviewInput(parsed, authorLabel);
+                setForm((prev) => ({ ...prev, ...next }));
+                setAccountCustom(Boolean(next.account?.trim()) && !isPresetAccount(next.account));
+              }}
             />
           ) : null}
 
@@ -150,32 +176,89 @@ function ReviewModal({ open, review, authorLabel, onClose, onSave, onDelete }: R
 
             <label className="field">
               <span>Account (여행사)</span>
-              <input
-                list="review-account-presets"
-                value={form.account ?? ''}
-                onChange={(e) => setForm({ ...form, account: e.target.value })}
-                placeholder="Booking.com, Agoda, Expedia…"
-              />
-              <datalist id="review-account-presets">
+              <select
+                className="field__select"
+                value={accountCustom ? REVIEW_ACCOUNT_CUSTOM : form.account ?? ''}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  if (next === REVIEW_ACCOUNT_CUSTOM) {
+                    setAccountCustom(true);
+                    setForm((prev) => ({ ...prev, account: '' }));
+                    return;
+                  }
+                  setAccountCustom(false);
+                  setForm((prev) => ({ ...prev, account: next }));
+                }}
+              >
+                <option value="">선택…</option>
                 {REVIEW_ACCOUNT_PRESETS.map((account) => (
-                  <option key={account} value={account} />
+                  <option key={account} value={account}>
+                    {account}
+                  </option>
                 ))}
-              </datalist>
+                <option value={REVIEW_ACCOUNT_CUSTOM}>직접 입력</option>
+              </select>
+              {accountCustom ? (
+                <input
+                  value={form.account ?? ''}
+                  onChange={(e) => setForm((prev) => ({ ...prev, account: e.target.value }))}
+                  placeholder="여행사명 직접 입력"
+                  autoFocus
+                />
+              ) : null}
             </label>
-            <label className="field">
+
+            <div
+              className={`review-anonymous-box${form.is_anonymous ? ' review-anonymous-box--active' : ''}`}
+            >
+              <label className="review-anonymous-box__toggle">
+                <input
+                  type="checkbox"
+                  checked={form.is_anonymous ?? false}
+                  onChange={(e) => {
+                    const is_anonymous = e.target.checked;
+                    setForm((prev) => ({
+                      ...prev,
+                      is_anonymous,
+                      ...(is_anonymous
+                        ? {
+                            guest_name: '',
+                            reservation_number: '',
+                            check_in_date: null,
+                            check_out_date: null,
+                            account: prev.account?.trim() || 'Google',
+                          }
+                        : {}),
+                    }));
+                    if (is_anonymous) {
+                      setAccountCustom(false);
+                    }
+                  }}
+                />
+                <span className="review-anonymous-box__text">
+                  <span className="review-anonymous-box__title">익명 리뷰</span>
+                  <span className="review-anonymous-box__desc">고객명·예약번호·숙박일 없음</span>
+                </span>
+              </label>
+              <p className="review-anonymous-box__hint">Google 등에서 이름·예약 정보 없이 등록된 리뷰</p>
+            </div>
+
+            <label className={`field${form.is_anonymous ? ' is-disabled' : ''}`}>
               <span>고객 이름</span>
               <input
                 value={form.guest_name}
-                onChange={(e) => setForm({ ...form, guest_name: e.target.value })}
+                onChange={(e) => setForm({ ...form, guest_name: e.target.value, is_anonymous: false })}
                 placeholder="예: Kim / 田中"
+                disabled={form.is_anonymous}
               />
             </label>
-            <label className="field">
+            <label className={`field${form.is_anonymous ? ' is-disabled' : ''}`}>
               <span>예약 번호</span>
               <input
                 value={form.reservation_number}
-                onChange={(e) => setForm({ ...form, reservation_number: e.target.value })}
+                onChange={(e) => setForm({ ...form, reservation_number: e.target.value, is_anonymous: false })}
                 placeholder="예: BK-20260315-001"
+                disabled={form.is_anonymous}
               />
             </label>
             <label className="field">
@@ -186,20 +269,26 @@ function ReviewModal({ open, review, authorLabel, onClose, onSave, onDelete }: R
                 placeholder="802"
               />
             </label>
-            <label className="field">
+            <label className={`field${form.is_anonymous ? ' is-disabled' : ''}`}>
               <span>체크인</span>
               <input
                 type="date"
                 value={form.check_in_date ?? ''}
-                onChange={(e) => setForm({ ...form, check_in_date: e.target.value || null })}
+                onChange={(e) =>
+                  setForm({ ...form, check_in_date: e.target.value || null, is_anonymous: false })
+                }
+                disabled={form.is_anonymous}
               />
             </label>
-            <label className="field">
+            <label className={`field${form.is_anonymous ? ' is-disabled' : ''}`}>
               <span>체크아웃</span>
               <input
                 type="date"
                 value={form.check_out_date ?? ''}
-                onChange={(e) => setForm({ ...form, check_out_date: e.target.value || null })}
+                onChange={(e) =>
+                  setForm({ ...form, check_out_date: e.target.value || null, is_anonymous: false })
+                }
+                disabled={form.is_anonymous}
               />
             </label>
 
@@ -252,6 +341,20 @@ function ReviewModal({ open, review, authorLabel, onClose, onSave, onDelete }: R
               ) : null}
             </div>
             <div className="modal__footer-right">
+              {review && onPrint ? (
+                <div className="review-card__print-wrap">
+                  {REVIEW_PRINT_RECIPIENTS.map((recipient) => (
+                    <button
+                      key={recipient.value}
+                      type="button"
+                      className="btn btn--ghost"
+                      onClick={() => onPrint(recipient.value)}
+                    >
+                      {recipient.label} 출력
+                    </button>
+                  ))}
+                </div>
+              ) : null}
               <button type="button" onClick={onClose} className="btn btn--ghost">
                 취소
               </button>
@@ -286,6 +389,15 @@ export function ReviewsPageClient() {
   const [toast, setToast] = useState<string | null>(null);
   const [followUpBusyId, setFollowUpBusyId] = useState<string | null>(null);
   const [actionBusyId, setActionBusyId] = useState<string | null>(null);
+  const [printOpenId, setPrintOpenId] = useState<string | null>(null);
+
+  function handlePrint(review: GuestReview, recipient: (typeof REVIEW_PRINT_RECIPIENTS)[number]['value']) {
+    const ok = printGuestReview(review, recipient);
+    setPrintOpenId(null);
+    if (!ok) {
+      showToast('인쇄 창을 열지 못했습니다. 브라우저 팝업 차단을 해제해 주세요.');
+    }
+  }
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -298,6 +410,7 @@ export function ReviewsPageClient() {
         review.content_original,
         review.content_ko,
         review.author,
+        isReviewAnonymous(review) ? REVIEW_ANONYMOUS_GUEST_LABEL : '',
       ]
         .join(' ')
         .toLowerCase()
@@ -463,8 +576,15 @@ export function ReviewsPageClient() {
                 </div>
 
                 <div className="review-card__meta">
-                  <span className="review-card__guest">{review.guest_name || '고객명 미입력'}</span>
-                  {review.reservation_number ? (
+                  <span
+                    className={`review-card__guest${isReviewAnonymous(review) ? ' review-card__guest--anonymous' : ''}`}
+                  >
+                    {formatReviewGuestLabel(review)}
+                  </span>
+                  {isReviewAnonymous(review) ? (
+                    <span className="review-card__anonymous-badge">익명 리뷰</span>
+                  ) : null}
+                  {!isReviewAnonymous(review) && review.reservation_number ? (
                     <span className="review-card__reservation">예약 {review.reservation_number}</span>
                   ) : null}
                   {review.account ? (
@@ -476,7 +596,9 @@ export function ReviewsPageClient() {
                     <span className="review-card__rating">★ {review.rating}</span>
                   ) : null}
                 </div>
-                <p className="review-card__stay">{formatStayRange(review.check_in_date, review.check_out_date)}</p>
+                <p className="review-card__stay">
+                  {formatStayRange(review.check_in_date, review.check_out_date, isReviewAnonymous(review))}
+                </p>
 
                 <div className="review-card__body">
                   <div className="review-card__section">
@@ -501,6 +623,34 @@ export function ReviewsPageClient() {
                     </p>
                   ) : null}
                   <div className="review-card__footer-actions">
+                    <div className="review-card__print-wrap">
+                      <button
+                        type="button"
+                        className="btn btn--ghost btn--xs"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setPrintOpenId((current) => (current === review.id ? null : review.id));
+                        }}
+                      >
+                        출력
+                      </button>
+                      {printOpenId === review.id ? (
+                        <div className="review-card__print-menu">
+                          {REVIEW_PRINT_RECIPIENTS.map((recipient) => (
+                            <button
+                              key={recipient.value}
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handlePrint(review, recipient.value);
+                              }}
+                            >
+                              {recipient.label}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
                     {review.sentiment === 'negative' ? (
                       review.follow_up_card_id ? (
                         <Link href="/handover" className="btn btn--ghost btn--xs">
@@ -590,6 +740,7 @@ export function ReviewsPageClient() {
           await deleteReview.mutateAsync(id);
           showToast('리뷰가 삭제되었습니다.');
         }}
+        onPrint={editing ? (recipient) => handlePrint(editing, recipient) : undefined}
       />
 
       {toast ? <div className="toast">{toast}</div> : null}

@@ -1,5 +1,5 @@
 export const SCHEDULE_TAB_HINTS = {
-  roster: '조별 근무표 CSV를 업로드·수정합니다.',
+  roster: '엑셀 근무표를 붙여넣거나 파일로 등록합니다.',
   leave: '휴무 신청을 등록하고 승인합니다.',
 } as const;
 

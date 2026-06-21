@@ -15,6 +15,7 @@ import {
 } from '@/lib/handover/shift-summary';
 import type { ActivityLog, Card, Notice, ShiftHandover } from '@/lib/handover/types';
 import type { GuestReview } from '@/lib/reviews/types';
+import { formatReviewGuestLabel, isReviewAnonymous } from '@/lib/reviews/identity';
 import type { HotelEvent } from '@/lib/events/types';
 import { isPickupImminent } from '@/lib/taxi/format';
 import { isTodoOverdue } from '@/lib/today/alerts';
@@ -391,7 +392,9 @@ function BriefReviewItem({
     <article className="brief-item brief-item--warn">
       <div className="brief-item__top">
         <span className="brief-item__status">나쁜 리뷰</span>
-        {review.guest_name ? <span className="brief-item__room">{review.guest_name}</span> : null}
+        {review.guest_name || isReviewAnonymous(review) ? (
+          <span className="brief-item__room">{formatReviewGuestLabel(review)}</span>
+        ) : null}
       </div>
       <p className="brief-item__title">
         <LinkifiedText text={review.content_ko} as="span" />

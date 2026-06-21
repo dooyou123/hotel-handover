@@ -5,11 +5,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { WORK_GROUPS, formatWorkGroupLabel } from '@/lib/constants';
 import { emptyGroupSchedule, normalizeScheduleGroup } from '@/lib/schedule/group-utils';
 import { useWorkSession } from '@/lib/handover/use-work-session';
-import { buildSampleCsv } from '@/lib/schedule/parse-csv';
-import type { ScheduleEntry } from '@/lib/schedule/parse-csv';
+import type { ScheduleEntry, ScheduleParseResult } from '@/lib/schedule/parse-csv';
 import {
   invalidateScheduleQueries,
-  uploadScheduleCsv,
+  uploadScheduleEntries,
   useMonthSchedule,
   useScheduleMutations,
   type ScheduleEntryInput,
@@ -20,6 +19,7 @@ import { getNavPageMeta } from '@/lib/nav/page-meta';
 import { SCHEDULE_TAB_HINTS } from '@/lib/nav/sub-feature-copy';
 import { LeaveRequestPanel } from './leave-request-panel';
 import { ScheduleEntryModal } from './schedule-entry-modal';
+import { SchedulePastePanel } from './schedule-paste-panel';
 
 type ScheduleTab = 'roster' | 'leave';
 
@@ -35,7 +35,6 @@ export function SchedulePageClient() {
   const { requireSession } = useWorkSession();
   const [tab, setTab] = useState<ScheduleTab>('roster');
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
-  const [csvText, setCsvText] = useState('');
   const [uploadNote, setUploadNote] = useState('');
   const [uploading, setUploading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -87,40 +86,26 @@ export function SchedulePageClient() {
     window.setTimeout(() => setToast(null), 2500);
   }
 
-  async function handleUpload() {
+  async function handleUploadParsed(parsed: ScheduleParseResult) {
     if (!month) {
-      showToast('업로드할 월을 선택해 주세요.');
-      return;
-    }
-    if (!csvText.trim()) {
-      showToast('CSV 파일을 선택하거나 내용을 붙여넣어 주세요.');
+      showToast('등록할 월을 선택해 주세요.');
       return;
     }
     setUploading(true);
     try {
-      const result = await uploadScheduleCsv(month, csvText, true);
+      const result = await uploadScheduleEntries(month, parsed.entries, true);
       invalidateScheduleQueries(queryClient);
       setUploadNote(
-        `${month} 스케줄 ${result.inserted}건 등록${
-          result.errors.length ? ` · ${result.errors.length}행 확인 필요` : ''
+        `${month} 근무표 ${result.inserted}건 등록${
+          parsed.errors.length ? ` · ${parsed.errors.length}행 확인 필요` : ''
         }`,
       );
-      showToast('스케줄이 업로드되었습니다.');
+      showToast('근무표가 등록되었습니다.');
     } catch (caught) {
-      showToast(caught instanceof Error ? caught.message : '업로드에 실패했습니다.');
+      showToast(caught instanceof Error ? caught.message : '등록에 실패했습니다.');
     } finally {
       setUploading(false);
     }
-  }
-
-  function downloadSample() {
-    const blob = new Blob([`\uFEFF${buildSampleCsv(month)}`], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `근무표_샘플_${month}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
   }
 
   async function handleSaveEntry(input: ScheduleEntryInput, id?: string) {
@@ -182,49 +167,9 @@ export function SchedulePageClient() {
               </label>
             </div>
 
-            <article className="schedule-panel schedule-panel--upload schedule-panel--full">
-              <div className="schedule-panel__header">
-                <div>
-                  <h3>CSV 일괄 업로드</h3>
-                  <p>CSV 형식: 날짜, 조, 이름 (예: A조, B, C)</p>
-                </div>
-              </div>
+            <SchedulePastePanel month={month} uploading={uploading} onUploadParsed={handleUploadParsed} />
 
-              <div className="schedule-upload__controls">
-                <label className="schedule-field schedule-field--file">
-                  <span>CSV 파일</span>
-                  <input
-                    type="file"
-                    accept=".csv,text/csv"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const reader = new FileReader();
-                      reader.onload = () => setCsvText(String(reader.result ?? ''));
-                      reader.readAsText(file, 'UTF-8');
-                      e.target.value = '';
-                    }}
-                  />
-                </label>
-              </div>
-
-              <label className="schedule-field schedule-field--full">
-                <span>CSV 내용</span>
-                <textarea rows={6} value={csvText} onChange={(e) => setCsvText(e.target.value)} placeholder="날짜,조,이름" />
-              </label>
-
-              <div className="schedule-upload__actions">
-                <button type="button" onClick={downloadSample} className="btn btn--ghost">
-                  샘플 CSV
-                </button>
-                <button type="button" onClick={handleUpload} disabled={uploading} className="btn btn--primary">
-                  {uploading ? '업로드 중…' : '업로드'}
-                </button>
-              </div>
-              <p className="schedule-upload__note">
-                {uploadNote || '같은 달을 다시 업로드하면 기존 근무표를 교체합니다.'}
-              </p>
-            </article>
+            {uploadNote ? <p className="schedule-upload__note schedule-upload__note--status">{uploadNote}</p> : null}
 
             {monthHolidayList.length > 0 ? (
               <article className="schedule-panel schedule-panel--holidays">

@@ -2,6 +2,7 @@ import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { logActivity } from '@/lib/handover/activity';
 import { createClient } from '@/lib/supabase/client';
 import type { GuestReview } from '@/lib/reviews/types';
+import { isReviewAnonymous } from '@/lib/reviews/identity';
 
 export async function createFollowUpCardFromReview(params: {
   review: GuestReview;
@@ -12,12 +13,22 @@ export async function createFollowUpCardFromReview(params: {
   const { review, author, shift, name } = params;
   const supabase = createClient();
 
-  const title = review.guest_name ? `리뷰 후속 — ${review.guest_name}` : '리뷰 후속';
+  const title = isReviewAnonymous(review)
+    ? '리뷰 후속 — 익명'
+    : review.guest_name
+      ? `리뷰 후속 — ${review.guest_name}`
+      : '리뷰 후속';
   const details = [
     review.content_ko,
     review.content_original ? `\n원문: ${review.content_original}` : '',
-    review.reservation_number ? `\n예약: ${review.reservation_number}` : '',
-    review.check_in_date ? `\n숙박: ${review.check_in_date}${review.check_out_date ? ` ~ ${review.check_out_date}` : ''}` : '',
+    isReviewAnonymous(review)
+      ? '\n고객 정보: 익명 (고객명·예약·숙박일 없음)'
+      : [
+          review.reservation_number ? `\n예약: ${review.reservation_number}` : '',
+          review.check_in_date
+            ? `\n숙박: ${review.check_in_date}${review.check_out_date ? ` ~ ${review.check_out_date}` : ''}`
+            : '',
+        ].join(''),
   ]
     .join('')
     .trim();

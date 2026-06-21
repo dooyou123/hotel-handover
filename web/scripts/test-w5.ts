@@ -819,7 +819,7 @@ test('parseOtaReviewPaste extracts booking fields and sentiment', () => {
   assert.equal(parsed!.check_in_date, '2026-06-01');
   assert.equal(parsed!.check_out_date, '2026-06-03');
   assert.equal(parsed!.sentiment, 'negative');
-  assert.equal(parsed!.account, 'Booking.com');
+  assert.equal(parsed!.account, '부킹닷컴');
 });
 
 test('parseOtaReviewPaste detects google stars', () => {
@@ -829,6 +829,89 @@ test('parseOtaReviewPaste detects google stars', () => {
   assert.equal(parsed!.ota_source, 'google');
   assert.equal(parsed!.rating, 5);
   assert.equal(parsed!.sentiment, 'positive');
+});
+
+test('buildReviewPrintHtml includes recipient and review body', () => {
+  const { buildReviewPrintHtml } = require('@/lib/reviews/print') as typeof import('@/lib/reviews/print');
+  const html = buildReviewPrintHtml(
+    {
+      id: 'r1',
+      hotel_id: 'h1',
+      sentiment: 'negative',
+      content_original: 'Room was dirty',
+      content_ko: '객실이 더러웠습니다.',
+      guest_name: 'Jane Doe',
+      check_in_date: '2026-06-01',
+      check_out_date: '2026-06-03',
+      reservation_number: 'BK-1',
+      author: '홍길동',
+      follow_up_card_id: null,
+      room_number: '1207',
+      room_action_completed_at: null,
+      room_action_completed_by: '',
+      ota_source: 'booking',
+      rating: 2,
+      account: '부킹닷컴',
+      is_anonymous: false,
+      is_active: true,
+      created_at: '2026-06-08T10:00:00',
+      updated_at: '2026-06-08T10:00:00',
+    },
+    'housekeeping',
+    new Date('2026-06-08T12:00:00'),
+  );
+
+  assert.match(html, /하우스키핑 전달/);
+  assert.match(html, /1207호/);
+  assert.match(html, /객실이 더러웠습니다\./);
+  assert.match(html, /Room was dirty/);
+});
+
+test('review identity helpers treat anonymous google reviews', () => {
+  const {
+    formatReviewGuestLabel,
+    isReviewAnonymous,
+    normalizeReviewInput,
+    shouldSuggestAnonymousReview,
+  } = require('@/lib/reviews/identity') as typeof import('@/lib/reviews/identity');
+
+  const anonymousReview = {
+    is_anonymous: true,
+    guest_name: '',
+    reservation_number: '',
+    check_in_date: null,
+    check_out_date: null,
+  };
+
+  assert.equal(isReviewAnonymous(anonymousReview), true);
+  assert.equal(formatReviewGuestLabel(anonymousReview), '익명');
+  assert.equal(
+    shouldSuggestAnonymousReview({
+      ota_source: 'google',
+      guest_name: '',
+      reservation_number: '',
+      check_in_date: null,
+      check_out_date: null,
+    }),
+    true,
+  );
+
+  const normalized = normalizeReviewInput({
+    sentiment: 'negative',
+    content_original: 'Bad',
+    content_ko: '나쁨',
+    guest_name: 'Kim',
+    reservation_number: '123',
+    check_in_date: '2026-06-01',
+    check_out_date: '2026-06-02',
+    room_number: '',
+    author: '홍길동',
+    is_anonymous: true,
+  });
+
+  assert.equal(normalized.guest_name, '');
+  assert.equal(normalized.reservation_number, '');
+  assert.equal(normalized.check_in_date, null);
 });
 
 test('facility stats include archived cards in room history', () => {
@@ -1259,6 +1342,39 @@ test('buildTodayAlerts includes card due alerts', () => {
   };
   const alerts = buildTodayAlerts({ unackedUrgent: [], cards: [card], todos: [], events: [] });
   assert.ok(alerts.some((a) => a.id === 'due-overdue-cards'));
+});
+
+test('parseSchedulePaste reads excel-style monthly matrix', () => {
+  const { parseSchedulePaste } = require('@/lib/schedule/parse-csv') as typeof import('@/lib/schedule/parse-csv');
+  const text = [
+    '날짜\tA조\tB조\tC조',
+    '1\t김프런\t이데스크\t최야간',
+    '2\t박체크, 김프런\t이데스크\t-',
+    '3\t최야간\t박체크\t김프런',
+  ].join('\n');
+
+  const parsed = parseSchedulePaste(text, '2026-06');
+  assert.ok(!('error' in parsed));
+  assert.equal(parsed.format, 'matrix');
+  assert.equal(parsed.entries.length, 9);
+  assert.deepEqual(
+    parsed.entries.filter((entry) => entry.work_date === '2026-06-02' && entry.shift === 'A').map((entry) => entry.staff_name),
+    ['박체크', '김프런'],
+  );
+});
+
+test('parseSchedulePaste still supports long csv rows', () => {
+  const { parseSchedulePaste } = require('@/lib/schedule/parse-csv') as typeof import('@/lib/schedule/parse-csv');
+  const text = [
+    '날짜,조,이름',
+    '2026-06-01,A조,김프런',
+    '2026-06-01,B조,이데스크',
+  ].join('\n');
+
+  const parsed = parseSchedulePaste(text, '2026-06');
+  assert.ok(!('error' in parsed));
+  assert.equal(parsed.format, 'long');
+  assert.equal(parsed.entries.length, 2);
 });
 
 test('session schedule mismatch detection', () => {

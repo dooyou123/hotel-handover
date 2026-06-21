@@ -575,6 +575,53 @@ textarea {
   font-size: 0.8rem;
 }
 
+.schedule-upload__note--status {
+  margin: 0 0 1rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(22, 101, 52, 0.08);
+  color: #166534;
+}
+
+.schedule-paste-panel__steps {
+  margin: 0 0 0.85rem;
+  padding-left: 1.15rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.schedule-paste-panel__input {
+  min-height: 10rem;
+}
+
+.schedule-paste-panel__error {
+  margin: 0.5rem 0 0;
+  color: #b91c1c;
+  font-size: 0.82rem;
+}
+
+.schedule-paste-panel__preview {
+  margin-top: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  border-radius: 10px;
+  background: rgba(37, 99, 235, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.schedule-paste-panel__preview p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-secondary, #404040);
+}
+
+.schedule-paste-panel__warn {
+  color: #b45309 !important;
+}
+
 .schedule-table-wrap {
   margin-top: 0.85rem;
   overflow-x: auto;
@@ -1563,9 +1610,178 @@ textarea {
 }
 
 .contact-card-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+  gap: 0.55rem;
+}
+
+.contact-card--tile {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  min-height: 100%;
+  padding: 0.65rem 0.7rem 0.55rem;
+  padding-top: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  cursor: default;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.contact-card--tile:hover {
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+}
+
+.contact-card--tile .contact-card__pin {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  z-index: 1;
+}
+
+.contact-card--tile .contact-card__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+  padding-right: 1.1rem;
+}
+
+.contact-card--tile .contact-card__head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.contact-card--tile .contact-card__name {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.3;
+  color: #111111;
+  letter-spacing: -0.01em;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.contact-card--tile .contact-card__phones {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.contact-card--tile .contact-card__phone,
+.contact-card--tile .contact-card__copy-id {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.22rem;
+  width: 100%;
+  max-width: none;
+  padding: 0.32rem 0.45rem;
+  border: 1px solid color-mix(in srgb, #0d9488 22%, var(--border));
+  border-radius: 8px;
+  background: #f0fdfa;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.25;
+  text-decoration: none;
+  cursor: pointer;
+  color: #0f766e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contact-card--tile .contact-card__copy-id--id {
+  align-items: flex-start;
+  justify-content: flex-start;
+  text-align: left;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.35;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  word-break: break-all;
+  background: #eff6ff;
+  border-color: color-mix(in srgb, #2563eb 18%, var(--border));
+  color: #1d4ed8;
+}
+
+.contact-card--tile .contact-card__copy-id--id .contact-card__phone-icon {
+  margin-top: 0.05rem;
+}
+
+.contact-card--tile .contact-card__phone-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contact-card--tile .contact-card__copy-id--id .contact-card__phone-text {
+  overflow: visible;
+  text-overflow: unset;
+  white-space: normal;
+  word-break: break-all;
+}
+
+.contact-card--tile .contact-card__phone--alt,
+.contact-card--tile .contact-card__copy-id--alt {
+  border-color: var(--border);
+  background: var(--surface-2);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.contact-card--tile .contact-card__note {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  width: 100%;
+  margin: 0;
+  padding: 0.28rem 0.4rem;
+  border: 0;
+  border-radius: 6px;
+  background: var(--surface-2);
+  font: inherit;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  text-align: left;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.contact-card--tile .contact-card__note::before {
+  content: none;
+}
+
+.contact-card--tile .contact-card__actions {
+  display: flex;
+  gap: 0.3rem;
+  margin-top: auto;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--border);
+}
+
+.contact-card--tile .contact-card__quick {
+  flex: 1;
+  justify-content: center;
+  min-height: 1.85rem;
+  font-size: 0.72rem;
 }
 
 .contact-card--list {
@@ -3747,6 +3963,23 @@ textarea {
   color: #1d4ed8;
   background: rgba(37, 99, 235, 0.08);
   border-bottom: 1px solid rgba(37, 99, 235, 0.15);
+}
+
+.card-create-hint {
+  margin: 0;
+  padding: 0.6rem 1.15rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.card-create-hint a {
+  color: #1d4ed8;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .drawer-panel__header h2 {
@@ -10572,6 +10805,15 @@ textarea {
     overscroll-behavior-x: contain;
   }
 
+  .contact-card--tile {
+    padding: 0.6rem 0.65rem 0.5rem;
+  }
+
+  .contact-card-list {
+    grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+    gap: 0.45rem;
+  }
+
   .contact-card--list {
     grid-template-columns: auto minmax(0, 1fr);
     align-items: start;
@@ -11946,6 +12188,128 @@ textarea {
   flex-wrap: wrap;
   gap: 0.35rem;
   margin-top: 0.45rem;
+}
+
+.review-card__guest--anonymous {
+  color: #525252;
+  font-style: italic;
+}
+
+.review-card__anonymous-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  background: #f5f5f5;
+  border: 1px solid #d4d4d4;
+  color: #525252;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.review-anonymous-box {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border, #e5e5e5);
+  border-radius: 10px;
+  background: var(--surface-2, #f9fafb);
+}
+
+.review-anonymous-box--active {
+  border-color: rgba(37, 99, 235, 0.35);
+  background: rgba(37, 99, 235, 0.04);
+}
+
+.review-anonymous-box__toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin: 0;
+  cursor: pointer;
+}
+
+.review-anonymous-box__toggle input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  margin: 0.1rem 0 0;
+  flex-shrink: 0;
+  accent-color: var(--primary, #2563eb);
+  cursor: pointer;
+}
+
+.review-anonymous-box__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.review-anonymous-box__title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text, #171717);
+  line-height: 1.3;
+}
+
+.review-anonymous-box__desc {
+  font-size: 0.78rem;
+  color: var(--text-muted, #737373);
+  line-height: 1.35;
+}
+
+.review-anonymous-box__hint {
+  margin: 0 0 0 1.75rem;
+  font-size: 0.76rem;
+  color: var(--text-muted, #737373);
+  line-height: 1.4;
+}
+
+.field.is-disabled > span {
+  color: var(--text-muted, #737373);
+}
+
+.field.is-disabled input:disabled {
+  background: #f5f5f5;
+  color: #a3a3a3;
+  cursor: not-allowed;
+}
+
+.review-card__print-wrap {
+  position: relative;
+}
+
+.review-card__print-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 4px);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  min-width: 7.5rem;
+  padding: 0.25rem;
+  border: 1px solid var(--border, #e5e5e5);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.review-card__print-menu button {
+  padding: 0.45rem 0.65rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text, #171717);
+  font: inherit;
+  font-size: 0.78rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.review-card__print-menu button:hover {
+  background: #f5f5f5;
 }
 
 @media (max-width: 900px) {

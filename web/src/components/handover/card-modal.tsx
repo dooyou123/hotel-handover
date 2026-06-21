@@ -963,6 +963,11 @@ export function CardModal({
                 이전에 작성하던 내용을 불러왔습니다. 저장하면 임시 저장본이 지워집니다.
               </p>
             ) : null}
+            {!card ? (
+              <p className="card-create-hint">
+                긴 공지·이벤트 안내는 <Link href={buildWorkHubHref('notices')}>게시판</Link>에, 카드에는 지금 넘겨야 할 업무만 적어 주세요.
+              </p>
+            ) : null}
             <div className="drawer-panel__body">{panelBody}</div>
             {formFooter}
           </form>

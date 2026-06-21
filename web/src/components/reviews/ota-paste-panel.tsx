@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { otaSourceLabel, parseOtaReviewPaste, type ParsedOtaReview } from '@/lib/reviews/parse-ota';
 import type { GuestReviewInput } from '@/lib/reviews/types';
+import { isReviewAnonymous, shouldSuggestAnonymousReview } from '@/lib/reviews/identity';
 
 type OtaPastePanelProps = {
   onApply: (parsed: ParsedOtaReview) => void;
@@ -62,6 +63,7 @@ export function OtaPastePanel({ onApply }: OtaPastePanelProps) {
           {preview.rating !== null ? <span>★ {preview.rating}</span> : null}
           <span>{preview.sentiment === 'negative' ? '나쁜 리뷰' : '좋은 리뷰'}</span>
           {preview.guest_name ? <span>{preview.guest_name}</span> : null}
+          {shouldSuggestAnonymousReview(preview) ? <span>익명 리뷰</span> : null}
           {preview.room_number ? <span>{preview.room_number}호</span> : null}
         </div>
       ) : null}
@@ -70,18 +72,20 @@ export function OtaPastePanel({ onApply }: OtaPastePanelProps) {
 }
 
 export function parsedOtaToReviewInput(parsed: ParsedOtaReview, authorLabel: string): GuestReviewInput {
+  const is_anonymous = shouldSuggestAnonymousReview(parsed);
   return {
     sentiment: parsed.sentiment,
     content_original: parsed.content_original,
     content_ko: parsed.content_ko,
-    guest_name: parsed.guest_name,
-    check_in_date: parsed.check_in_date,
-    check_out_date: parsed.check_out_date,
-    reservation_number: parsed.reservation_number,
+    guest_name: is_anonymous ? '' : parsed.guest_name,
+    check_in_date: is_anonymous ? null : parsed.check_in_date,
+    check_out_date: is_anonymous ? null : parsed.check_out_date,
+    reservation_number: is_anonymous ? '' : parsed.reservation_number,
     room_number: parsed.room_number,
     author: authorLabel,
     ota_source: parsed.ota_source === 'unknown' ? '' : parsed.ota_source,
     rating: parsed.rating,
-    account: parsed.account,
+    account: parsed.account || (is_anonymous ? 'Google' : ''),
+    is_anonymous,
   };
 }
