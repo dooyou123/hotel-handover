@@ -88,6 +88,7 @@ export const APP_NAV = [
   { href: '/schedule', label: '근무표', description: '조별 근무 CSV와 휴무 신청만 다룹니다.', category: 'core' as const },
   { href: '/contacts', label: '연락처', description: '내선·휴대폰 등 빠른 연락처를 모아 둡니다.', category: 'ops' as const },
   { href: '/checklist', label: '체크리스트', description: '교대·조별 확인 항목을 체크합니다.', category: 'ops' as const },
+  { href: '/training', label: '프런트 교육', description: '긴급 대응·컴플레인 롤플레이 교육 모듈입니다.', category: 'ops' as const },
   { href: '/housekeeping', label: '하우스키핑', description: '층별 객실 상태·특이사항을 일별로 기록합니다.', category: 'ops' as const },
   { href: '/amenity', label: '어메니티', description: '품목 재고와 입고·출고·실사를 기록합니다.', category: 'ops' as const },
   { href: '/retail', label: '판매상품', description: '판매·배포·입고를 월별로 관리하고 실사로 마감합니다.', category: 'ops' as const },

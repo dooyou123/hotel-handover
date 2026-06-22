@@ -14,6 +14,7 @@ import { HandoverAsideProject } from './handover-aside-project';
 import { HandoverMobilePanel } from './handover-mobile-panel';
 import { HandoverMobileViewTabs, type HandoverMobileView } from './handover-mobile-view-tabs';
 import { HandoverListProject } from './handover-list-project';
+import { HandoverListSummary } from './handover-list-summary';
 import { HandoverShiftBriefProject } from './handover-shift-brief-project';
 import { HandoverToolbarProject } from './handover-toolbar-project';
 
@@ -198,9 +199,7 @@ export function HandoverWorkspaceProject({
 
       <HandoverMobileViewTabs view={mobileView} panelBadge={mobilePanelBadge} onChange={setMobileView} />
 
-      <div
-        className={`project-handover__split project-handover__split--mobile-${mobileView}`}
-      >
+      <div className={`project-handover__split project-handover__split--mobile-${mobileView}`}>
         <div className="project-handover__main">
           <div className="project-handover__main-head">
             <HandoverToolbarProject
@@ -238,7 +237,16 @@ export function HandoverWorkspaceProject({
             ) : panelViewMode === 'room' ? (
               <RoomView cards={visibleCards} onOpenCard={onOpenCard} />
             ) : (
-              <HandoverListProject
+              <>
+                <HandoverListSummary
+                  cards={cards}
+                  todos={todos}
+                  events={events}
+                  onShowUnacked={onShowUnacked}
+                  onOpenCard={onOpenCard}
+                  onAcknowledge={onAcknowledge}
+                />
+                <HandoverListProject
                 cards={visibleCards}
                 searchQuery={searchQuery}
                 staffNames={staffNames}
@@ -264,6 +272,7 @@ export function HandoverWorkspaceProject({
                 onBulkResume={onBulkResume}
                 onBulkArchive={onBulkArchive}
               />
+              </>
             )}
           </div>
         </div>

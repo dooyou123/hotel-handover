@@ -43,7 +43,7 @@ function AppShellNovaInner({ email, children }: AppShellNovaProps) {
       <div className="nova-main">
         <NavRouteGuard />
         <div className="nova-topbar-stack">
-          <header className="nova-topbar">
+          <header className="nova-topbar nova-topbar--primary">
             <MobileNavTrigger />
             <TodayStaffBar variant="compact" />
             <div className="nova-topbar__end">
@@ -51,8 +51,10 @@ function AppShellNovaInner({ email, children }: AppShellNovaProps) {
               <AppHeaderActions />
             </div>
           </header>
-          <SessionScheduleMismatchBanner />
-          <TopbarAlertsStrip />
+          <div className="nova-topbar-stack__secondary">
+            <SessionScheduleMismatchBanner />
+            <TopbarAlertsStrip />
+          </div>
         </div>
         <main className="nova-content">
           <OpsBootstrap>{children}</OpsBootstrap>

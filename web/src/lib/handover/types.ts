@@ -1,7 +1,7 @@
 export type ColumnId = 'urgent' | 'progress' | 'hold' | 'done';
 export type Priority = 'urgent' | 'today' | 'info';
 export type QuickFilter = 'all' | 'unacked' | 'mine' | 'roomclean' | string;
-export type HandoverViewMode = 'today' | 'board' | 'room' | 'archive' | 'brief';
+export type HandoverViewMode = 'board' | 'room' | 'archive' | 'brief';
 
 export type CardAcknowledgment = {
   id: string;

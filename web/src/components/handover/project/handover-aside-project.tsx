@@ -95,7 +95,7 @@ export function HandoverAsideProject({
   return (
     <aside className="project-handover__aside" aria-label="업무 사이드바">
       <div className="project-handover-aside">
-        <section className="aside-card aside-card--shift">
+        <section className="aside-card aside-card--shift aside-card--primary">
           <div
             className={[
               'aside-shift-status',

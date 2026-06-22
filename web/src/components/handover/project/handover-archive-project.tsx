@@ -147,10 +147,17 @@ export function HandoverArchiveProject({
                 return (
                   <article key={card.id} className="project-list-row is-archived is-done">
                     <div className="project-list-row__body">
-                      <button
-                        type="button"
+                      <div
                         className="project-list-row__main"
+                        role="button"
+                        tabIndex={0}
                         onClick={() => onOpenCard(card)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            onOpenCard(card);
+                          }
+                        }}
                       >
                         <div className="project-list-row__top">
                           <span className="project-list-row__status project-list-row__status--archive">
@@ -201,7 +208,7 @@ export function HandoverArchiveProject({
                             </time>
                           </span>
                         </span>
-                      </button>
+                      </div>
                     </div>
                     {isManager && onRestore ? (
                       <div className="project-list-row__actions">

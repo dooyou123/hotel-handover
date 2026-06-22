@@ -46,7 +46,7 @@ export function HandoverToolbarProject(props: HandoverToolbarProjectProps) {
 
   const isArchiveView = viewMode === 'archive';
   const isBriefView = viewMode === 'brief';
-  const isListView = !isArchiveView && !isBriefView && viewMode !== 'room';
+  const isBoardView = viewMode === 'board';
 
   const handoverMeta = getNavPageMeta('/handover');
 
@@ -62,8 +62,8 @@ export function HandoverToolbarProject(props: HandoverToolbarProjectProps) {
           <button
             type="button"
             role="tab"
-            aria-selected={viewMode === 'board' || viewMode === 'today'}
-            className={viewMode === 'board' || viewMode === 'today' ? 'is-active' : ''}
+            aria-selected={isBoardView}
+            className={isBoardView ? 'is-active' : ''}
             onClick={() => onViewModeChange('board')}
           >
             목록
@@ -124,31 +124,31 @@ export function HandoverToolbarProject(props: HandoverToolbarProjectProps) {
         </div>
       </div>
 
-      {isListView ? (
-      <div className="project-handover-toolbar__row project-handover-toolbar__row--filters">
-        <div className="project-handover-toolbar__filters" role="tablist" aria-label="빠른 필터">
-          {QUICK_FILTERS.map((filter) => (
-            <button
-              key={filter.id}
-              type="button"
-              role="tab"
-              aria-selected={quickFilter === filter.id}
-              onClick={() => onQuickFilterChange(filter.id)}
-              className={[
-                'project-handover-toolbar__filter',
-                quickFilter === filter.id ? 'is-active' : '',
-                filter.id === 'due-soon' || filter.id === 'hold-long'
-                  ? 'project-handover-toolbar__filter--warn'
-                  : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-            >
-              {filter.label}
-            </button>
-          ))}
+      {isBoardView ? (
+        <div className="project-handover-toolbar__row project-handover-toolbar__row--filters">
+          <div className="project-handover-toolbar__filters" role="tablist" aria-label="빠른 필터">
+            {QUICK_FILTERS.map((filter) => (
+              <button
+                key={filter.id}
+                type="button"
+                role="tab"
+                aria-selected={quickFilter === filter.id}
+                onClick={() => onQuickFilterChange(filter.id)}
+                className={[
+                  'project-handover-toolbar__filter',
+                  quickFilter === filter.id ? 'is-active' : '',
+                  filter.id === 'due-soon' || filter.id === 'hold-long'
+                    ? 'project-handover-toolbar__filter--warn'
+                    : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
       ) : isBriefView ? (
         <p className="project-handover-toolbar__archive-hint">
           교대 인수 전 확인 화면입니다. 위 숫자 칩으로 한눈에 보고, 항목을 누르면 카드 상세로 이동합니다.

@@ -30,6 +30,23 @@ export function HelpPageClient() {
         </Link>
       </article>
 
+      <div className="help-page__quick-wrap">
+        <p className="help-page__section-head">
+          <strong>프런트 교육</strong> — 신입·교대 전 시뮬레이션
+        </p>
+        <div className="help-page__quick">
+          <Link href="/training" className="help-quick-link">
+            교육 허브
+          </Link>
+          <Link href="/training/emergency" className="help-quick-link">
+            긴급 대응 가이드
+          </Link>
+          <Link href="/training/complaint" className="help-quick-link">
+            컴플레인 롤플레이
+          </Link>
+        </div>
+      </div>
+
       <ol className="help-start-steps">
         {GETTING_STARTED_STEPS.map((item) => (
           <li key={item.step} className="help-start-step">
