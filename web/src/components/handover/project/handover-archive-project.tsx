@@ -147,6 +147,43 @@ export function HandoverArchiveProject({
                 return (
                   <article key={card.id} className="project-list-row is-archived is-done">
                     <div className="project-list-row__body">
+                      <div className="project-list-row__head">
+                        <div
+                          className="project-list-row__head-main"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => onOpenCard(card)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              onOpenCard(card);
+                            }
+                          }}
+                        >
+                          <div className="project-list-row__top">
+                            <span className="project-list-row__status project-list-row__status--archive">
+                              보관
+                            </span>
+                            <span className="project-list-row__meta">
+                              <span className="project-list-row__badge">
+                                {PRIORITY_LABELS[card.priority]}
+                              </span>
+                              <span className="project-list-row__badge">{card.category}</span>
+                            </span>
+                          </div>
+                        </div>
+                        {isManager && onRestore ? (
+                          <div className="project-list-row__actions">
+                            <button
+                              type="button"
+                              className="project-list-row__restore"
+                              onClick={() => onRestore(card.id)}
+                            >
+                              복원
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
                       <div
                         className="project-list-row__main"
                         role="button"
@@ -159,18 +196,6 @@ export function HandoverArchiveProject({
                           }
                         }}
                       >
-                        <div className="project-list-row__top">
-                          <span className="project-list-row__status project-list-row__status--archive">
-                            보관
-                          </span>
-                          <span className="project-list-row__meta">
-                            <span className="project-list-row__badge">
-                              {PRIORITY_LABELS[card.priority]}
-                            </span>
-                            <span className="project-list-row__badge">{card.category}</span>
-                          </span>
-                        </div>
-
                         <span className="project-list-row__title" title={card.title}>
                           {card.room ? (
                             <span className="project-list-row__room card-room-badge" title={`객실 ${card.room}`}>
@@ -210,17 +235,6 @@ export function HandoverArchiveProject({
                         </span>
                       </div>
                     </div>
-                    {isManager && onRestore ? (
-                      <div className="project-list-row__actions">
-                        <button
-                          type="button"
-                          className="project-list-row__restore"
-                          onClick={() => onRestore(card.id)}
-                        >
-                          복원
-                        </button>
-                      </div>
-                    ) : null}
                   </article>
                 );
               })}

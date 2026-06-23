@@ -91,6 +91,7 @@ export const APP_NAV = [
   { href: '/training', label: '프런트 교육', description: '긴급 대응·컴플레인 롤플레이 교육 모듈입니다.', category: 'ops' as const },
   { href: '/housekeeping', label: '하우스키핑', description: '층별 객실 상태·특이사항을 일별로 기록합니다.', category: 'ops' as const },
   { href: '/amenity', label: '어메니티', description: '품목 재고와 입고·출고·실사를 기록합니다.', category: 'ops' as const },
+  { href: '/office-supplies', label: '사무용품 신청', description: '오피스타운 격주 발주 전 품목을 모아 둡니다.', category: 'ops' as const },
   { href: '/retail', label: '판매상품', description: '판매·배포·입고를 월별로 관리하고 실사로 마감합니다.', category: 'ops' as const },
   { href: '/reviews', label: '리뷰', description: 'OTA 리뷰를 모으고 객실 조치·후속 카드를 연결합니다.', category: 'ops' as const },
   { href: '/guest-notices', label: '고객 안내', description: '투숙객용 안내 문구를 작성·출력합니다.', category: 'ops' as const },

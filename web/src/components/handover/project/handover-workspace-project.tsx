@@ -249,6 +249,7 @@ export function HandoverWorkspaceProject({
                 <HandoverListProject
                 cards={visibleCards}
                 searchQuery={searchQuery}
+                quickFilter={quickFilter}
                 staffNames={staffNames}
                 isManager={isManager}
                 onOpenCard={onOpenCard}

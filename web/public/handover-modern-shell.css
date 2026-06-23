@@ -558,6 +558,15 @@ html[data-ui='project'] .settings-appearance__option.is-active {
 @media (max-width: 900px) {
   html[data-ui='project'] .nova-shell {
     grid-template-columns: 1fr;
+    min-height: 100dvh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  html[data-ui='project'] .nova-main {
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
   }
 
   html[data-ui='project'] .nova-mobile-nav-trigger {
@@ -663,7 +672,7 @@ html[data-ui='project'] .settings-appearance__option.is-active {
   }
 
   html[data-ui='project'] .nova-content:has(.handover-page) {
-    padding: 0.45rem 0.55rem 0.65rem;
+    padding: 0.25rem 0 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -678,6 +687,10 @@ html[data-ui='project'] .settings-appearance__option.is-active {
 }
 
 @media (max-width: 640px) {
+
+  html[data-ui='project'] .nova-content:has(.handover-page) {
+    padding: 0.15rem 0 0;
+  }
 
   html[data-ui='project'] .nova-topbar {
     flex-direction: column;

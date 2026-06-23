@@ -1,12 +1,18 @@
 import type { NextConfig } from 'next';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const rootDir = path.dirname(fileURLToPath(import.meta.url));
+import path from 'node:path';
 
 const nextConfig: NextConfig = {
-  turbopack: {
-    root: rootDir,
+  // npm workspaces: 루트·web lockfile 공존 시 추적 루트를 명시
+  outputFileTracingRoot: path.join(__dirname, '..'),
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'www.officetown.kr',
+        port: '10444',
+        pathname: '/mall/**',
+      },
+    ],
   },
 };
 

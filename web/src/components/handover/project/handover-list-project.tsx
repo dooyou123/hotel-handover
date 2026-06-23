@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { buildProjectListSections, isActiveHandoverCard, isBulkArchivableCard } from '@/lib/handover/card-utils';
-import type { Card } from '@/lib/handover/types';
+import type { Card, QuickFilter } from '@/lib/handover/types';
 import { HandoverListRowProject } from './handover-list-row-project';
 
 type HandoverListProjectProps = {
   cards: Card[];
   searchQuery?: string;
+  quickFilter?: QuickFilter;
   staffNames: string[];
   isManager?: boolean;
   onOpenCard: (card: Card) => void;
@@ -38,6 +39,7 @@ type CollapsibleSectionId = 'done' | 'hold';
 export function HandoverListProject({
   cards,
   searchQuery,
+  quickFilter = 'all',
   staffNames,
   onOpenCard,
   onOpenCardComments,
@@ -90,6 +92,29 @@ export function HandoverListProject({
     [sections],
   );
   let remainingIndex = 0;
+
+  useEffect(() => {
+    if (quickFilter === 'hold-long') {
+      setExpandedSections((prev) => ({ ...prev, hold: true }));
+    }
+  }, [quickFilter]);
+
+  useEffect(() => {
+    function handleReveal(event: Event) {
+      const cardId = (event as CustomEvent<{ cardId: string }>).detail?.cardId;
+      if (!cardId) return;
+      const target = cards.find((card) => card.id === cardId);
+      if (!target) return;
+      if (target.column_id === 'hold') {
+        setExpandedSections((prev) => ({ ...prev, hold: true }));
+      }
+      if (target.column_id === 'done') {
+        setExpandedSections((prev) => ({ ...prev, done: true }));
+      }
+    }
+    window.addEventListener('handover-reveal-card', handleReveal);
+    return () => window.removeEventListener('handover-reveal-card', handleReveal);
+  }, [cards]);
 
   useEffect(() => {
     if (!bulkMode) setSelectedIds([]);

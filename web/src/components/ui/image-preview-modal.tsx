@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { CardAttachment } from '@/lib/handover/types';
 
 type ImagePreviewModalProps = {
@@ -40,54 +41,71 @@ export function ImagePreviewModal({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [attachments.length, hasMultiple, index, onChangeIndex, onClose, open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
   if (!open || !attachment?.url) return null;
 
-  return (
-    <div className="modal-overlay image-preview-overlay" onClick={onClose}>
-      <div
-        className="modal modal--image-preview"
-        role="dialog"
-        aria-modal="true"
-        aria-label="첨부 사진"
-        onClick={(event) => event.stopPropagation()}
+  const dialog = (
+    <div className="image-preview-lightbox" onClick={onClose} role="presentation">
+      <button
+        type="button"
+        className="image-preview-lightbox__close"
+        aria-label="닫기"
+        onClick={onClose}
       >
-        <header className="image-preview-modal__head">
-          <span className="image-preview-modal__title">
-            첨부 사진
-            {hasMultiple ? ` ${index + 1}/${attachments.length}` : ''}
-          </span>
-          <button type="button" className="btn btn--ghost btn--small" onClick={onClose}>
-            닫기
+        <span className="image-preview-lightbox__close-icon" aria-hidden="true">
+          ✕
+        </span>
+        <span>닫기</span>
+      </button>
+
+      <div className="image-preview-lightbox__toolbar" onClick={(event) => event.stopPropagation()}>
+        <span className="image-preview-lightbox__title">
+          첨부 사진
+          {hasMultiple ? ` ${index + 1}/${attachments.length}` : ''}
+        </span>
+      </div>
+
+      <div className="image-preview-lightbox__stage" onClick={(event) => event.stopPropagation()}>
+        {hasMultiple && onChangeIndex ? (
+          <button
+            type="button"
+            className="image-preview-lightbox__nav image-preview-lightbox__nav--prev"
+            aria-label="이전 사진"
+            onClick={() => onChangeIndex((index - 1 + attachments.length) % attachments.length)}
+          >
+            ‹
           </button>
-        </header>
-        <div className="image-preview-modal__body">
-          {hasMultiple && onChangeIndex ? (
-            <button
-              type="button"
-              className="image-preview-modal__nav image-preview-modal__nav--prev"
-              aria-label="이전 사진"
-              onClick={() => onChangeIndex((index - 1 + attachments.length) % attachments.length)}
-            >
-              ‹
-            </button>
-          ) : null}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={attachment.url} alt={attachment.filename || '첨부 사진'} />
-          {hasMultiple && onChangeIndex ? (
-            <button
-              type="button"
-              className="image-preview-modal__nav image-preview-modal__nav--next"
-              aria-label="다음 사진"
-              onClick={() => onChangeIndex((index + 1) % attachments.length)}
-            >
-              ›
-            </button>
-          ) : null}
-        </div>
-        {attachment.filename ? (
-          <p className="image-preview-modal__caption">{attachment.filename}</p>
+        ) : null}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={attachment.url} alt={attachment.filename || '첨부 사진'} />
+        {hasMultiple && onChangeIndex ? (
+          <button
+            type="button"
+            className="image-preview-lightbox__nav image-preview-lightbox__nav--next"
+            aria-label="다음 사진"
+            onClick={() => onChangeIndex((index + 1) % attachments.length)}
+          >
+            ›
+          </button>
         ) : null}
       </div>
+
+      {attachment.filename ? (
+        <p className="image-preview-lightbox__caption" onClick={(event) => event.stopPropagation()}>
+          {attachment.filename}
+        </p>
+      ) : null}
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(dialog, document.body);
 }

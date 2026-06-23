@@ -1,6 +1,6 @@
 'use client';
 
-import { COMPLAINT_REMEDY_OPTIONS } from '@/lib/handover/complaint-remedies';
+import { COMPLAINT_REMEDY_NONE_ID, COMPLAINT_REMEDY_OPTIONS } from '@/lib/handover/complaint-remedies';
 
 type ComplaintRemedyPickerProps = {
   remedies: string[];
@@ -10,7 +10,16 @@ type ComplaintRemedyPickerProps = {
 
 export function ComplaintRemedyPicker({ remedies, other, onChange }: ComplaintRemedyPickerProps) {
   function toggle(id: string) {
-    const next = remedies.includes(id) ? remedies.filter((item) => item !== id) : [...remedies, id];
+    if (id === COMPLAINT_REMEDY_NONE_ID) {
+      const next = remedies.includes(id) ? [] : [COMPLAINT_REMEDY_NONE_ID];
+      onChange(next, remedies.includes(id) ? other : '');
+      return;
+    }
+
+    const withoutNone = remedies.filter((item) => item !== COMPLAINT_REMEDY_NONE_ID);
+    const next = withoutNone.includes(id)
+      ? withoutNone.filter((item) => item !== id)
+      : [...withoutNone, id];
     onChange(next, other);
   }
 
@@ -31,6 +40,7 @@ export function ComplaintRemedyPicker({ remedies, other, onChange }: ComplaintRe
           value={other}
           onChange={(event) => onChange(remedies, event.target.value)}
           placeholder="직접 입력"
+          disabled={remedies.includes(COMPLAINT_REMEDY_NONE_ID)}
         />
       </label>
     </div>

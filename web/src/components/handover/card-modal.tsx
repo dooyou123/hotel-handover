@@ -35,8 +35,7 @@ import type { SimilarHistoryHit } from '@/lib/handover/similar-history';
 import { CardDuplicateWarning } from './card-duplicate-warning';
 import { CardSimilarHistory } from './card-similar-history';
 import { CardActivityTimeline } from './card-activity-timeline';
-import { RoutineTemplateBar } from './routine-template-bar';
-import { TemplateBar } from './template-bar';
+import { HandoverCreateTemplates } from './handover-create-templates';
 import { ComplaintRemedyPicker } from './complaint-remedy-picker';
 import { EMPTY_COMPLAINT_REMEDIES, sanitizeComplaintRemediesForCategory } from '@/lib/handover/complaint-remedies';
 
@@ -294,6 +293,65 @@ export function CardModal({
     [activeCards, form.room, form.title, card?.id],
   );
 
+  const savedAttachmentCount = card?.card_attachments.length ?? 0;
+  const totalAttachmentCount = savedAttachmentCount + pendingFiles.length;
+  const canAddAttachment = totalAttachmentCount < 2 && onUploadAttachment;
+  const commentsOnly = view === 'comments' && !!card;
+
+  const handleAttachmentPaste = useCallback(
+    async (event: ClipboardEvent) => {
+      if (!canAddAttachment || attachmentLoading || saving) return;
+      const overlay = document.querySelector('.drawer-overlay');
+      if (!overlay || !(event.target instanceof Node) || !overlay.contains(event.target)) return;
+
+      const items = event.clipboardData?.items;
+      if (!items?.length) return;
+
+      for (const item of items) {
+        if (!item.type.startsWith('image/')) continue;
+        const blob = item.getAsFile();
+        if (!blob) continue;
+
+        event.preventDefault();
+        const ext = blob.type === 'image/jpeg' ? 'jpg' : blob.type.split('/')[1] || 'png';
+        const file = new File([blob], `clipboard-${Date.now()}.${ext}`, { type: blob.type });
+
+        if (requireSession && !requireSession('사진 첨부')) return;
+        if (file.size > 2 * 1024 * 1024) {
+          setError('이미지는 2MB 이하만 등록할 수 있습니다.');
+          return;
+        }
+
+        if (card && onUploadAttachment) {
+          setAttachmentLoading(true);
+          setError(null);
+          try {
+            await onUploadAttachment(card.id, file);
+          } catch (caught) {
+            setError(caught instanceof Error ? caught.message : '첨부에 실패했습니다.');
+          } finally {
+            setAttachmentLoading(false);
+          }
+        } else {
+          setError(null);
+          setPendingFiles((prev) => [...prev, file]);
+          setPendingPreviewUrls((prev) => [...prev, URL.createObjectURL(file)]);
+        }
+        return;
+      }
+    },
+    [attachmentLoading, canAddAttachment, card, onUploadAttachment, requireSession, saving],
+  );
+
+  useEffect(() => {
+    if (!open || commentsOnly) return;
+    function onPaste(event: ClipboardEvent) {
+      void handleAttachmentPaste(event);
+    }
+    document.addEventListener('paste', onPaste);
+    return () => document.removeEventListener('paste', onPaste);
+  }, [commentsOnly, handleAttachmentPaste, open]);
+
   if (!open) return null;
 
   async function handleSubmit(event: React.FormEvent) {
@@ -421,10 +479,6 @@ export function CardModal({
     }
   }
 
-  const savedAttachmentCount = card?.card_attachments.length ?? 0;
-  const totalAttachmentCount = savedAttachmentCount + pendingFiles.length;
-  const canAddAttachment = totalAttachmentCount < 2 && onUploadAttachment;
-
   function addPendingFile(file: File) {
     if (totalAttachmentCount >= 2) {
       setError('사진은 카드당 최대 2장까지 등록할 수 있습니다.');
@@ -470,7 +524,6 @@ export function CardModal({
     addPendingFile(file);
   }
 
-  const commentsOnly = view === 'comments' && !!card;
   const panelTitle = commentsOnly ? '댓글' : card ? '인수인계 수정' : '새 인수인계';
 
   const statusFields = (
@@ -478,6 +531,7 @@ export function CardModal({
       <label className="field">
         <span>우선순위</span>
         <select
+          className="field__select"
           value={form.priority}
           onChange={(event) => setForm({ ...form, priority: event.target.value as Priority })}
           aria-describedby="card-priority-hint"
@@ -495,6 +549,7 @@ export function CardModal({
       <label className="field">
         <span>칸</span>
         <select
+          className="field__select"
           value={form.column_id}
           onChange={(event) => setForm({ ...form, column_id: event.target.value as ColumnId })}
           aria-describedby="card-column-hint"
@@ -512,6 +567,7 @@ export function CardModal({
       <label className="field">
         <span>카테고리</span>
         <select
+          className="field__select"
           value={form.category}
           onChange={(event) => {
             const category = event.target.value;
@@ -539,11 +595,11 @@ export function CardModal({
         />
       ) : null}
       <label className="field">
-        <span>객실</span>
+        <span>객실 또는 위치</span>
         <input
           value={form.room}
           onChange={(event) => setForm({ ...form, room: event.target.value })}
-          placeholder="예: 1205"
+          placeholder="예: 1205, 로비, 키오스크"
         />
       </label>
     </div>
@@ -709,7 +765,9 @@ export function CardModal({
   const attachmentBlock = (
     <section className="drawer-section">
       <h3 className="drawer-section__title">사진 첨부</h3>
-      <p className="drawer-section__hint">최대 2장 · 2MB 이하</p>
+      <p className="drawer-section__hint">
+        최대 2장 · 2MB 이하. 「+ 사진 추가」로 고르거나, 복사한 사진·스크린샷을 이 화면에서 붙여넣기(Ctrl+V, Mac은 ⌘+V)로 넣을 수 있습니다.
+      </p>
       <div className="card-attachments">
         {card?.card_attachments.map((attachment) => (
           <div key={attachment.id} className="card-attachment">
@@ -800,19 +858,16 @@ export function CardModal({
     </>
   );
 
-  const generalTemplates = templates.filter((t) => !(t.work_group || '').trim());
   const createDrawerFields = (
     <>
-      {defaultShift ? (
-        <section className="drawer-section drawer-section--flush">
-          <RoutineTemplateBar workGroup={defaultShift} templates={templates} onApply={applyTemplate} />
-        </section>
-      ) : null}
-      {generalTemplates.length ? (
-        <section className="drawer-section drawer-section--flush">
-          <TemplateBar templates={generalTemplates} onApply={applyTemplate} />
-        </section>
-      ) : null}
+      <section className="drawer-section drawer-section--flush">
+        <HandoverCreateTemplates
+          workGroup={defaultShift}
+          templates={templates}
+          activeCategory={form.category}
+          onApply={applyTemplate}
+        />
+      </section>
       <section className="drawer-section">
         <h3 className="drawer-section__title">상태</h3>
         {statusFields}
@@ -893,7 +948,7 @@ export function CardModal({
               <div className="drawer-panel__chips">
                 <span className="drawer-chip">{PRIORITY_LABELS[form.priority]}</span>
                 <span className="drawer-chip">{COLUMN_LABELS[form.column_id]}</span>
-                {form.room ? <span className="drawer-chip drawer-chip--room">객실 {form.room}</span> : null}
+                {form.room ? <span className="drawer-chip drawer-chip--room">{form.room}</span> : null}
               </div>
             ) : null}
             <h2 id="card-panel-title" className="drawer-panel__title">

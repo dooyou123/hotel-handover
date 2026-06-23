@@ -6,7 +6,10 @@ export const COMPLAINT_REMEDY_OPTIONS = [
   { id: 'rate_discount', label: '객실료 할인' },
   { id: 'rate_refund', label: '객실료 환불' },
   { id: 'gift_card', label: '기프트 카드 보상 (약 1만원 상당)' },
+  { id: 'none_provided', label: '제공하지 않음' },
 ] as const;
+
+export const COMPLAINT_REMEDY_NONE_ID = 'none_provided' as const;
 
 export type ComplaintRemedyId = (typeof COMPLAINT_REMEDY_OPTIONS)[number]['id'];
 

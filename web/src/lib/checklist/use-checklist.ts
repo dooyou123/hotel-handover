@@ -175,6 +175,42 @@ export async function resetChecklistCompletions(
   return fetchChecklistForShift(shift, group);
 }
 
+/** 오늘·현재 조의 공통·조별 체크 완료 기록을 모두 삭제합니다. */
+export async function resetCurrentGroupChecklistCompletions(
+  shift: string,
+  group: string,
+): Promise<ChecklistData> {
+  const { createClient } = await import('@/lib/supabase/client');
+  const { DEFAULT_HOTEL_ID } = await import('@/lib/constants');
+  const supabase = createClient();
+  const workDate = todayDateString();
+
+  const { data: items, error: itemsError } = await supabase
+    .from('checklist_items')
+    .select('id')
+    .eq('hotel_id', DEFAULT_HOTEL_ID)
+    .eq('is_active', true)
+    .in('work_group', ['common', group]);
+
+  if (itemsError) throw itemsError;
+
+  const itemIds = (items ?? []).map((row) => row.id);
+  if (!itemIds.length) {
+    return fetchChecklistForShift(shift, group);
+  }
+
+  const { error } = await supabase
+    .from('checklist_completions')
+    .delete()
+    .eq('work_date', workDate)
+    .eq('shift', shift)
+    .eq('work_group', group)
+    .in('item_id', itemIds);
+
+  if (error) throw error;
+  return fetchChecklistForShift(shift, group);
+}
+
 /** 공통 또는 조별 미완료 항목을 한 번에 체크합니다. */
 export async function completeChecklistScope(
   scope: 'common' | string,

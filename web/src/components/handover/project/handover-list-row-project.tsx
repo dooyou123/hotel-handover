@@ -1,5 +1,6 @@
 'use client';
 
+import type { KeyboardEvent } from 'react';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { PRIORITY_LABELS } from '@/lib/handover/constants';
 import {
@@ -117,6 +118,72 @@ export function HandoverListRowProject({
             ? 'hold'
             : 'active';
 
+  const openHandlers = {
+    role: 'button' as const,
+    tabIndex: 0,
+    onClick: onOpen,
+    onKeyDown: (event: KeyboardEvent) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        onOpen();
+      }
+    },
+  };
+
+  const actionBar =
+    !bulkMode ? (
+      <div className="project-list-row__actions">
+        {isUnacked ? (
+          <button
+            type="button"
+            className="project-list-row__ack"
+            onClick={(event) => {
+              event.stopPropagation();
+              onAcknowledge();
+            }}
+          >
+            확인
+          </button>
+        ) : null}
+        {canComplete ? (
+          <button
+            type="button"
+            className="project-list-row__done project-list-row__done--primary"
+            onClick={async (event) => {
+              event.stopPropagation();
+              const ok = await confirm({
+                title: '완료 처리',
+                message: '이 카드를 완료 처리할까요?',
+                detail: card.title,
+                confirmLabel: '완료',
+                tone: 'warning',
+              });
+              if (ok) onMarkDone();
+            }}
+          >
+            완료
+          </button>
+        ) : null}
+        <HandoverListRowMoreMenu
+          cardTitle={card.title}
+          canHold={canHold}
+          canResume={canResume}
+          needsFirstResponse={needsFirstResponse}
+          canSnooze={canSnooze}
+          snoozed={snoozed}
+          canAssign={canAssign}
+          staffNames={staffNames}
+          assigneeName={card.assignee_name}
+          onHold={onHold}
+          onResume={onResume}
+          onRecordFirstResponse={onRecordFirstResponse}
+          onSnooze={onSnooze}
+          onUnsnooze={onUnsnooze}
+          onAssignChange={onAssignChange}
+        />
+      </div>
+    ) : null;
+
   return (
     <article
       id={`handover-card-${card.id}`}
@@ -145,51 +212,44 @@ export function HandoverListRowProject({
         </label>
       ) : null}
       <div className="project-list-row__body">
-        <div
-          className="project-list-row__main"
-          role="button"
-          tabIndex={0}
-          onClick={onOpen}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-              onOpen();
-            }
-          }}
-        >
-          <div className="project-list-row__top">
-            <span className={`project-list-row__status project-list-row__status--${statusClass}`}>
-              {status}
-            </span>
-            <span className="project-list-row__meta">
-              {isUrgent ? (
-                <span className="project-list-row__badge project-list-row__badge--urgent">
-                  {PRIORITY_LABELS[card.priority]}
-                </span>
-              ) : null}
-              {snoozed && card.snoozed_until ? (
-                <span className="project-list-row__badge project-list-row__badge--snooze">
-                  알림 끔 · {formatSnoozeUntil(card.snoozed_until)}까지
-                </span>
-              ) : null}
-              {staleLevel ? (
-                <span
-                  className={`project-list-row__badge project-list-row__badge--stale${staleLevel === 'high' ? ' project-list-row__badge--stale-high' : ''}`}
-                >
-                  {formatStaleBadge(staleLevel)}
-                </span>
-              ) : null}
-              {holdStaleLevel ? (
-                <span
-                  className={`project-list-row__badge project-list-row__badge--hold-stale${holdStaleLevel === 'high' ? ' project-list-row__badge--hold-stale-high' : ''}`}
-                >
-                  {formatHoldStaleBadge(holdStaleLevel)}
-                </span>
-              ) : null}
-            </span>
-            <ComplaintSlaBadge card={card} />
+        <div className="project-list-row__head">
+          <div className="project-list-row__head-main" {...openHandlers}>
+            <div className="project-list-row__top">
+              <span className={`project-list-row__status project-list-row__status--${statusClass}`}>
+                {status}
+              </span>
+              <span className="project-list-row__meta">
+                {isUrgent ? (
+                  <span className="project-list-row__badge project-list-row__badge--urgent">
+                    {PRIORITY_LABELS[card.priority]}
+                  </span>
+                ) : null}
+                {snoozed && card.snoozed_until ? (
+                  <span className="project-list-row__badge project-list-row__badge--snooze">
+                    알림 끔 · {formatSnoozeUntil(card.snoozed_until)}까지
+                  </span>
+                ) : null}
+                {staleLevel ? (
+                  <span
+                    className={`project-list-row__badge project-list-row__badge--stale${staleLevel === 'high' ? ' project-list-row__badge--stale-high' : ''}`}
+                  >
+                    {formatStaleBadge(staleLevel)}
+                  </span>
+                ) : null}
+                {holdStaleLevel ? (
+                  <span
+                    className={`project-list-row__badge project-list-row__badge--hold-stale${holdStaleLevel === 'high' ? ' project-list-row__badge--hold-stale-high' : ''}`}
+                  >
+                    {formatHoldStaleBadge(holdStaleLevel)}
+                  </span>
+                ) : null}
+              </span>
+              <ComplaintSlaBadge card={card} />
+            </div>
           </div>
-
+          {actionBar}
+        </div>
+        <div className="project-list-row__main" {...openHandlers}>
           <span className="project-list-row__title" title={card.title}>
             {card.room ? (
               <span className="project-list-row__room card-room-badge" title={`객실 ${card.room}`}>
@@ -254,58 +314,6 @@ export function HandoverListRowProject({
           onOpenComments={onOpenComments}
         />
       </div>
-      {!bulkMode ? (
-        <div className="project-list-row__actions">
-          {isUnacked ? (
-            <button
-              type="button"
-              className="project-list-row__ack"
-              onClick={(event) => {
-                event.stopPropagation();
-                onAcknowledge();
-              }}
-            >
-              확인
-            </button>
-          ) : null}
-          {canComplete ? (
-            <button
-              type="button"
-              className="project-list-row__done project-list-row__done--primary"
-              onClick={async (event) => {
-                event.stopPropagation();
-                const ok = await confirm({
-                  title: '완료 처리',
-                  message: '이 카드를 완료 처리할까요?',
-                  detail: card.title,
-                  confirmLabel: '완료',
-                  tone: 'warning',
-                });
-                if (ok) onMarkDone();
-              }}
-            >
-              완료
-            </button>
-          ) : null}
-          <HandoverListRowMoreMenu
-            cardTitle={card.title}
-            canHold={canHold}
-            canResume={canResume}
-            needsFirstResponse={needsFirstResponse}
-            canSnooze={canSnooze}
-            snoozed={snoozed}
-            canAssign={canAssign}
-            staffNames={staffNames}
-            assigneeName={card.assignee_name}
-            onHold={onHold}
-            onResume={onResume}
-            onRecordFirstResponse={onRecordFirstResponse}
-            onSnooze={onSnooze}
-            onUnsnooze={onUnsnooze}
-            onAssignChange={onAssignChange}
-          />
-        </div>
-      ) : null}
     </article>
   );
 }

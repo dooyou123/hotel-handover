@@ -27,7 +27,7 @@ export function HandoverMobileViewTabs({ view, panelBadge = 0, onChange }: Hando
         className={`handover-mobile-view-tabs__btn${view === 'panel' ? ' is-active' : ''}`}
         onClick={() => onChange('panel')}
       >
-        패널
+        오늘
         {panelBadge > 0 ? (
           <span className="handover-mobile-view-tabs__badge" aria-label={`알림 ${panelBadge}건`}>
             {panelBadge > 9 ? '9+' : panelBadge}

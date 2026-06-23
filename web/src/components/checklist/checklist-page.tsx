@@ -6,6 +6,7 @@ import Link from 'next/link';
 import {
   fetchChecklistForShift,
   completeChecklistScope,
+  resetCurrentGroupChecklistCompletions,
   resetChecklistCompletions,
   toggleChecklistItem,
   type ChecklistItemView,
@@ -143,6 +144,7 @@ export function ChecklistPageClient() {
   const shift = session.shift || group;
   const ready = Boolean(group);
   const [resettingScope, setResettingScope] = useState<'common' | string | null>(null);
+  const [resettingAll, setResettingAll] = useState(false);
   const [completingScope, setCompletingScope] = useState<'common' | string | null>(null);
   const [showIncompleteOnly, setShowIncompleteOnly] = useState(false);
   const [highlightItemId, setHighlightItemId] = useState<string | null>(null);
@@ -276,6 +278,30 @@ export function ChecklistPageClient() {
     }
   }
 
+  async function handleResetAllForGroup() {
+    if (!requireSession('체크리스트 초기화')) return;
+    const ok = await confirm({
+      title: '전체 초기화',
+      message: `오늘 ${group}조의 공통·조별 체크리스트 완료 기록을 모두 해제합니다.`,
+      detail: '다른 조의 체크 기록은 유지됩니다.',
+      tone: 'warning',
+      confirmLabel: '전체 초기화',
+    });
+    if (!ok) return;
+
+    setResettingAll(true);
+    try {
+      const result = await resetCurrentGroupChecklistCompletions(shift, group);
+      queryClient.setQueryData(['checklist', DEFAULT_HOTEL_ID, shift, group], result);
+      setToast(`${group}조 체크리스트를 초기화했습니다.`);
+      window.setTimeout(() => setToast(null), 2500);
+    } catch {
+      refetch();
+    } finally {
+      setResettingAll(false);
+    }
+  }
+
   if (!ready) {
     return (
       <section className="project-board checklist-page">
@@ -346,6 +372,14 @@ export function ChecklistPageClient() {
               title="키보드 N"
             >
               다음 미완료 ↓ (N)
+            </button>
+            <button
+              type="button"
+              className="checklist-page__reset-all"
+              onClick={() => void handleResetAllForGroup()}
+              disabled={resettingAll || resettingScope !== null || completed === 0}
+            >
+              {resettingAll ? '초기화 중…' : '전체 초기화'}
             </button>
           </div>
         </div>

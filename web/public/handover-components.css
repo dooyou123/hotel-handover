@@ -305,13 +305,146 @@ a.help-quick-link:hover {
   color: #2563eb;
 }
 
-.modal--image-preview {
-  width: min(28rem, calc(100vw - 1.5rem));
-  max-height: min(85vh, calc(100vh - 2rem));
+.modal.modal--image-preview {
+  display: flex;
+  flex-direction: column;
+  width: min(56rem, calc(100vw - 1.5rem));
+  max-height: min(90vh, calc(100vh - 2rem));
   overflow: hidden;
 }
 
+/* 첨부 사진 라이트박스 — 이미지 비율에 맞게 전체 화면 중앙 표시 */
+.image-preview-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  align-items: center;
+  justify-items: center;
+  gap: 0.65rem;
+  padding: max(0.75rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right))
+    max(0.75rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
+  background: rgba(15, 23, 42, 0.88);
+  box-sizing: border-box;
+}
+
+.image-preview-lightbox__close {
+  position: fixed;
+  top: max(0.85rem, env(safe-area-inset-top));
+  right: max(0.85rem, env(safe-area-inset-right));
+  z-index: 201;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  padding: 0.55rem 1rem 0.55rem 0.9rem;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  color: #0f172a;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+
+.image-preview-lightbox__close:hover {
+  background: #f8fafc;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.42);
+}
+
+.image-preview-lightbox__close:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.image-preview-lightbox__close-icon {
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.image-preview-lightbox__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(100%, 56rem);
+  padding: 0.35rem 4.5rem 0.35rem 0.15rem;
+  color: #f8fafc;
+  text-align: center;
+}
+
+.image-preview-lightbox__title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+}
+
+.image-preview-lightbox__stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 0;
+  max-height: calc(100vh - 5.5rem);
+  padding: 0 2.5rem;
+  box-sizing: border-box;
+}
+
+.image-preview-lightbox__stage img {
+  display: block;
+  max-width: min(96vw, 56rem);
+  max-height: calc(100vh - 5.5rem);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+}
+
+.image-preview-lightbox__nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2.35rem;
+  height: 2.35rem;
+  border: 1px solid rgba(248, 250, 252, 0.28);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.55);
+  color: #f8fafc;
+  font-size: 1.45rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.image-preview-lightbox__nav:hover {
+  background: rgba(15, 23, 42, 0.82);
+  border-color: rgba(248, 250, 252, 0.45);
+}
+
+.image-preview-lightbox__nav--prev {
+  left: 0;
+}
+
+.image-preview-lightbox__nav--next {
+  right: 0;
+}
+
+.image-preview-lightbox__caption {
+  margin: 0;
+  max-width: min(100%, 56rem);
+  padding: 0 0.15rem;
+  font-size: 0.78rem;
+  color: rgba(248, 250, 252, 0.78);
+  text-align: center;
+  word-break: break-all;
+}
+
 .image-preview-modal__head {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -331,16 +464,31 @@ a.help-quick-link:hover {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex: 1;
+  min-height: 0;
   padding: 0.85rem;
   background: color-mix(in srgb, var(--surface-2) 70%, var(--surface));
 }
 
-.image-preview-modal__body img {
+.image-preview-modal__frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  max-height: min(72vh, calc(90vh - 5.5rem));
+  overflow: hidden;
+}
+
+.image-preview-modal__frame img {
   display: block;
   max-width: 100%;
-  max-height: min(58vh, 28rem);
+  max-height: min(72vh, calc(90vh - 5.5rem));
   width: auto;
   height: auto;
+  min-width: 0;
+  min-height: 0;
   object-fit: contain;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
@@ -377,6 +525,7 @@ a.help-quick-link:hover {
 }
 
 .image-preview-modal__caption {
+  flex-shrink: 0;
   margin: 0;
   padding: 0.55rem 0.9rem 0.75rem;
   font-size: 0.78rem;

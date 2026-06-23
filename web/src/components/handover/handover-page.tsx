@@ -239,6 +239,12 @@ export function HandoverPage() {
         return;
       }
 
+      const openCardModal = () => {
+        setEditingCard(card);
+        setCardModalView('full');
+        setModalOpen(true);
+      };
+
       const inActiveBoard = cards.some((item) => item.id === cardId);
       setViewMode('board');
 
@@ -251,25 +257,42 @@ export function HandoverPage() {
         return true;
       }
 
-      if (inActiveBoard) {
-        setQuickFilter('all');
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            if (flashCardElement()) return;
-            setSearchQuery('');
-            setSearchDateFrom('');
-            setSearchDateTo('');
-            requestAnimationFrame(() => {
-              if (!flashCardElement()) showToast('목록에서 카드를 찾을 수 없습니다.');
-            });
-          });
-        });
+      function revealCardInList() {
+        window.dispatchEvent(new CustomEvent('handover-reveal-card', { detail: { cardId } }));
+      }
+
+      if (!inActiveBoard) {
+        openCardModal();
         return;
       }
 
-      openEditModal(card);
+      setQuickFilter('all');
+
+      // 보류·완료는 접힌 섹션에 있어 목록 하이라이트가 실패하기 쉬움 → 바로 열기
+      if (card.column_id === 'hold' || card.column_id === 'done') {
+        revealCardInList();
+        openCardModal();
+        return;
+      }
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (flashCardElement()) return;
+          setSearchQuery('');
+          setSearchDateFrom('');
+          setSearchDateTo('');
+          requestAnimationFrame(() => {
+            if (flashCardElement()) return;
+            revealCardInList();
+            requestAnimationFrame(() => {
+              if (flashCardElement()) return;
+              openCardModal();
+            });
+          });
+        });
+      });
     },
-    [cards, archivedCards],
+    [archivedCards, cards],
   );
 
   function openCreateModal() {

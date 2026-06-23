@@ -1318,6 +1318,7 @@ test('complaint remedy helpers', () => {
     complaint_remedies: ['breakfast'],
     complaint_remedy_other: '쿠폰',
   });
+  assert.equal(formatComplaintRemedies(['none_provided'], ''), '제공하지 않음');
 });
 
 test('splitTextWithLinks detects http(s) URLs and preserves trailing punctuation', () => {
@@ -1887,4 +1888,114 @@ test('buildLiveBoardFeed groups urgent and warn items', () => {
 
   assert.ok(feed.summaries.length > 0);
   assert.ok(feed.items.some((item) => item.id.startsWith('unacked-')));
+});
+
+test('office supply batch picks bi-weekly Wednesday', () => {
+  const { getNextOrderDate, resolveActiveBatchKey, addOrderCycle } =
+    require('@/lib/office-supplies/batch') as typeof import('@/lib/office-supplies/batch');
+
+  assert.equal(getNextOrderDate(new Date('2026-01-07')), '2026-01-07');
+  assert.equal(getNextOrderDate(new Date('2026-01-08')), '2026-01-21');
+  assert.equal(getNextOrderDate(new Date('2026-06-22')), '2026-06-24');
+  assert.equal(resolveActiveBatchKey(['2026-06-24'], new Date('2026-06-22')), addOrderCycle('2026-06-24'));
+});
+
+test('office supply order export aggregates duplicate product codes', () => {
+  const { aggregateOfficeSupplyOrderLines, buildOfficeSupplyOrderText } =
+    require('@/lib/office-supplies/order-export') as typeof import('@/lib/office-supplies/order-export');
+
+  const lines = aggregateOfficeSupplyOrderLines([
+    {
+      id: '1',
+      hotel_id: 'h',
+      batch_id: 'b',
+      product_code: '313890',
+      product_name: '3M 포스트잇 알뜰팩 653-5A',
+      image_url: '',
+      unit: '개',
+      quantity: 2,
+      note: '',
+      requested_by: 'A',
+      created_at: '',
+      updated_at: '',
+    },
+    {
+      id: '2',
+      hotel_id: 'h',
+      batch_id: 'b',
+      product_code: '313890',
+      product_name: '3M 포스트잇 알뜰팩 653-5A',
+      image_url: '',
+      unit: '개',
+      quantity: 1,
+      note: '회의실',
+      requested_by: 'B',
+      created_at: '',
+      updated_at: '',
+    },
+  ]);
+
+  assert.equal(lines.length, 1);
+  assert.equal(lines[0].quantity, 3);
+  assert.match(buildOfficeSupplyOrderText(lines, '2026-06-24'), /\[313890\]/);
+});
+
+test('parseOfficetownListHtml extracts product code and image', () => {
+  const { parseOfficetownListHtml } =
+    require('@/lib/office-supplies/officetown') as typeof import('@/lib/office-supplies/officetown');
+
+  const html = `
+    <td width="20%" valign="top">
+      <p><a href="m_mall_detail.php?ps_ctid=04080100&ps_goid=34549"><img src="/mall/shop_image/test.jpg" /></a></p>
+      <p class="goods_grid_bookcode">[313890]</p>
+      <p class="goods_grid_name"><a href="m_mall_detail.php?ps_ctid=04080100&ps_goid=34549">3M 포스트잇 알뜰팩 653-5A</a></p>
+    </td>`;
+
+  const products = parseOfficetownListHtml(html);
+  assert.equal(products.length, 1);
+  assert.equal(products[0].productCode, '313890');
+  assert.equal(products[0].name, '3M 포스트잇 알뜰팩 653-5A');
+  assert.match(products[0].imageUrl, /shop_image\/test\.jpg$/);
+});
+
+test('evaluateOfficetownCrawlHealth detects layout marker loss', () => {
+  const { evaluateOfficetownCrawlHealth, buildOfficetownLayoutFingerprint } =
+    require('@/lib/office-supplies/officetown-health') as typeof import('@/lib/office-supplies/officetown-health');
+
+  const healthyHtml = `
+    <td width="20%" valign="top">
+      <p><a href="m_mall_detail.php?ps_ctid=04080100&ps_goid=34549"><img src="/mall/shop_image/test.jpg" /></a></p>
+      <p class="goods_grid_bookcode">[313890]</p>
+      <p class="goods_grid_name"><a href="#">3M 포스트잇 알뜰팩 653-5A</a></p>
+    </td>`;
+
+  const healthy = evaluateOfficetownCrawlHealth({
+    probeSearchHtml: healthyHtml,
+    probeCategoryHtml: healthyHtml,
+    probeProductCode: '313890',
+  });
+  assert.equal(healthy.status, 'healthy');
+  assert.equal(healthy.probeOk, true);
+
+  const broken = evaluateOfficetownCrawlHealth({
+    probeSearchHtml: "<script>document.location.href = 'index.php'</script>",
+    probeCategoryHtml: healthyHtml,
+    probeProductCode: '313890',
+  });
+  assert.equal(broken.status, 'broken');
+
+  const previousFingerprint = buildOfficetownLayoutFingerprint(
+    require('@/lib/office-supplies/officetown-health').analyzeOfficetownListHtml(healthyHtml),
+    require('@/lib/office-supplies/officetown-health').analyzeOfficetownListHtml(healthyHtml),
+  );
+  const changedHtml = healthyHtml.replace('goods_grid_bookcode', 'goods_grid_code');
+  const degraded = evaluateOfficetownCrawlHealth({
+    probeSearchHtml: changedHtml,
+    probeCategoryHtml: healthyHtml,
+    probeProductCode: '313890',
+    previousFingerprint,
+    previousStatus: 'healthy',
+  });
+  assert.equal(degraded.fingerprintChanged, true);
+  assert.equal(degraded.status, 'degraded');
 });
