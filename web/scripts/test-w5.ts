@@ -7,6 +7,7 @@ import {
   hasComplaintRemedies,
   sanitizeComplaintRemediesForCategory,
 } from '@/lib/handover/complaint-remedies';
+import { buildAttachmentPublicUrl } from '@/lib/handover/attachments';
 import {
   getTickerActionLabel,
   getTickerItemHref,
@@ -1998,4 +1999,15 @@ test('evaluateOfficetownCrawlHealth detects layout marker loss', () => {
   });
   assert.equal(degraded.fingerprintChanged, true);
   assert.equal(degraded.status, 'degraded');
+});
+
+test('buildAttachmentPublicUrl composes public storage path without API call', () => {
+  const url = buildAttachmentPublicUrl(
+    'hotel-1/card-1/photo 1.jpg',
+    'https://example.supabase.co/',
+  );
+  assert.equal(
+    url,
+    'https://example.supabase.co/storage/v1/object/public/card-attachments/hotel-1/card-1/photo%201.jpg',
+  );
 });

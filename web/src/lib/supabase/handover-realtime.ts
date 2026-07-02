@@ -167,8 +167,31 @@ function ensureNoticesChannel(supabase: SupabaseClient) {
 }
 
 export function invalidateCardQueries(queryClient: QueryClient) {
-  void queryClient.refetchQueries({ queryKey: ['cards', DEFAULT_HOTEL_ID], type: 'active' });
-  void queryClient.refetchQueries({ queryKey: ['archived-cards', DEFAULT_HOTEL_ID], type: 'active' });
+  scheduleCardQueryRefresh(queryClient);
+}
+
+export function invalidateNoticeQueries(queryClient: QueryClient) {
+  scheduleNoticeQueryRefresh(queryClient);
+}
+
+let cardRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+let noticeRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleCardQueryRefresh(queryClient: QueryClient) {
+  if (cardRefreshTimer) clearTimeout(cardRefreshTimer);
+  cardRefreshTimer = setTimeout(() => {
+    cardRefreshTimer = null;
+    void queryClient.refetchQueries({ queryKey: ['cards', DEFAULT_HOTEL_ID], type: 'active' });
+    void queryClient.refetchQueries({ queryKey: ['archived-cards', DEFAULT_HOTEL_ID], type: 'active' });
+  }, 500);
+}
+
+function scheduleNoticeQueryRefresh(queryClient: QueryClient) {
+  if (noticeRefreshTimer) clearTimeout(noticeRefreshTimer);
+  noticeRefreshTimer = setTimeout(() => {
+    noticeRefreshTimer = null;
+    void queryClient.refetchQueries({ queryKey: ['notices', DEFAULT_HOTEL_ID], type: 'active' });
+  }, 500);
 }
 
 export function subscribeCardsRealtime(queryClient: QueryClient): () => void {
@@ -188,9 +211,7 @@ export function subscribeCardsRealtime(queryClient: QueryClient): () => void {
 
 export function subscribeNoticesRealtime(queryClient: QueryClient): () => void {
   const supabase = createClient();
-  const listener = () => {
-    void queryClient.refetchQueries({ queryKey: ['notices', DEFAULT_HOTEL_ID], type: 'active' });
-  };
+  const listener = () => invalidateNoticeQueries(queryClient);
 
   noticesPool.listeners.add(listener);
   ensureNoticesChannel(supabase);

@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { enrichAttachments, uploadCardAttachment, deleteCardAttachment as removeAttachment } from '@/lib/handover/attachments';
 import { createClient } from '@/lib/supabase/client';
 import { getSafeUser } from '@/lib/supabase/auth-session';
-import { invalidateCardQueries, subscribeCardsRealtime } from '@/lib/supabase/handover-realtime';
+import { invalidateCardQueries } from '@/lib/supabase/handover-realtime';
 import type { Card, CardInput, ColumnId } from '@/lib/handover/types';
 
 const CARD_SELECT = '*, card_acknowledgments(*), card_comments(*), card_attachments(*)';
@@ -24,13 +23,11 @@ function normalizeCard(row: Card): Card {
   };
 }
 
-async function enrichCardList(cards: Card[]): Promise<Card[]> {
-  return Promise.all(
-    cards.map(async (card) => ({
-      ...card,
-      card_attachments: await enrichAttachments(card.card_attachments),
-    })),
-  );
+function enrichCardList(cards: Card[]): Card[] {
+  return cards.map((card) => ({
+    ...card,
+    card_attachments: enrichAttachments(card.card_attachments),
+  }));
 }
 
 export async function fetchCards(): Promise<Card[]> {
@@ -75,11 +72,10 @@ export function useCards() {
   const query = useQuery({
     queryKey,
     queryFn: fetchCards,
-    refetchInterval: 20_000,
-    refetchIntervalInBackground: true,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   });
-
-  useEffect(() => subscribeCardsRealtime(queryClient), [queryClient]);
 
   const createCard = useMutation({
     mutationFn: async (input: CardInput) => {
@@ -375,6 +371,7 @@ export function useArchivedCards() {
   return useQuery({
     queryKey,
     queryFn: fetchArchivedCards,
+    staleTime: 30_000,
   });
 }
 

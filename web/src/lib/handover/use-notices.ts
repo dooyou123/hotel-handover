@@ -1,10 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
-import { subscribeNoticesRealtime } from '@/lib/supabase/handover-realtime';
 import type { Notice, NoticeInput, NoticeType } from '@/lib/handover/types';
 
 function normalizeNotice(row: Record<string, unknown>): Notice {
@@ -31,9 +29,7 @@ export function useNotices() {
   const queryClient = useQueryClient();
   const queryKey = ['notices', DEFAULT_HOTEL_ID] as const;
 
-  const query = useQuery({ queryKey, queryFn: fetchNotices });
-
-  useEffect(() => subscribeNoticesRealtime(queryClient), [queryClient]);
+  const query = useQuery({ queryKey, queryFn: fetchNotices, staleTime: 30_000 });
 
   const createNotice = useMutation({
     mutationFn: async (input: NoticeInput) => {

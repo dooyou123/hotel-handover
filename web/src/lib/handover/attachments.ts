@@ -1,25 +1,32 @@
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
+import { getSupabasePublicEnv } from '@/lib/supabase/env';
 import type { CardAttachment } from '@/lib/handover/types';
 
 const BUCKET = 'card-attachments';
 const MAX_ATTACHMENTS = 2;
 const MAX_BYTES = 2 * 1024 * 1024;
 
-export async function getAttachmentUrl(storagePath: string): Promise<string | null> {
-  const supabase = createClient();
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(storagePath, 3600);
-  if (error) return null;
-  return data.signedUrl;
+/** Storage API 호출 없이 공개 URL 조합 (버킷 public 필요). */
+export function buildAttachmentPublicUrl(storagePath: string, supabaseUrl: string): string {
+  const encodedPath = storagePath
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+  const base = supabaseUrl.replace(/\/$/, '');
+  return `${base}/storage/v1/object/public/${BUCKET}/${encodedPath}`;
 }
 
-export async function enrichAttachments(rows: CardAttachment[]): Promise<CardAttachment[]> {
-  return Promise.all(
-    rows.map(async (row) => ({
-      ...row,
-      url: (await getAttachmentUrl(row.storage_path)) ?? undefined,
-    })),
-  );
+export function getAttachmentUrl(storagePath: string): string {
+  const { url } = getSupabasePublicEnv();
+  return buildAttachmentPublicUrl(storagePath, url);
+}
+
+export function enrichAttachments(rows: CardAttachment[]): CardAttachment[] {
+  return rows.map((row) => ({
+    ...row,
+    url: row.storage_path ? getAttachmentUrl(row.storage_path) : undefined,
+  }));
 }
 
 export async function uploadCardAttachment(
@@ -63,7 +70,7 @@ export async function uploadCardAttachment(
   await supabase.from('cards').update({ updated_at: new Date().toISOString() }).eq('id', cardId);
 
   const attachment = data as CardAttachment;
-  return { ...attachment, url: (await getAttachmentUrl(storagePath)) ?? undefined };
+  return { ...attachment, url: getAttachmentUrl(storagePath) };
 }
 
 export async function deleteCardAttachment(attachment: CardAttachment): Promise<void> {
