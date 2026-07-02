@@ -38,6 +38,8 @@ import { CardActivityTimeline } from './card-activity-timeline';
 import { HandoverCreateTemplates } from './handover-create-templates';
 import { ComplaintRemedyPicker } from './complaint-remedy-picker';
 import { EMPTY_COMPLAINT_REMEDIES, sanitizeComplaintRemediesForCategory } from '@/lib/handover/complaint-remedies';
+import { CardAckReadStatus } from '@/components/handover/card-ack-read-status';
+import { isTeamAckPending } from '@/lib/handover/card-acks';
 
 type CardModalView = 'full' | 'comments';
 
@@ -66,6 +68,9 @@ type CardModalProps = {
   onRecordFirstResponse?: () => void | Promise<void>;
   onSwitchToFull?: () => void;
   onDuplicate?: (card: Card) => void | Promise<void>;
+  onAcknowledge?: (cardId: string) => void | Promise<void>;
+  onMarkDone?: (cardId: string) => void | Promise<void>;
+  acknowledging?: boolean;
   requireSession?: (action: string) => boolean;
 };
 
@@ -96,6 +101,9 @@ export function CardModal({
   onRecordFirstResponse,
   onSwitchToFull,
   onDuplicate,
+  onAcknowledge,
+  onMarkDone,
+  acknowledging = false,
   requireSession,
 }: CardModalProps) {
   const [form, setForm] = useState<CardInput>(emptyForm);
@@ -837,6 +845,36 @@ export function CardModal({
 
   const drawerFormFields = (
     <>
+      {card && card.priority === 'urgent' && staffNames.length ? (
+        <CardAckReadStatus
+          card={card}
+          activeStaffNames={staffNames}
+          currentStaffName={defaultName}
+          onAcknowledge={
+            onAcknowledge
+              ? () => {
+                  if (requireSession && !requireSession('긴급 확인')) return;
+                  void onAcknowledge(card.id);
+                }
+              : undefined
+          }
+          onMarkDone={
+            onMarkDone && !isTeamAckPending(card, staffNames)
+              ? async () => {
+                  const ok = await confirm({
+                    title: '완료 처리',
+                    message: '전원 확인이 끝났습니다. 이 긴급 건을 완료 처리할까요?',
+                    detail: card.title,
+                    confirmLabel: '완료',
+                    tone: 'warning',
+                  });
+                  if (ok) void onMarkDone(card.id);
+                }
+              : undefined
+          }
+          acknowledging={acknowledging}
+        />
+      ) : null}
       <section className="drawer-section">
         <h3 className="drawer-section__title">상태</h3>
         {statusFields}

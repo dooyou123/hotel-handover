@@ -308,6 +308,7 @@ export function HandoverShiftBriefProject({
       briefMemoSaving={briefMemoSaving}
       savingHandover={savingHandover}
       onAcknowledge={(cardId) => void handleAcknowledge(cardId)}
+      currentStaffName={session.name}
       onFollowUp={(review) => void handleFollowUp(review)}
       onCompleteReviewAction={(review, note) => handleCompleteReviewAction(review, note)}
       onSaveBriefMemo={(text) => handleSaveBriefMemo(text)}

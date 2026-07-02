@@ -13,6 +13,7 @@ type HandoverListSummaryProps = {
   cards: Card[];
   todos: Todo[];
   events: HotelEvent[];
+  staffNames: string[];
   onShowUnacked: () => void;
   onOpenCard: (card: Card) => void;
   onAcknowledge: (cardId: string) => void;
@@ -22,11 +23,14 @@ export function HandoverListSummary({
   cards,
   todos,
   events,
+  staffNames,
   onShowUnacked,
   onOpenCard,
   onAcknowledge,
 }: HandoverListSummaryProps) {
-  const unacked = cards.filter(isUnackedUrgentCard);
+  const unacked = cards.filter((card) =>
+    isUnackedUrgentCard(card, staffNames.length ? { activeStaffNames: staffNames } : undefined),
+  );
   const todayMonth = new Date().toISOString().slice(0, 7);
   const todayWorkCount = mergeWorkScheduleItems({
     todos: filterTodayTodos(todos),

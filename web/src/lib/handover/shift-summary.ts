@@ -48,9 +48,15 @@ export type ShiftSummaryData = {
   changes: Notice[];
 };
 
-export function buildShiftSummaryData(cards: Card[], notices: Notice[]): ShiftSummaryData {
+export function buildShiftSummaryData(
+  cards: Card[],
+  notices: Notice[],
+  activeStaffNames: string[] = [],
+): ShiftSummaryData {
   const todayCards = cards.filter((card) => isToday(card.created_at) || isToday(card.updated_at));
-  const unackedUrgent = cards.filter(isUnackedUrgentCard);
+  const unackedUrgent = cards.filter((card) =>
+    isUnackedUrgentCard(card, activeStaffNames.length ? { activeStaffNames } : undefined),
+  );
   const urgentActive = cards.filter(isUrgentPriorityCard);
   const progressActive = cards.filter(
     (card) =>

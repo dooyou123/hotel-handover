@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { buildWorkHubHref } from '@/lib/work/work-hub';
 import { ACTION_LABELS } from '@/lib/handover/activity';
 import { formatTime } from '@/lib/handover/card-utils';
+import { hasStaffAckedCard } from '@/lib/handover/card-acks';
 import { formatComplaintRemedies, hasComplaintRemedies } from '@/lib/handover/complaint-remedies';
 import { noticeTypeShort } from '@/lib/handover/notice-utils';
 import {
@@ -47,6 +48,7 @@ export type ShiftBriefContentProps = {
   savingHandover: boolean;
   briefMemoSaving?: boolean;
   onAcknowledge: (cardId: string) => void;
+  currentStaffName?: string;
   onFollowUp: (review: GuestReview) => void;
   onCompleteReviewAction?: (review: GuestReview, note: string) => Promise<void>;
   onSaveBriefMemo?: (text: string) => Promise<void>;
@@ -77,17 +79,23 @@ export type ShiftBriefContentProps = {
 function BriefCardItem({
   card,
   warn,
+  currentStaffName = '',
   onAcknowledge,
   ackBusy,
   onOpenCard,
 }: {
   card: Card;
   warn?: boolean;
+  currentStaffName?: string;
   onAcknowledge?: () => void;
   ackBusy?: boolean;
   onOpenCard?: (card: Card) => void;
 }) {
-  const unacked = warn && !card.card_acknowledgments?.length;
+  const unacked =
+    warn &&
+    (currentStaffName.trim()
+      ? !hasStaffAckedCard(card, currentStaffName)
+      : card.card_acknowledgments.length === 0);
   const remedySummary =
     card.category === '컴플레인' && hasComplaintRemedies(card.complaint_remedies, card.complaint_remedy_other)
       ? formatComplaintRemedies(card.complaint_remedies, card.complaint_remedy_other)
@@ -511,6 +519,7 @@ export function ShiftBriefContent({
   savingHandover,
   briefMemoSaving = false,
   onAcknowledge,
+  currentStaffName = '',
   onFollowUp,
   onCompleteReviewAction,
   onSaveBriefMemo,
@@ -682,6 +691,7 @@ export function ShiftBriefContent({
                     key={card.id}
                     card={card}
                     warn
+                    currentStaffName={currentStaffName}
                     ackBusy={ackBusyId === card.id}
                     onAcknowledge={() => onAcknowledge(card.id)}
                     onOpenCard={onOpenCard}

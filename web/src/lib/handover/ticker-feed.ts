@@ -29,7 +29,7 @@ export function buildTickerItems(notices: Notice[], cards: Card[]): TickerItem[]
   const items: TickerItem[] = [];
   const activeNotices = filterNoticesForFeed(notices);
 
-  for (const card of cards.filter(isUnackedUrgentCard)) {
+  for (const card of cards.filter((c) => isUnackedUrgentCard(c))) {
     items.push({
       id: `unacked-${card.id}`,
       label: '미확인 긴급',

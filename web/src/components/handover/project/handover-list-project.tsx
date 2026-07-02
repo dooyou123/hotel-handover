@@ -73,7 +73,7 @@ export function HandoverListProject({
   });
   const doneSectionRef = useRef<HTMLElement>(null);
   const scrollDoneOnExpandRef = useRef(false);
-  const sections = useMemo(() => buildProjectListSections(cards), [cards]);
+  const sections = useMemo(() => buildProjectListSections(cards, staffNames), [cards, staffNames]);
   const selectableCards = useMemo(
     () => cards.filter((card) => isActiveHandoverCard(card) || isBulkArchivableCard(card)),
     [cards],

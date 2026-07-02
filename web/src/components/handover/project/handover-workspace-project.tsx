@@ -242,6 +242,7 @@ export function HandoverWorkspaceProject({
                   cards={cards}
                   todos={todos}
                   events={events}
+                  staffNames={staffNames}
                   onShowUnacked={onShowUnacked}
                   onOpenCard={onOpenCard}
                   onAcknowledge={onAcknowledge}

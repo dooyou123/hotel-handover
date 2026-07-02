@@ -76,6 +76,7 @@ function GuestNoticeDrawer({
   const [locale, setLocale] = useState<GuestNoticeLocale>('ko');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const overlayPointerDownRef = useRef(false);
   const { confirm } = useConfirmDialog();
   const { data: logs = [] } = useGuestNoticeLogs(mode === 'read' && notice ? notice.id : null);
   const viewedRef = useRef<string | null>(null);
@@ -134,9 +135,21 @@ function GuestNoticeDrawer({
   }
 
   return (
-    <div className="drawer-overlay" onClick={onClose}>
+    <div
+      className="drawer-overlay"
+      onPointerDown={(event) => {
+        if (event.target === event.currentTarget) overlayPointerDownRef.current = true;
+      }}
+      onPointerUp={(event) => {
+        if (event.target === event.currentTarget && overlayPointerDownRef.current) onClose();
+        overlayPointerDownRef.current = false;
+      }}
+    >
       <aside
         className="drawer-panel drawer-panel--guest-notice"
+        onPointerDown={() => {
+          overlayPointerDownRef.current = false;
+        }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SHIFTS } from '@/lib/constants';
 import { formatTime } from '@/lib/handover/card-utils';
 import { noticeListTitle, noticeTypeLabel } from '@/lib/handover/notice-utils';
@@ -58,6 +58,7 @@ export function NoticeDrawer({
   const [createAsCompleted, setCreateAsCompleted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const overlayPointerDownRef = useRef(false);
   const { confirm } = useConfirmDialog();
 
   useEffect(() => {
@@ -339,9 +340,21 @@ export function NoticeDrawer({
   );
 
   return (
-    <div className="drawer-overlay" onClick={onClose}>
+    <div
+      className="drawer-overlay"
+      onPointerDown={(event) => {
+        if (event.target === event.currentTarget) overlayPointerDownRef.current = true;
+      }}
+      onPointerUp={(event) => {
+        if (event.target === event.currentTarget && overlayPointerDownRef.current) onClose();
+        overlayPointerDownRef.current = false;
+      }}
+    >
       <aside
         className="drawer-panel drawer-panel--notice"
+        onPointerDown={() => {
+          overlayPointerDownRef.current = false;
+        }}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"

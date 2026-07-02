@@ -192,7 +192,10 @@ export function HandoverPage() {
     return [...boardCards, ...extra];
   }, [boardCards, archivedSearchMatches]);
 
-  const summaryData = useMemo(() => buildShiftSummaryData(cards, notices), [cards, notices]);
+  const summaryData = useMemo(
+    () => buildShiftSummaryData(cards, notices, staffNames),
+    [cards, notices, staffNames],
+  );
   const alerts = useMemo(
     () =>
       buildTodayAlerts({
@@ -909,6 +912,8 @@ export function HandoverPage() {
     if (!requireSession('댓글 삭제')) return;
     const card = cards.find((item) => item.id === cardId);
     const target = card?.card_comments.find((comment) => comment.id === commentId);
+    if (!target || target.staff_name !== session.name) return;
+
     await deleteComment.mutateAsync({
       commentId,
       cardId,
@@ -1113,6 +1118,9 @@ export function HandoverPage() {
             : undefined
         }
         requireSession={requireSession}
+        onAcknowledge={handleAcknowledge}
+        onMarkDone={handleMarkDone}
+        acknowledging={acknowledgeCard.isPending}
       />
 
       <TodoModal

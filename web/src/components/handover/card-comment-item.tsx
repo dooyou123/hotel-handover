@@ -70,20 +70,14 @@ export function CardCommentItem({
   }
 
   async function handleDelete() {
-    const ok = own
-      ? await confirm({
-          title: '댓글 삭제',
-          message: '이 댓글을 삭제합니다. 삭제 후에는 내용을 복구할 수 없습니다.',
-          tone: 'danger',
-          confirmLabel: '삭제',
-        })
-      : await confirm({
-          title: '다른 사람 댓글 삭제',
-          message: `${formatCommentActorLabel(comment.shift, comment.staff_name)}님이 작성한 댓글을 삭제합니다.`,
-          detail: `「${comment.content.slice(0, 120)}${comment.content.length > 120 ? '…' : ''}」\n\n삭제 후에는 내용을 복구할 수 없으며, 삭제한 사람 이름이 표시됩니다.`,
-          tone: 'danger',
-          confirmLabel: '삭제',
-        });
+    if (!own) return;
+
+    const ok = await confirm({
+      title: '댓글 삭제',
+      message: '이 댓글을 삭제합니다. 삭제 후에는 내용을 복구할 수 없습니다.',
+      tone: 'danger',
+      confirmLabel: '삭제',
+    });
     if (!ok) return;
 
     setLoading(true);
@@ -184,27 +178,27 @@ export function CardCommentItem({
                 복사
               </button>
               {canManage ? (
-                <>
-                  <button
-                    type="button"
-                    className="card-comment__action"
-                    onClick={() => {
-                      setDraft(comment.content);
-                      setEditing(true);
-                    }}
-                    disabled={loading || disabled}
-                  >
-                    수정
-                  </button>
-                  <button
-                    type="button"
-                    className="card-comment__action card-comment__action--danger"
-                    onClick={() => void handleDelete()}
-                    disabled={loading || disabled}
-                  >
-                    삭제
-                  </button>
-                </>
+                <button
+                  type="button"
+                  className="card-comment__action"
+                  onClick={() => {
+                    setDraft(comment.content);
+                    setEditing(true);
+                  }}
+                  disabled={loading || disabled}
+                >
+                  수정
+                </button>
+              ) : null}
+              {canManage && own ? (
+                <button
+                  type="button"
+                  className="card-comment__action card-comment__action--danger"
+                  onClick={() => void handleDelete()}
+                  disabled={loading || disabled}
+                >
+                  삭제
+                </button>
               ) : null}
             </div>
           </div>

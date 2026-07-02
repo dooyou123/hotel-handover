@@ -176,10 +176,21 @@ export function useCards() {
   const acknowledgeCard = useMutation({
     mutationFn: async ({ cardId, shift, staffName }: { cardId: string; shift: string; staffName: string }) => {
       const supabase = createClient();
+      const name = staffName.trim();
+      if (!name) throw new Error('담당자를 선택해 주세요.');
+
+      const { data: existing } = await supabase
+        .from('card_acknowledgments')
+        .select('id')
+        .eq('card_id', cardId)
+        .eq('staff_name', name)
+        .maybeSingle();
+      if (existing) return;
+
       const { error } = await supabase.from('card_acknowledgments').insert({
         card_id: cardId,
         shift,
-        staff_name: staffName,
+        staff_name: name,
       });
       if (error) throw error;
 

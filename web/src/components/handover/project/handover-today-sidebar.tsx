@@ -46,7 +46,7 @@ export function HandoverTodaySidebar({
   onShowUnacked,
   hideUnacked = false,
 }: HandoverTodaySidebarProps) {
-  const unacked = cards.filter(isUnackedUrgentCard);
+  const unacked = cards.filter((card) => isUnackedUrgentCard(card));
   const todayMonth = new Date().toISOString().slice(0, 7);
   const todayWorkItems = useMemo(
     () =>

@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { buildWorkHubHref } from '@/lib/work/work-hub';
 import { useEffect, useMemo, useState } from 'react';
-import { isUnackedUrgentCard } from '@/lib/handover/card-utils';
 import { getTodayLabel } from '@/lib/handover/shift-summary';
 import type { HandoverRecordsTab } from '@/lib/handover/records';
 import type { ShiftSummaryData } from '@/lib/handover/shift-summary';
@@ -68,7 +67,7 @@ export function HandoverMobilePanel({
   onShowUnacked,
 }: HandoverMobilePanelProps) {
   const [open, setOpen] = useState(false);
-  const unacked = useMemo(() => cards.filter(isUnackedUrgentCard), [cards]);
+  const unacked = useMemo(() => summaryData.unackedUrgent, [summaryData.unackedUrgent]);
   const todayMonth = new Date().toISOString().slice(0, 7);
   const todayWorkItems = useMemo(
     () =>

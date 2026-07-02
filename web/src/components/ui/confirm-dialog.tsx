@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 
 export type DialogTone = 'default' | 'warning' | 'danger';
 
@@ -98,70 +99,73 @@ export function ConfirmDialogProvider({ children }: { children: ReactNode }) {
     dialog?.title ??
     (dialog?.kind === 'confirm' ? meta.defaultTitle : meta.defaultTitle);
 
-  return (
-    <ConfirmDialogContext.Provider value={{ confirm, alert }}>
-      {children}
-      {dialog ? (
+  const overlay =
+    dialog && typeof document !== 'undefined' ? (
+      <div
+        className="modal-overlay confirm-overlay"
+        role="presentation"
+        onClick={() => close(dialog.kind === 'confirm' ? false : true)}
+      >
         <div
-          className="modal-overlay confirm-overlay"
-          role="presentation"
-          onClick={() => close(dialog.kind === 'confirm' ? false : true)}
+          className={`modal modal--confirm confirm-dialog confirm-dialog--${tone}`}
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby={titleId}
+          aria-describedby={descId}
+          onClick={(event) => event.stopPropagation()}
         >
-          <div
-            className={`modal modal--confirm confirm-dialog confirm-dialog--${tone}`}
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            aria-describedby={descId}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="confirm-dialog__body">
-              <div className={`confirm-dialog__icon confirm-dialog__icon--${tone}`} aria-hidden>
-                {meta.icon}
-              </div>
-              <div className="confirm-dialog__content">
-                <h2 id={titleId} className="confirm-dialog__title">
-                  {title}
-                </h2>
-                <p id={descId} className="confirm-dialog__message">
-                  {dialog.message}
-                </p>
-                {dialog.detail ? <p className="confirm-dialog__detail">{dialog.detail}</p> : null}
-              </div>
+          <div className="confirm-dialog__body">
+            <div className={`confirm-dialog__icon confirm-dialog__icon--${tone}`} aria-hidden>
+              {meta.icon}
             </div>
-            <div className="confirm-dialog__actions">
-              {dialog.kind === 'confirm' ? (
-                <>
-                  <button
-                    type="button"
-                    className="btn btn--ghost confirm-dialog__cancel"
-                    autoFocus
-                    onClick={() => close(false)}
-                  >
-                    {dialog.cancelLabel ?? '취소'}
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn confirm-dialog__confirm${tone === 'danger' ? ' btn--danger' : ' btn--primary'}`}
-                    onClick={() => close(true)}
-                  >
-                    {dialog.confirmLabel ?? '확인'}
-                  </button>
-                </>
-              ) : (
+            <div className="confirm-dialog__content">
+              <h2 id={titleId} className="confirm-dialog__title">
+                {title}
+              </h2>
+              <p id={descId} className="confirm-dialog__message">
+                {dialog.message}
+              </p>
+              {dialog.detail ? <p className="confirm-dialog__detail">{dialog.detail}</p> : null}
+            </div>
+          </div>
+          <div className="confirm-dialog__actions">
+            {dialog.kind === 'confirm' ? (
+              <>
+                <button
+                  type="button"
+                  className="btn btn--ghost confirm-dialog__cancel"
+                  autoFocus
+                  onClick={() => close(false)}
+                >
+                  {dialog.cancelLabel ?? '취소'}
+                </button>
                 <button
                   type="button"
                   className={`btn confirm-dialog__confirm${tone === 'danger' ? ' btn--danger' : ' btn--primary'}`}
-                  autoFocus
                   onClick={() => close(true)}
                 >
-                  {dialog.okLabel ?? '확인'}
+                  {dialog.confirmLabel ?? '확인'}
                 </button>
-              )}
-            </div>
+              </>
+            ) : (
+              <button
+                type="button"
+                className={`btn confirm-dialog__confirm${tone === 'danger' ? ' btn--danger' : ' btn--primary'}`}
+                autoFocus
+                onClick={() => close(true)}
+              >
+                {dialog.okLabel ?? '확인'}
+              </button>
+            )}
           </div>
         </div>
-      ) : null}
+      </div>
+    ) : null;
+
+  return (
+    <ConfirmDialogContext.Provider value={{ confirm, alert }}>
+      {children}
+      {overlay ? createPortal(overlay, document.body) : null}
     </ConfirmDialogContext.Provider>
   );
 }

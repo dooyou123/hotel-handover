@@ -11,9 +11,12 @@ import {
   formatUpdatedAt,
   getHoldStaleLevel,
   getStaleLevel,
+  hasStaffAckedCard,
   isArchivedCard,
   isCardDueActive,
   isCardSnoozed,
+  isTeamAckPending,
+  isUnackedUrgentCardForStaff,
   isUrgentPriorityCard,
   needsComplaintFirstResponse,
   countActiveCardComments,
@@ -26,6 +29,7 @@ import { SearchHighlight } from '@/components/handover/search-highlight';
 import { HandoverCardBodyPreview } from './handover-card-body-preview';
 import { HandoverCardCommentSection } from './handover-card-comment-section';
 import { HandoverListRowMoreMenu } from './handover-list-row-more-menu';
+import { CardAckReadStatus } from '@/components/handover/card-ack-read-status';
 
 type HandoverListRowProjectProps = {
   card: Card;
@@ -74,7 +78,8 @@ export function HandoverListRowProject({
 }: HandoverListRowProjectProps) {
   const { confirm } = useConfirmDialog();
   const isUrgent = isUrgentPriorityCard(card);
-  const isUnacked = isUrgent && card.card_acknowledgments.length === 0;
+  const needsMyAck = isUnackedUrgentCardForStaff(card, staffName);
+  const teamAckPending = isTeamAckPending(card, staffNames);
   const archived = isArchivedCard(card);
   const snoozed = isCardSnoozed(card);
   const staleLevel = getStaleLevel(card);
@@ -95,7 +100,7 @@ export function HandoverListRowProject({
       ? '완료'
       : card.column_id === 'hold'
         ? '보류'
-        : isUnacked
+        : teamAckPending
           ? '미확인'
           : '진행';
   const canComplete = !archived && card.column_id !== 'done';
@@ -133,7 +138,7 @@ export function HandoverListRowProject({
   const actionBar =
     !bulkMode ? (
       <div className="project-list-row__actions">
-        {isUnacked ? (
+        {needsMyAck ? (
           <button
             type="button"
             className="project-list-row__ack"
@@ -189,7 +194,7 @@ export function HandoverListRowProject({
       id={`handover-card-${card.id}`}
       className={[
         'project-list-row',
-        isUnacked ? 'is-unacked' : '',
+        needsMyAck || teamAckPending ? 'is-unacked' : '',
         archived ? 'is-archived' : '',
         card.column_id === 'done' ? 'is-done' : '',
         card.column_id === 'hold' ? 'is-hold' : '',
@@ -277,6 +282,16 @@ export function HandoverListRowProject({
             resolution={card.column_id === 'done' || archived ? resolution : ''}
             clampLines={hasComments ? 2 : undefined}
           />
+
+          {isUrgent && staffNames.length ? (
+            <CardAckReadStatus
+              card={card}
+              activeStaffNames={staffNames}
+              currentStaffName={staffName}
+              variant="compact"
+              onAcknowledge={needsMyAck ? onAcknowledge : undefined}
+            />
+          ) : null}
 
           <span className="project-list-row__foot">
             <span className="project-list-row__foot-meta">

@@ -26,6 +26,7 @@ import { getKoreanHoliday, getKoreanHolidaysInMonth } from '@/lib/calendar/korea
 import { monthDateRange } from '@/lib/schedule/month-range';
 import { buildPrintDocumentHtml, buildSummaryText, getExportFilename, hasSummaryContent } from '@/lib/handover/daily-summary';
 import { buildShiftSummaryData } from '@/lib/handover/shift-summary';
+import { cardAckSummary, hasStaffAckedCard, isUnackedUrgentCard } from '@/lib/handover/card-acks';
 import { consolidateTlNotificationRows, performReconciliation } from '@/lib/rate-confirm/compare-engine';
 import { isDateEqual, isStatusEqual, normalizeDate, normalizeRate } from '@/lib/rate-confirm/normalize';
 import {
@@ -142,6 +143,22 @@ test('hasSummaryContent detects urgent cards', () => {
   } as Card;
   const data = buildShiftSummaryData([card], []);
   assert.equal(hasSummaryContent(data, []), true);
+});
+
+test('cardAckSummary tracks per-staff urgent reads', () => {
+  const card = {
+    id: '1',
+    column_id: 'progress',
+    priority: 'urgent',
+    card_acknowledgments: [{ id: 'a1', card_id: '1', shift: 'A', staff_name: '김', acknowledged_at: '2026-06-01' }],
+  } as Card;
+  const summary = cardAckSummary(card, ['김', '이', '박']);
+  assert.deepEqual(summary.read, ['김']);
+  assert.deepEqual(summary.unread, ['이', '박']);
+  assert.equal(hasStaffAckedCard(card, '김'), true);
+  assert.equal(isUnackedUrgentCard(card, { activeStaffNames: ['김', '이'] }), true);
+  assert.equal(isUnackedUrgentCard(card, { staffName: '김' }), false);
+  assert.equal(isUnackedUrgentCard(card, { staffName: '이' }), true);
 });
 
 test('hasSummaryContent detects notices', () => {

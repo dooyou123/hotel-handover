@@ -69,7 +69,7 @@ export function buildLiveBoardFeed(input: {
   const items: LiveBoardItem[] = [];
   const summaries: LiveBoardSummary[] = [];
 
-  const unacked = input.cards.filter(isUnackedUrgentCard);
+  const unacked = input.cards.filter((card) => isUnackedUrgentCard(card));
   const overdue = input.cards.filter(isCardOverdue);
   const dueSoon = input.cards.filter((c) => isCardDueSoon(c) && !isCardOverdue(c));
   const stale = input.cards.filter(isStaleCard);

@@ -2,6 +2,16 @@ import { HIGHLIGHT_KEYWORDS } from '@/lib/handover/constants';
 import { formatComplaintRemedies } from '@/lib/handover/complaint-remedies';
 import type { Card, CardComment, CardInput, ColumnId, QuickFilter, WorkSession } from '@/lib/handover/types';
 
+export {
+  cardAckSummary,
+  cardAckStaffSet,
+  hasStaffAckedCard,
+  isTeamAckPending,
+  isUnackedUrgentCard,
+  isUnackedUrgentCardForStaff,
+} from '@/lib/handover/card-acks';
+import { isUnackedUrgentCard } from '@/lib/handover/card-acks';
+
 export type ProjectListSection = {
   id: 'unacked' | 'progress' | 'hold' | 'done' | 'archived';
   title: string;
@@ -180,10 +190,6 @@ export function isUrgentPriorityCard(card: Card): boolean {
   return card.priority === 'urgent' && isActiveCard(card);
 }
 
-export function isUnackedUrgentCard(card: Card): boolean {
-  return isUrgentPriorityCard(card) && card.card_acknowledgments.length === 0;
-}
-
 export function getLatestCardComment(card: Card): CardComment | null {
   if (!card.card_comments.length) return null;
   return [...card.card_comments].sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null;
@@ -313,7 +319,7 @@ export function filterCards(
     if (!cardMatchesDateRange(card, options.dateFrom ?? null, options.dateTo ?? null)) return false;
 
     if (options.quickFilter === 'unacked') {
-      return isUnackedUrgentCard(card);
+      return isUnackedUrgentCard(card, { staffName: options.session.name });
     }
     if (options.quickFilter === 'mine') {
       return cardMatchesMine(card, options.session);
@@ -584,8 +590,10 @@ export function normalizeColumnId(columnId: ColumnId): ColumnId {
   return columnId === 'urgent' ? 'progress' : columnId;
 }
 
-export function buildProjectListSections(cards: Card[]): ProjectListSection[] {
-  const unacked = cards.filter(isUnackedUrgentCard);
+export function buildProjectListSections(cards: Card[], activeStaffNames: string[] = []): ProjectListSection[] {
+  const unacked = cards.filter((card) =>
+    isUnackedUrgentCard(card, activeStaffNames.length ? { activeStaffNames } : undefined),
+  );
   const unackedIds = new Set(unacked.map((card) => card.id));
   const progressCards = sortCardsInColumn(
     cards.filter(

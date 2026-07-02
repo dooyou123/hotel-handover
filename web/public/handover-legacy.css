@@ -5537,8 +5537,9 @@ textarea {
   page-break-inside: avoid;
 }
 
-.confirm-overlay {
-  z-index: 60;
+/* 드로어(110), 라이트박스(200), 교대 전체화면(650) 위에 항상 표시 */
+.modal-overlay.confirm-overlay {
+  z-index: 700;
   animation: confirm-overlay-in 0.16s ease-out;
 }
 
