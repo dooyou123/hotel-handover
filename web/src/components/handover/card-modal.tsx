@@ -39,7 +39,8 @@ import { HandoverCreateTemplates } from './handover-create-templates';
 import { ComplaintRemedyPicker } from './complaint-remedy-picker';
 import { EMPTY_COMPLAINT_REMEDIES, sanitizeComplaintRemediesForCategory } from '@/lib/handover/complaint-remedies';
 import { CardAckReadStatus } from '@/components/handover/card-ack-read-status';
-import { isTeamAckPending } from '@/lib/handover/card-acks';
+import { CardAckUrgentCallout } from '@/components/handover/card-ack-urgent-callout';
+import { hasStaffAckedCard, isTeamAckPending } from '@/lib/handover/card-acks';
 
 type CardModalView = 'full' | 'comments';
 
@@ -305,6 +306,18 @@ export function CardModal({
   const totalAttachmentCount = savedAttachmentCount + pendingFiles.length;
   const canAddAttachment = totalAttachmentCount < 2 && onUploadAttachment;
   const commentsOnly = view === 'comments' && !!card;
+  const needsMyAck = Boolean(
+    card &&
+      card.priority === 'urgent' &&
+      card.column_id !== 'done' &&
+      staffNames.length &&
+      !hasStaffAckedCard(card, defaultName),
+  );
+  const handleDrawerAcknowledge = useCallback(() => {
+    if (!onAcknowledge || !card) return;
+    if (requireSession && !requireSession('긴급 확인')) return;
+    void onAcknowledge(card.id);
+  }, [card, onAcknowledge, requireSession]);
 
   const handleAttachmentPaste = useCallback(
     async (event: ClipboardEvent) => {
@@ -850,12 +863,10 @@ export function CardModal({
           card={card}
           activeStaffNames={staffNames}
           currentStaffName={defaultName}
+          hidePersonalCta={needsMyAck}
           onAcknowledge={
             onAcknowledge
-              ? () => {
-                  if (requireSession && !requireSession('긴급 확인')) return;
-                  void onAcknowledge(card.id);
-                }
+              ? handleDrawerAcknowledge
               : undefined
           }
           onMarkDone={
@@ -992,6 +1003,13 @@ export function CardModal({
             <h2 id="card-panel-title" className="drawer-panel__title">
               {form.title.trim() || '제목 없음'}
             </h2>
+            {needsMyAck && !commentsOnly ? (
+              <CardAckUrgentCallout
+                staffName={defaultName}
+                onAcknowledge={handleDrawerAcknowledge}
+                acknowledging={acknowledging}
+              />
+            ) : null}
             <p className="drawer-panel__mode">{panelTitle}</p>
           </>
         ) : (

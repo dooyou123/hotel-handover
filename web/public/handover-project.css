@@ -7342,13 +7342,18 @@ html[data-ui='project'] .card-ack-status {
   padding: 0.75rem 0.85rem;
   border-radius: var(--radius);
   border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface) 92%, var(--primary) 8%);
+  background: var(--surface);
   font-size: 0.84rem;
 }
 
-html[data-ui='project'] .card-ack-status--pending {
-  border-color: color-mix(in srgb, #ef4444 35%, var(--border));
-  background: color-mix(in srgb, #fff5f5 70%, var(--surface) 30%);
+html[data-ui='project'] .card-ack-status--needs-me {
+  border-color: color-mix(in srgb, #f59e0b 45%, var(--border));
+  background: color-mix(in srgb, #fffbeb 75%, var(--surface) 25%);
+}
+
+html[data-ui='project'] .card-ack-status--waiting-others {
+  border-color: color-mix(in srgb, #16a34a 35%, var(--border));
+  background: color-mix(in srgb, #f0fdf4 80%, var(--surface) 20%);
 }
 
 html[data-ui='project'] .card-ack-status--done {
@@ -7358,49 +7363,125 @@ html[data-ui='project'] .card-ack-status--done {
 
 html[data-ui='project'] .card-ack-status--compact {
   margin: 0.35rem 0 0.15rem;
-  padding: 0.45rem 0.55rem;
+  padding: 0.55rem 0.65rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+html[data-ui='project'] .card-ack-status__cta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.35rem 0.5rem;
+  justify-content: space-between;
+  gap: 0.55rem;
+}
+
+html[data-ui='project'] .card-ack-status__cta-text {
+  margin: 0;
+  display: grid;
+  gap: 0.15rem;
+  font-size: 0.82rem;
+  color: #92400e;
+}
+
+html[data-ui='project'] .card-ack-status__cta-text strong {
+  font-size: 0.9rem;
+  color: #b45309;
+}
+
+html[data-ui='project'] .card-ack-status__cta-text span {
+  font-size: 0.78rem;
+  color: #a16207;
+}
+
+html[data-ui='project'] .card-ack-status__cta-sub {
+  display: block;
+  margin-top: 0.2rem;
+  line-height: 1.35;
+}
+
+html[data-ui='project'] .card-ack-status__cta-name {
+  font-size: 2.15em;
+  font-weight: 800;
+  color: #15803d;
+  letter-spacing: -0.02em;
+}
+
+html[data-ui='project'] .card-ack-status__ack-btn {
+  flex-shrink: 0;
+  min-height: 2.15rem;
+  padding: 0.4rem 0.9rem;
+  border: 0;
+  border-radius: 999px;
+  background: #16a34a;
+  color: #fff;
+  font-size: 0.84rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.28);
+}
+
+html[data-ui='project'] .card-ack-status__ack-btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+html[data-ui='project'] .card-ack-status__mine-done {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.55rem;
+  font-size: 0.82rem;
+}
+
+html[data-ui='project'] .card-ack-status__mine-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+  font-weight: 800;
+  font-size: 0.78rem;
+}
+
+html[data-ui='project'] .card-ack-status__waiting-text {
+  color: #15803d;
+  font-weight: 600;
 }
 
 html[data-ui='project'] .card-ack-status__toggle {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
   padding: 0;
   border: 0;
   background: transparent;
   color: inherit;
   font: inherit;
-  font-weight: 700;
+  font-size: 0.8rem;
   cursor: pointer;
   text-align: left;
 }
 
-html[data-ui='project'] .card-ack-status__toggle--pending .card-ack-status__count {
-  color: #b91c1c;
-}
-
-html[data-ui='project'] .card-ack-status__mine {
-  font-weight: 600;
-  color: var(--primary);
+html[data-ui='project'] .card-ack-status__count {
+  font-weight: 700;
+  color: #166534;
 }
 
 html[data-ui='project'] .card-ack-status__chevron {
-  opacity: 0.55;
-  font-size: 0.72rem;
-}
-
-html[data-ui='project'] .card-ack-status__hint {
-  margin: 0.35rem 0 0;
-  color: #b91c1c;
-  font-size: 0.8rem;
+  flex-shrink: 0;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #15803d;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 html[data-ui='project'] .card-ack-status__lists {
-  margin-top: 0.55rem;
   display: grid;
   gap: 0.45rem;
 }
@@ -7416,7 +7497,7 @@ html[data-ui='project'] .card-ack-status__read {
 
 html[data-ui='project'] .card-ack-status__label {
   flex-shrink: 0;
-  min-width: 2.6rem;
+  min-width: 2.8rem;
   font-weight: 700;
   font-size: 0.78rem;
   color: var(--text-muted);
@@ -7438,49 +7519,190 @@ html[data-ui='project'] .card-ack-status__chip {
 }
 
 html[data-ui='project'] .card-ack-status__chip--unread {
-  background: #fee2e2;
-  color: #991b1b;
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
 }
 
 html[data-ui='project'] .card-ack-status__chip--read {
-  background: color-mix(in srgb, var(--primary-soft) 80%, #fff 20%);
-  color: var(--primary-hover);
+  background: color-mix(in srgb, var(--surface) 88%, var(--border) 12%);
+  color: var(--text-muted);
 }
 
-html[data-ui='project'] .card-ack-status__prompt,
 html[data-ui='project'] .card-ack-status__done-msg {
   margin: 0.5rem 0 0;
-  color: var(--text-muted);
-  font-size: 0.8rem;
-}
-
-html[data-ui='project'] .card-ack-status__done-msg {
   color: var(--primary-hover);
+  font-size: 0.8rem;
   font-weight: 600;
 }
 
 html[data-ui='project'] .card-ack-status__actions {
-  margin-top: 0.65rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-}
-
-html[data-ui='project'] .card-ack-status__ack-inline {
-  flex-shrink: 0;
-  min-height: 1.85rem;
-  padding: 0.2rem 0.65rem;
-  border: 0;
-  border-radius: 999px;
-  background: var(--primary);
-  color: #fff;
-  font-size: 0.78rem;
-  font-weight: 700;
-  cursor: pointer;
+  margin-top: 0.55rem;
 }
 
 html[data-ui='project'] .card-ack-status__done-btn {
   background: color-mix(in srgb, var(--primary-soft) 70%, #fff 30%);
   color: var(--primary-hover);
   border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--border));
+}
+
+html[data-ui='project'] .project-list-row__ack--needs-me {
+  border-color: #16a34a;
+  background: #16a34a;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.25);
+}
+
+html[data-ui='project'] .project-list-row__ack-done {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.9rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: var(--radius-sm);
+  background: #dcfce7;
+  color: #166534;
+  font-size: 0.76rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+/* ── 긴급 확인 히어로 CTA (제목 우측) ── */
+
+html[data-ui='project'] .project-list-row__title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem 0.85rem;
+  width: 100%;
+}
+
+html[data-ui='project'] .project-list-row__title-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+html[data-ui='project'] .project-list-row.is-needs-my-ack {
+  border-left-width: 6px;
+  background: color-mix(in srgb, #fffbeb 62%, var(--surface));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, #f59e0b 28%, transparent),
+    var(--shadow-md);
+}
+
+html[data-ui='project'] .project-list-row.is-needs-my-ack:hover {
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, #f59e0b 38%, transparent),
+    var(--shadow-md);
+}
+
+html[data-ui='project'] .card-ack-callout {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.55rem;
+  flex-shrink: 0;
+  width: min(100%, 17.5rem);
+  padding: 0.7rem 0.8rem;
+  border-radius: calc(var(--radius) + 2px);
+  border: 2px solid #f59e0b;
+  background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%);
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.28);
+}
+
+html[data-ui='project'] .card-ack-callout__copy {
+  display: grid;
+  gap: 0.2rem;
+}
+
+html[data-ui='project'] .card-ack-callout__lead {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1.25;
+  color: #92400e;
+}
+
+html[data-ui='project'] .card-ack-callout__who {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem 0.35rem;
+  line-height: 1.1;
+}
+
+html[data-ui='project'] .card-ack-callout__name {
+  font-size: clamp(1.45rem, 4.5vw, 2rem);
+  font-weight: 900;
+  color: #15803d;
+  letter-spacing: -0.03em;
+}
+
+html[data-ui='project'] .card-ack-callout__suffix {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #b45309;
+}
+
+html[data-ui='project'] .card-ack-callout__btn {
+  min-height: 2.85rem;
+  padding: 0.55rem 1rem;
+  border: 0;
+  border-radius: 999px;
+  background: #16a34a;
+  color: #fff;
+  font-size: 1.02rem;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 3px 12px rgba(22, 163, 74, 0.35);
+}
+
+html[data-ui='project'] .card-ack-callout__btn:hover:not(:disabled) {
+  background: #15803d;
+}
+
+html[data-ui='project'] .card-ack-callout__btn:disabled {
+  opacity: 0.72;
+  cursor: wait;
+}
+
+html[data-ui='project'] .project-list-row.is-needs-my-ack .card-ack-callout {
+  width: min(100%, 19rem);
+  padding: 0.8rem 0.9rem;
+}
+
+html[data-ui='project'] .project-list-row.is-needs-my-ack .card-ack-callout__lead {
+  font-size: 1.02rem;
+}
+
+html[data-ui='project'] .project-list-row.is-needs-my-ack .card-ack-callout__name {
+  font-size: clamp(1.6rem, 5vw, 2.15rem);
+}
+
+html[data-ui='project'] .drawer-panel__heading .card-ack-callout {
+  width: 100%;
+  max-width: 22rem;
+  margin-top: 0.55rem;
+}
+
+@media (max-width: 720px) {
+  html[data-ui='project'] .project-list-row__title-row {
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  html[data-ui='project'] .project-list-row.is-needs-my-ack .card-ack-callout {
+    order: -1;
+    width: 100%;
+    max-width: none;
+  }
+
+  html[data-ui='project'] .project-list-row.is-needs-my-ack .card-ack-callout__name {
+    font-size: clamp(1.75rem, 7vw, 2.25rem);
+  }
+
+  html[data-ui='project'] .project-list-row.is-needs-my-ack .card-ack-callout__btn {
+    min-height: 3.1rem;
+    font-size: 1.08rem;
+  }
 }

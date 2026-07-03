@@ -11,17 +11,16 @@ import {
   formatUpdatedAt,
   getHoldStaleLevel,
   getStaleLevel,
-  hasStaffAckedCard,
   isArchivedCard,
   isCardDueActive,
   isCardSnoozed,
-  isTeamAckPending,
   isUnackedUrgentCardForStaff,
   isUrgentPriorityCard,
   needsComplaintFirstResponse,
   countActiveCardComments,
   hasActiveCardComments,
 } from '@/lib/handover/card-utils';
+import { isTeamAckPending } from '@/lib/handover/card-acks';
 import type { Card } from '@/lib/handover/types';
 import { formatComplaintRemedies, hasComplaintRemedies } from '@/lib/handover/complaint-remedies';
 import { ComplaintSlaBadge } from '@/components/handover/complaint-sla-badge';
@@ -30,6 +29,7 @@ import { HandoverCardBodyPreview } from './handover-card-body-preview';
 import { HandoverCardCommentSection } from './handover-card-comment-section';
 import { HandoverListRowMoreMenu } from './handover-list-row-more-menu';
 import { CardAckReadStatus } from '@/components/handover/card-ack-read-status';
+import { CardAckUrgentCallout } from '@/components/handover/card-ack-urgent-callout';
 
 type HandoverListRowProjectProps = {
   card: Card;
@@ -138,19 +138,10 @@ export function HandoverListRowProject({
   const actionBar =
     !bulkMode ? (
       <div className="project-list-row__actions">
-        {needsMyAck ? (
-          <button
-            type="button"
-            className="project-list-row__ack"
-            onClick={(event) => {
-              event.stopPropagation();
-              onAcknowledge();
-            }}
-          >
-            확인
-          </button>
+        {needsMyAck ? null : teamAckPending ? (
+          <span className="project-list-row__ack-done">내 확인 완료</span>
         ) : null}
-        {canComplete ? (
+        {canComplete && !(isUrgent && teamAckPending) ? (
           <button
             type="button"
             className="project-list-row__done project-list-row__done--primary"
@@ -195,6 +186,7 @@ export function HandoverListRowProject({
       className={[
         'project-list-row',
         needsMyAck || teamAckPending ? 'is-unacked' : '',
+        needsMyAck ? 'is-needs-my-ack' : '',
         archived ? 'is-archived' : '',
         card.column_id === 'done' ? 'is-done' : '',
         card.column_id === 'hold' ? 'is-hold' : '',
@@ -255,19 +247,29 @@ export function HandoverListRowProject({
           {actionBar}
         </div>
         <div className="project-list-row__main" {...openHandlers}>
-          <span className="project-list-row__title" title={card.title}>
-            {card.room ? (
-              <span className="project-list-row__room card-room-badge" title={`객실 ${card.room}`}>
-                <SearchHighlight text={card.room} query={searchQuery} />
+          <div className="project-list-row__title-row">
+            <div className="project-list-row__title-wrap">
+              <span className="project-list-row__title" title={card.title}>
+                {card.room ? (
+                  <span className="project-list-row__room card-room-badge" title={`객실 ${card.room}`}>
+                    <SearchHighlight text={card.room} query={searchQuery} />
+                  </span>
+                ) : null}
+                {position ? (
+                  <span className="project-list-row__position" aria-label={`${position.index}번째, 남은 ${position.total}건`}>
+                    {position.index}/{position.total}
+                  </span>
+                ) : null}
+                <SearchHighlight text={card.title} query={searchQuery} />
               </span>
+            </div>
+            {needsMyAck ? (
+              <CardAckUrgentCallout
+                staffName={staffName}
+                onAcknowledge={() => onAcknowledge()}
+              />
             ) : null}
-            {position ? (
-              <span className="project-list-row__position" aria-label={`${position.index}번째, 남은 ${position.total}건`}>
-                {position.index}/{position.total}
-              </span>
-            ) : null}
-            <SearchHighlight text={card.title} query={searchQuery} />
-          </span>
+          </div>
 
           {remedySummary ? (
             <span className="project-list-row__preview project-list-row__preview--remedy" title={remedySummary}>
@@ -289,6 +291,7 @@ export function HandoverListRowProject({
               activeStaffNames={staffNames}
               currentStaffName={staffName}
               variant="compact"
+              hidePersonalCta={needsMyAck}
               onAcknowledge={needsMyAck ? onAcknowledge : undefined}
             />
           ) : null}

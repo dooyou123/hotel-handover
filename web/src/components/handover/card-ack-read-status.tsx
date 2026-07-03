@@ -13,6 +13,7 @@ type CardAckReadStatusProps = {
   activeStaffNames: string[];
   currentStaffName: string;
   variant?: 'full' | 'compact';
+  hidePersonalCta?: boolean;
   onAcknowledge?: () => void;
   onMarkDone?: () => void;
   acknowledging?: boolean;
@@ -23,6 +24,7 @@ export function CardAckReadStatus({
   activeStaffNames,
   currentStaffName,
   variant = 'full',
+  hidePersonalCta = false,
   onAcknowledge,
   onMarkDone,
   acknowledging = false,
@@ -34,25 +36,41 @@ export function CardAckReadStatus({
   }
 
   const { read, unread } = cardAckSummary(card, activeStaffNames);
-  const mineAcked = hasStaffAckedCard(card, currentStaffName);
+  const needsMyAck = !hasStaffAckedCard(card, currentStaffName);
   const teamPending = isTeamAckPending(card, activeStaffNames);
   const allRead = !teamPending;
 
-  const toggle = (
+  const stateClass = needsMyAck
+    ? 'card-ack-status--needs-me'
+    : allRead
+      ? 'card-ack-status--done'
+      : 'card-ack-status--waiting-others';
+
+  const displayName = currentStaffName.trim() || '담당자';
+
+  const ackButton = onAcknowledge ? (
     <button
       type="button"
-      className={`card-ack-status__toggle${unread.length ? ' card-ack-status__toggle--pending' : ''}`}
-      onClick={() => setOpen((value) => !value)}
-      aria-expanded={open}
+      className="card-ack-status__ack-btn"
+      onClick={onAcknowledge}
+      disabled={acknowledging}
     >
-      <span className="card-ack-status__count">
-        긴급 확인 {read.length}/{activeStaffNames.length}
-      </span>
-      {mineAcked ? <span className="card-ack-status__mine">내 확인 완료</span> : null}
-      <span className="card-ack-status__chevron" aria-hidden>
-        {open ? '▴' : '▾'}
-      </span>
+      {acknowledging ? '확인 중…' : '지금 확인'}
     </button>
+  ) : null;
+
+  const needsMyAckCta = (
+    <div className="card-ack-status__cta">
+      <p className="card-ack-status__cta-text">
+        <strong>이 카드를 먼저 확인해 주세요.</strong>
+        <span className="card-ack-status__cta-sub">
+          (
+          <strong className="card-ack-status__cta-name">{displayName}</strong>
+          님이 먼저 확인해야 할 긴급 내용입니다.)
+        </span>
+      </p>
+      {ackButton}
+    </div>
   );
 
   const nameLists = open ? (
@@ -71,7 +89,7 @@ export function CardAckReadStatus({
       ) : null}
       {read.length ? (
         <p className="card-ack-status__read">
-          <span className="card-ack-status__label">확인</span>
+          <span className="card-ack-status__label">확인함</span>
           <span className="card-ack-status__chips">
             {read.map((name) => (
               <span key={name} className="card-ack-status__chip card-ack-status__chip--read">
@@ -82,64 +100,69 @@ export function CardAckReadStatus({
         </p>
       ) : null}
     </div>
-  ) : unread.length ? (
-    <p className="card-ack-status__hint">
-      미확인 <strong>{unread.join(', ')}</strong>
-    </p>
   ) : null;
 
-  const actions = (
-    <div className="card-ack-status__actions">
-      {!mineAcked && onAcknowledge ? (
-        <button
-          type="button"
-          className="btn btn--primary btn--small card-ack-status__ack-btn"
-          onClick={onAcknowledge}
-          disabled={acknowledging}
-        >
-          {acknowledging ? '확인 중…' : '내 확인'}
-        </button>
-      ) : null}
-      {allRead && onMarkDone ? (
-        <button type="button" className="btn btn--small card-ack-status__done-btn" onClick={onMarkDone}>
-          완료 처리
-        </button>
-      ) : null}
-    </div>
+  const rosterToggle = (
+    <button
+      type="button"
+      className="card-ack-status__toggle"
+      onClick={() => setOpen((value) => !value)}
+      aria-expanded={open}
+    >
+      <span className="card-ack-status__count">
+        확인 {read.length}/{activeStaffNames.length}
+        {unread.length ? ` · 미확인 ${unread.length}명` : ''}
+      </span>
+      <span className="card-ack-status__chevron" aria-hidden>
+        {open ? '접기' : '명단 보기'}
+      </span>
+    </button>
   );
 
   if (variant === 'compact') {
     return (
       <div
-        className={`card-ack-status card-ack-status--compact${teamPending ? ' card-ack-status--pending' : ''}`}
+        className={`card-ack-status card-ack-status--compact ${stateClass}`}
         onClick={(event) => event.stopPropagation()}
       >
-        {toggle}
-        {nameLists}
-        {!mineAcked && onAcknowledge ? (
-          <button
-            type="button"
-            className="card-ack-status__ack-inline"
-            onClick={onAcknowledge}
-            disabled={acknowledging}
-          >
-            확인
-          </button>
+        {needsMyAck && !hidePersonalCta ? needsMyAckCta : null}
+        {!needsMyAck ? (
+          <p className="card-ack-status__mine-done">
+            <span className="card-ack-status__mine-badge">내 확인 완료</span>
+            {unread.length ? (
+              <span className="card-ack-status__waiting-text">동료 {unread.length}명 확인 대기</span>
+            ) : null}
+          </p>
         ) : null}
+        {rosterToggle}
+        {nameLists}
       </div>
     );
   }
 
   return (
-    <section className={`card-ack-status${teamPending ? ' card-ack-status--pending' : ' card-ack-status--done'}`}>
-      {toggle}
+    <section className={`card-ack-status ${stateClass}`}>
+      {needsMyAck && !hidePersonalCta ? needsMyAckCta : null}
+      {!needsMyAck ? (
+        <p className="card-ack-status__mine-done">
+          <span className="card-ack-status__mine-badge">내 확인 완료</span>
+          {unread.length ? (
+            <span className="card-ack-status__waiting-text">동료 {unread.length}명이 아직 확인하지 않았습니다.</span>
+          ) : null}
+        </p>
+      ) : null}
+      {rosterToggle}
       {nameLists}
       {allRead ? (
         <p className="card-ack-status__done-msg">전원 확인했습니다. 완료 처리하면 목록에서 사라집니다.</p>
-      ) : (
-        <p className="card-ack-status__prompt">미확인 직원은 「내 확인」을 눌러 주세요.</p>
-      )}
-      {actions}
+      ) : null}
+      {allRead && onMarkDone ? (
+        <div className="card-ack-status__actions">
+          <button type="button" className="btn btn--small card-ack-status__done-btn" onClick={onMarkDone}>
+            완료 처리
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }
