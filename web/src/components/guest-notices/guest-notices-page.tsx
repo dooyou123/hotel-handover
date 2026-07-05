@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { GuestNoticeFrontMode } from '@/components/guest-notices/guest-notice-front-mode';
+import { GuestNoticeFooter } from '@/components/guest-notices/guest-notice-footer';
+import { GuestNoticeSettingsDrawer } from '@/components/guest-notices/guest-notice-settings-drawer';
 import { getNavPageMeta } from '@/lib/nav/page-meta';
 import { useWorkSession } from '@/lib/handover/use-work-session';
 import { printGuestNotice } from '@/lib/guest-notices/print';
@@ -12,13 +14,19 @@ import {
   GUEST_NOTICE_LOG_LABELS,
   GUEST_NOTICE_STATUS_LABELS,
   noticeBodyForLocale,
+  phraseBodyForLocale,
   type GuestNotice,
+  type GuestNoticeBranding,
   type GuestNoticeInput,
   type GuestNoticeLocale,
+  type GuestNoticePhrase,
   type GuestNoticeStatus,
 } from '@/lib/guest-notices/types';
+import { useGuestNoticeBranding } from '@/lib/guest-notices/use-guest-notice-branding';
+import { useGuestNoticePhrases } from '@/lib/guest-notices/use-guest-notice-phrases';
 import { useGuestNoticeLogs, useGuestNotices } from '@/lib/guest-notices/use-guest-notices';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useDismissibleOverlay } from '@/components/ui/use-dismissible-overlay';
 
 type DrawerMode = 'read' | 'edit' | 'create';
 
@@ -33,6 +41,7 @@ const emptyInput = (author: string): GuestNoticeInput => ({
   valid_from: null,
   valid_until: null,
   author,
+  show_footer: true,
 });
 
 function formatDateLabel(value: string | null): string {
@@ -54,6 +63,8 @@ function GuestNoticeDrawer({
   mode,
   notice,
   authorLabel,
+  branding,
+  phrases,
   onClose,
   onModeChange,
   onSave,
@@ -65,19 +76,22 @@ function GuestNoticeDrawer({
   mode: DrawerMode;
   notice: GuestNotice | null;
   authorLabel: string;
+  branding: GuestNoticeBranding | null;
+  phrases: GuestNoticePhrase[];
   onClose: () => void;
   onModeChange: (mode: DrawerMode) => void;
   onSave: (input: GuestNoticeInput, id?: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
-  onPrint: (notice: GuestNotice, locale: GuestNoticeLocale) => void;
+  onPrint: (notice: GuestNotice, locale: GuestNoticeLocale) => boolean;
   onLog: (noticeId: string, action: 'viewed' | 'printed' | 'confirmed') => Promise<void>;
 }) {
   const [form, setForm] = useState<GuestNoticeInput>(emptyInput(authorLabel));
   const [locale, setLocale] = useState<GuestNoticeLocale>('ko');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const overlayPointerDownRef = useRef(false);
+  const bodyTextareaRef = useRef<HTMLTextAreaElement>(null);
   const { confirm } = useConfirmDialog();
+  const { overlayProps, panelProps } = useDismissibleOverlay(onClose);
   const { data: logs = [] } = useGuestNoticeLogs(mode === 'read' && notice ? notice.id : null);
   const viewedRef = useRef<string | null>(null);
 
@@ -98,6 +112,7 @@ function GuestNoticeDrawer({
         valid_from: notice.valid_from,
         valid_until: notice.valid_until,
         author: notice.author || authorLabel,
+        show_footer: notice.show_footer !== false,
       });
     } else if (mode === 'create') {
       setForm(emptyInput(authorLabel));
@@ -117,6 +132,27 @@ function GuestNoticeDrawer({
 
   const bodyKey = localeBodyKey(locale);
 
+  function insertPhrase(phrase: GuestNoticePhrase) {
+    const text = phraseBodyForLocale(phrase, locale);
+    const textarea = bodyTextareaRef.current;
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const current = form[bodyKey];
+      const prefix = current.slice(0, start);
+      const suffix = current.slice(end);
+      const glue = prefix && !prefix.endsWith('\n') ? '\n\n' : '';
+      const next = `${prefix}${glue}${text}${suffix ? (suffix.startsWith('\n') ? '' : '\n\n') : ''}${suffix}`;
+      setForm({ ...form, [bodyKey]: next });
+      return;
+    }
+    const current = form[bodyKey];
+    setForm({
+      ...form,
+      [bodyKey]: current ? `${current}\n\n${text}` : text,
+    });
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!form.title.trim() || !form.body_ko.trim()) {
@@ -135,22 +171,10 @@ function GuestNoticeDrawer({
   }
 
   return (
-    <div
-      className="drawer-overlay"
-      onPointerDown={(event) => {
-        if (event.target === event.currentTarget) overlayPointerDownRef.current = true;
-      }}
-      onPointerUp={(event) => {
-        if (event.target === event.currentTarget && overlayPointerDownRef.current) onClose();
-        overlayPointerDownRef.current = false;
-      }}
-    >
+    <div className="drawer-overlay" {...overlayProps}>
       <aside
         className="drawer-panel drawer-panel--guest-notice"
-        onPointerDown={() => {
-          overlayPointerDownRef.current = false;
-        }}
-        onClick={(e) => e.stopPropagation()}
+        {...panelProps}
         role="dialog"
         aria-modal="true"
         aria-label="고객 안내문"
@@ -172,6 +196,7 @@ function GuestNoticeDrawer({
             <div className="guest-notice-drawer__meta">
               <span>{notice.category}</span>
               <span>{GUEST_NOTICE_STATUS_LABELS[notice.status]}</span>
+              <span>{notice.show_footer === false ? '하단 문구 숨김' : '하단 문구 표시'}</span>
               {notice.valid_from || notice.valid_until ? (
                 <span>
                   {formatDateLabel(notice.valid_from)}
@@ -193,13 +218,24 @@ function GuestNoticeDrawer({
                 </button>
               ))}
             </div>
-            <div className="guest-notice-drawer__preview">{noticeBodyForLocale(notice, locale)}</div>
+            <div className="guest-notice-drawer__preview">
+              {noticeBodyForLocale(notice, locale)}
+              <GuestNoticeFooter
+                branding={branding}
+                locale={locale}
+                showFooter={notice.show_footer !== false}
+              />
+            </div>
             <div className="guest-notice-drawer__actions">
               <button
                 type="button"
                 className="btn btn--primary"
                 onClick={async () => {
-                  onPrint(notice, locale);
+                  const ok = onPrint(notice, locale);
+                  if (!ok) {
+                    setError('인쇄 창을 열지 못했습니다. 브라우저 팝업 차단을 확인해 주세요.');
+                    return;
+                  }
                   await onLog(notice.id, 'printed');
                 }}
               >
@@ -283,6 +319,20 @@ function GuestNoticeDrawer({
                   onChange={(e) => setForm({ ...form, valid_until: e.target.value || null })}
                 />
               </label>
+              <label className="field field--full guest-notice-drawer__footer-toggle">
+                <span>하단 문구</span>
+                <span className="guest-notice-drawer__checkbox">
+                  <input
+                    id="guest-notice-show-footer"
+                    type="checkbox"
+                    checked={form.show_footer !== false}
+                    onChange={(e) => setForm({ ...form, show_footer: e.target.checked })}
+                  />
+                  <label htmlFor="guest-notice-show-footer">
+                    이 안내문에 호텔 하단 문구 표시 (로고는 항상 표시)
+                  </label>
+                </span>
+              </label>
               <div className="field field--full">
                 <span>본문 (다국어)</span>
                 <div className="guest-notice-drawer__locales" role="radiogroup" aria-label="편집 언어">
@@ -299,7 +349,25 @@ function GuestNoticeDrawer({
                     </button>
                   ))}
                 </div>
+                {phrases.length ? (
+                  <div className="guest-notice-drawer__phrase-insert">
+                    <span>상용구 삽입</span>
+                    <div className="guest-notice-drawer__phrase-chips">
+                      {phrases.map((phrase) => (
+                        <button
+                          key={phrase.id}
+                          type="button"
+                          className="guest-notice-drawer__phrase-chip"
+                          onClick={() => insertPhrase(phrase)}
+                        >
+                          {phrase.title}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
                 <textarea
+                  ref={bodyTextareaRef}
                   rows={12}
                   value={form[bodyKey]}
                   onChange={(e) => setForm({ ...form, [bodyKey]: e.target.value })}
@@ -356,10 +424,13 @@ export function GuestNoticesPageClient() {
   const frontNoticeId = searchParams.get('id');
   const { requireSession, authorLabel, session } = useWorkSession();
   const { notices, isLoading, error, saveNotice, deleteNotice, logAction } = useGuestNotices();
+  const { branding } = useGuestNoticeBranding();
+  const { phrases, savePhrase, deletePhrase, reorderPhrases } = useGuestNoticePhrases();
   const [statusFilter, setStatusFilter] = useState<'all' | GuestNoticeStatus>('published');
   const [categoryFilter, setCategoryFilter] = useState<'all' | (typeof GUEST_NOTICE_CATEGORIES)[number]>('all');
   const [query, setQuery] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<DrawerMode>('read');
   const [activeNotice, setActiveNotice] = useState<GuestNotice | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -418,6 +489,7 @@ export function GuestNoticesPageClient() {
         ) : (
           <GuestNoticeFrontMode
             notices={notices}
+            branding={branding}
             initialNoticeId={frontNoticeId}
             onExit={() => router.push('/guest-notices')}
             onLog={handleLog}
@@ -437,6 +509,9 @@ export function GuestNoticesPageClient() {
             <p>{pageMeta.description}</p>
           </div>
           <div className="guest-notices-page__header-actions">
+            <button type="button" className="btn btn--ghost" onClick={() => setSettingsOpen(true)}>
+              설정
+            </button>
             <button type="button" className="btn btn--ghost" onClick={() => router.push('/guest-notices?mode=front')}>
               프런트 모드
             </button>
@@ -516,6 +591,8 @@ export function GuestNoticesPageClient() {
         mode={drawerMode}
         notice={activeNotice}
         authorLabel={authorLabel}
+        branding={branding}
+        phrases={phrases}
         onClose={() => setDrawerOpen(false)}
         onModeChange={setDrawerMode}
         onSave={async (input, id) => {
@@ -526,8 +603,22 @@ export function GuestNoticesPageClient() {
           await deleteNotice.mutateAsync(id);
           showToast('안내문이 삭제되었습니다.');
         }}
-        onPrint={(notice, locale) => printGuestNotice(notice, locale)}
+        onPrint={(notice, locale) => {
+          const ok = printGuestNotice(notice, locale, branding);
+          if (!ok) showToast('인쇄 창을 열지 못했습니다. 브라우저 팝업 차단을 확인해 주세요.');
+          return ok;
+        }}
         onLog={handleLog}
+      />
+
+      <GuestNoticeSettingsDrawer
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onToast={showToast}
+        phrases={phrases}
+        savePhrase={savePhrase}
+        deletePhrase={deletePhrase}
+        reorderPhrases={reorderPhrases}
       />
 
       {toast ? <div className="toast">{toast}</div> : null}

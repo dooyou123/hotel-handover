@@ -34,6 +34,7 @@ export type GuestNotice = {
   valid_until: string | null;
   author: string;
   sort_order: number;
+  show_footer: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -50,6 +51,7 @@ export type GuestNoticeInput = {
   valid_until: string | null;
   author: string;
   sort_order?: number;
+  show_footer?: boolean;
 };
 
 export type GuestNoticeLog = {
@@ -74,4 +76,58 @@ export function noticeBodyForLocale(notice: GuestNotice, locale: GuestNoticeLoca
   if (locale === 'zh') return notice.body_zh || notice.body_ko;
   if (locale === 'ja') return notice.body_ja || notice.body_ko;
   return notice.body_ko;
+}
+
+export type GuestNoticeBranding = {
+  logo_path: string;
+  logo_url: string | null;
+  footer_ko: string;
+  footer_en: string;
+  footer_zh: string;
+  footer_ja: string;
+};
+
+export type GuestNoticeBrandingInput = {
+  footer_ko: string;
+  footer_en: string;
+  footer_zh: string;
+  footer_ja: string;
+};
+
+export function footerForLocale(branding: GuestNoticeBranding, locale: GuestNoticeLocale): string {
+  if (locale === 'en') return branding.footer_en || branding.footer_ko;
+  if (locale === 'zh') return branding.footer_zh || branding.footer_ko;
+  if (locale === 'ja') return branding.footer_ja || branding.footer_ko;
+  return branding.footer_ko;
+}
+
+export type GuestNoticePhrase = {
+  id: string;
+  hotel_id: string;
+  title: string;
+  body_ko: string;
+  body_en: string;
+  body_zh: string;
+  body_ja: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type GuestNoticePhraseInput = {
+  title: string;
+  body_ko: string;
+  body_en: string;
+  body_zh: string;
+  body_ja: string;
+  sort_order?: number;
+  is_active?: boolean;
+};
+
+export function phraseBodyForLocale(phrase: GuestNoticePhrase, locale: GuestNoticeLocale): string {
+  if (locale === 'en') return phrase.body_en || phrase.body_ko;
+  if (locale === 'zh') return phrase.body_zh || phrase.body_ko;
+  if (locale === 'ja') return phrase.body_ja || phrase.body_ko;
+  return phrase.body_ko;
 }

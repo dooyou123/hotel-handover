@@ -2,17 +2,20 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { printGuestNotice } from '@/lib/guest-notices/print';
+import { GuestNoticeFooter } from '@/components/guest-notices/guest-notice-footer';
 import {
   GUEST_NOTICE_CATEGORIES,
   GUEST_NOTICE_LOCALE_LABELS,
   noticeBodyForLocale,
   type GuestNotice,
+  type GuestNoticeBranding,
   type GuestNoticeCategory,
   type GuestNoticeLocale,
 } from '@/lib/guest-notices/types';
 
 type GuestNoticeFrontModeProps = {
   notices: GuestNotice[];
+  branding: GuestNoticeBranding | null;
   initialNoticeId?: string | null;
   onExit: () => void;
   onLog: (noticeId: string, action: 'viewed' | 'printed' | 'confirmed') => Promise<void>;
@@ -35,6 +38,7 @@ function buildNoticeShareUrl(noticeId: string): string {
 
 export function GuestNoticeFrontMode({
   notices,
+  branding,
   initialNoticeId,
   onExit,
   onLog,
@@ -161,7 +165,15 @@ export function GuestNoticeFrontMode({
                 </div>
               </div>
 
-              <div className="guest-front__body">{noticeBodyForLocale(selected, locale)}</div>
+              <div className="guest-front__body">
+                {noticeBodyForLocale(selected, locale)}
+                <GuestNoticeFooter
+                  branding={branding}
+                  locale={locale}
+                  showFooter={selected.show_footer !== false}
+                  className="guest-front__footer"
+                />
+              </div>
 
               <div className="guest-front__actions">
                 <button type="button" className="btn btn--primary" onClick={() => void handleCopy()}>
@@ -171,7 +183,12 @@ export function GuestNoticeFrontMode({
                   type="button"
                   className="btn btn--ghost"
                   onClick={async () => {
-                    printGuestNotice(selected, locale);
+                    const ok = printGuestNotice(selected, locale, branding);
+                    if (!ok) {
+                      setCopyNote('인쇄 창을 열지 못했습니다. 팝업 차단을 확인해 주세요.');
+                      window.setTimeout(() => setCopyNote(null), 3000);
+                      return;
+                    }
                     await onLog(selected.id, 'printed');
                   }}
                 >

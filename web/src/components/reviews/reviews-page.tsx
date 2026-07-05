@@ -28,18 +28,25 @@ import {
 } from '@/lib/reviews/types';
 import { useReviews } from '@/lib/reviews/use-reviews';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useDismissibleOverlay } from '@/components/ui/use-dismissible-overlay';
 import { OtaPastePanel, parsedOtaToReviewInput } from '@/components/reviews/ota-paste-panel';
 import { ReviewActionCompleteModal } from '@/components/reviews/review-action-complete-modal';
+import { ReviewReplyPicker } from '@/components/reviews/review-reply-picker';
+import { ReviewReplyTemplatesDrawer } from '@/components/reviews/review-reply-templates-drawer';
 import { otaSourceLabel, type OtaSource } from '@/lib/reviews/parse-ota';
+import { useReviewReplyTemplates } from '@/lib/reviews/use-review-reply-templates';
+import type { ReviewReplyTemplate } from '@/lib/reviews/reply-templates';
 
 type ReviewModalProps = {
   open: boolean;
   review: GuestReview | null;
   authorLabel: string;
+  replyTemplates: ReviewReplyTemplate[];
   onClose: () => void;
   onSave: (input: GuestReviewInput, id?: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onPrint?: (recipient: (typeof REVIEW_PRINT_RECIPIENTS)[number]['value']) => void;
+  onToast?: (message: string) => void;
 };
 
 const emptyForm = (authorLabel: string): GuestReviewInput => ({
@@ -65,12 +72,23 @@ function isPresetAccount(account: string | undefined): boolean {
   return value !== '' && (REVIEW_ACCOUNT_PRESETS as readonly string[]).includes(value);
 }
 
-function ReviewModal({ open, review, authorLabel, onClose, onSave, onDelete, onPrint }: ReviewModalProps) {
+function ReviewModal({
+  open,
+  review,
+  authorLabel,
+  replyTemplates,
+  onClose,
+  onSave,
+  onDelete,
+  onPrint,
+  onToast,
+}: ReviewModalProps) {
   const [form, setForm] = useState<GuestReviewInput>(emptyForm(authorLabel));
   const [accountCustom, setAccountCustom] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { confirm } = useConfirmDialog();
+  const { overlayProps, panelProps } = useDismissibleOverlay(onClose);
 
   useEffect(() => {
     if (!open) return;
@@ -136,8 +154,8 @@ function ReviewModal({ open, review, authorLabel, onClose, onSave, onDelete, onP
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal modal--review" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" {...overlayProps}>
+      <div className="modal modal--review" {...panelProps}>
         <form noValidate onSubmit={handleSubmit} className="modal__form">
           <div className="modal__header">
             <h2>{review ? '리뷰 수정' : '리뷰 추가'}</h2>
@@ -315,6 +333,17 @@ function ReviewModal({ open, review, authorLabel, onClose, onSave, onDelete, onP
               <span>등록자</span>
               <input value={form.author} onChange={(e) => setForm({ ...form, author: e.target.value })} />
             </label>
+
+            {review ? (
+              <div className="field field--full review-reply-picker-wrap">
+                <span>답변 템플릿</span>
+                <ReviewReplyPicker
+                  review={review}
+                  templates={replyTemplates}
+                  onCopied={onToast}
+                />
+              </div>
+            ) : null}
           </div>
 
           {error ? <p className="amenity-alert" style={{ marginTop: '0.75rem' }}>{error}</p> : null}
@@ -383,6 +412,7 @@ export function ReviewsPageClient() {
   const { confirm } = useConfirmDialog();
   const { reviews, isLoading, error, createReview, updateReview, deleteReview, completeRoomAction, updateRoomActionNote, cancelRoomAction } =
     useReviews();
+  const { templates, saveTemplate, deleteTemplate, reorderTemplates } = useReviewReplyTemplates();
   const [filter, setFilter] = useState<ReviewFilter>('전체');
   const [query, setQuery] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -393,6 +423,8 @@ export function ReviewsPageClient() {
   const [actionReview, setActionReview] = useState<GuestReview | null>(null);
   const [actionReviewMode, setActionReviewMode] = useState<'complete' | 'edit'>('complete');
   const [printOpenId, setPrintOpenId] = useState<string | null>(null);
+  const [replyOpenId, setReplyOpenId] = useState<string | null>(null);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
 
   function handlePrint(review: GuestReview, recipient: (typeof REVIEW_PRINT_RECIPIENTS)[number]['value']) {
     const ok = printGuestReview(review, recipient);
@@ -510,16 +542,21 @@ export function ReviewsPageClient() {
             <h1>{pageMeta.label}</h1>
             <p>{pageMeta.description}</p>
           </div>
-          <button
-            type="button"
-            className="btn btn--primary"
-            onClick={() => {
-              setEditing(null);
-              setModalOpen(true);
-            }}
-          >
-            + 리뷰 추가
-          </button>
+          <div className="reviews-page__head-actions">
+            <button type="button" className="btn btn--ghost" onClick={() => setTemplatesOpen(true)}>
+              답변 템플릿
+            </button>
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() => {
+                setEditing(null);
+                setModalOpen(true);
+              }}
+            >
+              + 리뷰 추가
+            </button>
+          </div>
         </header>
 
         <div className="reviews-page__summary">
@@ -629,6 +666,20 @@ export function ReviewsPageClient() {
                   </div>
                 </div>
 
+                {replyOpenId === review.id ? (
+                  <div
+                    className="review-card__reply"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <ReviewReplyPicker
+                      review={review}
+                      templates={templates}
+                      compact
+                      onCopied={showToast}
+                    />
+                  </div>
+                ) : null}
+
                 <div className="review-card__footer">
                   <div className="review-card__footer-body">
                     <p className="review-card__footer-meta">
@@ -648,6 +699,17 @@ export function ReviewsPageClient() {
                     ) : null}
                   </div>
                   <div className="review-card__footer-actions">
+                    <button
+                      type="button"
+                      className="btn btn--ghost btn--xs"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setReplyOpenId((current) => (current === review.id ? null : review.id));
+                        setPrintOpenId(null);
+                      }}
+                    >
+                      답변
+                    </button>
                     <div className="review-card__print-wrap">
                       <button
                         type="button"
@@ -655,6 +717,7 @@ export function ReviewsPageClient() {
                         onClick={(event) => {
                           event.stopPropagation();
                           setPrintOpenId((current) => (current === review.id ? null : review.id));
+                          setReplyOpenId(null);
                         }}
                       >
                         출력
@@ -748,7 +811,9 @@ export function ReviewsPageClient() {
         open={modalOpen}
         review={editing}
         authorLabel={authorLabel}
+        replyTemplates={templates}
         onClose={() => setModalOpen(false)}
+        onToast={showToast}
         onSave={async (input, id) => {
           let saved;
           if (id) {
@@ -781,6 +846,16 @@ export function ReviewsPageClient() {
           showToast('리뷰가 삭제되었습니다.');
         }}
         onPrint={editing ? (recipient) => handlePrint(editing, recipient) : undefined}
+      />
+
+      <ReviewReplyTemplatesDrawer
+        open={templatesOpen}
+        onClose={() => setTemplatesOpen(false)}
+        onToast={showToast}
+        templates={templates}
+        saveTemplate={saveTemplate}
+        deleteTemplate={deleteTemplate}
+        reorderTemplates={reorderTemplates}
       />
 
       <ReviewActionCompleteModal

@@ -13,6 +13,7 @@ import {
   type TransportBooking,
   type TransportBookingInput,
 } from '@/lib/transport/types';
+import { useDismissibleOverlay } from '@/components/ui/use-dismissible-overlay';
 
 type TaxiReservationFormProps = {
   open: boolean;
@@ -46,6 +47,7 @@ export function TaxiReservationForm({
   const [form, setForm] = useState<TransportBookingInput>(() => emptyTaxiBookingInput(authorLabel, defaultDate));
   const [customDestination, setCustomDestination] = useState(false);
   const [saving, setSaving] = useState(false);
+  const { overlayProps, panelProps } = useDismissibleOverlay(onClose);
 
   useEffect(() => {
     if (!open) return;
@@ -120,8 +122,8 @@ export function TaxiReservationForm({
   if (!open) return null;
 
   return (
-    <div className="modal-overlay modal-overlay--taxi" onClick={onClose}>
-      <div className="modal modal--taxi" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay modal-overlay--taxi" {...overlayProps}>
+      <div className="modal modal--taxi" {...panelProps}>
         <form onSubmit={handleSubmit} className="modal__form taxi-form">
           <div className="modal__header">
             <div>

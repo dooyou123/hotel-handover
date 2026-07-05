@@ -5,6 +5,7 @@ import { CONTACT_DEPARTMENTS, CONTACT_FORM_DEPARTMENTS, type Contact, type Conta
 import { useContacts } from '@/lib/contacts/use-contacts';
 import { getNavPageMeta } from '@/lib/nav/page-meta';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useDismissibleOverlay } from '@/components/ui/use-dismissible-overlay';
 
 type ContactModalProps = {
   open: boolean;
@@ -25,6 +26,7 @@ function ContactModal({ open, contact, onClose, onSave, onDelete }: ContactModal
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { confirm } = useConfirmDialog();
+  const { overlayProps, panelProps } = useDismissibleOverlay(onClose);
 
   useEffect(() => {
     if (!open) return;
@@ -71,8 +73,8 @@ function ContactModal({ open, contact, onClose, onSave, onDelete }: ContactModal
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" {...overlayProps}>
+      <div className="modal" {...panelProps}>
         <form noValidate onSubmit={handleSubmit} className="modal__form">
           <div className="modal__header">
             <h2>{contact ? '연락처 수정' : '연락처 추가'}</h2>

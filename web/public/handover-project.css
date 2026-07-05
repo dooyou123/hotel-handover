@@ -5506,6 +5506,7 @@ html[data-ui='project'] .nova-content:has(.housekeeping-page),
 html[data-ui='project'] .nova-content:has(.amenity-page),
 html[data-ui='project'] .nova-content:has(.help-page),
 html[data-ui='project'] .nova-content:has(.training-page),
+html[data-ui='project'] .nova-content:has(.situation-guidelines-page),
 html[data-ui='project'] .nova-content:has(.reviews-page),
 html[data-ui='project'] .nova-content:has(.retail-page),
 html[data-ui='project'] .nova-content:has(.parcels-page),
@@ -7705,4 +7706,397 @@ html[data-ui='project'] .drawer-panel__heading .card-ack-callout {
     min-height: 3.1rem;
     font-size: 1.08rem;
   }
+}
+
+/* ── 상황 대처 요령 ── */
+
+html[data-ui='project'] .situation-guidelines-page .project-board__controls {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+html[data-ui='project'] .situation-guidelines-page .project-board__search {
+  width: 100%;
+  flex: none;
+}
+
+html[data-ui='project'] .situation-guidelines-page__empty-add {
+  margin-top: 0.75rem;
+}
+
+html[data-ui='project'] .situation-guidelines-page .project-board__filters,
+html[data-ui='project'] .situation-guidelines-page__filters {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  align-content: flex-start;
+  gap: 0.4rem;
+  width: 100%;
+  flex: none;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-ui='project'] .situation-guidelines-page__filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.15rem;
+  padding: 0.42rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+html[data-ui='project'] .situation-guidelines-page__filter-label {
+  display: inline-block;
+}
+
+html[data-ui='project'] .situation-guidelines-page__filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+html[data-ui='project'] .situation-guidelines-page__filter.is-active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+
+html[data-ui='project'] .situation-guidelines-page__filter.is-active .situation-guidelines-page__filter-count {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+/* 분할 화면: 목록 | 본문 */
+
+html[data-ui='project'] .situation-guidelines-split {
+  display: grid;
+  grid-template-columns: minmax(260px, 36%) minmax(0, 1fr);
+  align-items: stretch;
+  min-height: min(72vh, 42rem);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+html[data-ui='project'] .situation-guidelines-split__list {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-2) 35%, var(--surface));
+  overflow: hidden;
+}
+
+html[data-ui='project'] .situation-guidelines-split__rows {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0.65rem 0.75rem 0.75rem;
+  border-top: 0;
+  overflow-y: auto;
+}
+
+html[data-ui='project'] .situation-guidelines-split__list-empty {
+  margin: 0;
+  padding: 1.25rem 0.85rem;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+html[data-ui='project'] .situation-guidelines-split .project-board__list {
+  padding-top: 0;
+  border-top: 0;
+}
+
+html[data-ui='project'] .situation-guidelines-split__pin-btn {
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: color-mix(in srgb, var(--text-muted) 75%, transparent);
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+html[data-ui='project'] .situation-guidelines-split__pin-btn.is-active {
+  color: #f59e0b;
+}
+
+html[data-ui='project'] .situation-guidelines-split__row {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+html[data-ui='project'] .situation-guidelines-split__row-shell {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 0.75rem 0.85rem;
+}
+
+html[data-ui='project'] .situation-guidelines-split__row-body {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+html[data-ui='project'] .situation-guidelines-split__row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+
+html[data-ui='project'] .situation-guidelines-split__row-head .project-board__row-tags {
+  margin-bottom: 0;
+}
+
+html[data-ui='project'] .situation-guidelines-split__title {
+  margin: 0;
+  font-size: 1.12rem;
+  line-height: 1.45;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+html[data-ui='project'] .situation-guidelines-split__row.is-reading .situation-guidelines-split__title {
+  color: var(--primary-hover);
+}
+
+html[data-ui='project'] .situation-guidelines-split__detail {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--surface);
+}
+
+html[data-ui='project'] .situation-guidelines-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 100%;
+  padding: 1.1rem 1.25rem 1rem;
+}
+
+html[data-ui='project'] .situation-guidelines-detail--empty {
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+html[data-ui='project'] .situation-guidelines-detail__back {
+  align-self: flex-start;
+  margin-bottom: 0.45rem;
+}
+
+html[data-ui='project'] .situation-guidelines-detail__head {
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+}
+
+html[data-ui='project'] .situation-guidelines-detail__tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.45rem;
+}
+
+html[data-ui='project'] .situation-guidelines-detail__category {
+  display: inline-flex;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary-soft) 75%, #fff);
+  color: var(--primary-hover);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+html[data-ui='project'] .situation-guidelines-detail__title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+}
+
+html[data-ui='project'] .situation-guidelines-detail__meta {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+html[data-ui='project'] .situation-guidelines-detail__section {
+  margin-bottom: 1rem;
+}
+
+html[data-ui='project'] .situation-guidelines-detail__section h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: none;
+}
+
+html[data-ui='project'] .situation-guidelines-detail__contacts dl {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, #f59e0b 28%, var(--border));
+  background: color-mix(in srgb, #fffbeb 55%, var(--surface));
+}
+
+html[data-ui='project'] .situation-guidelines-detail__contacts dt {
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: #92400e;
+}
+
+html[data-ui='project'] .situation-guidelines-detail__contacts dd {
+  margin: 0 0 0.15rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+html[data-ui='project'] .situation-guidelines-detail__contacts a {
+  color: var(--primary-hover);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+html[data-ui='project'] .situation-guidelines-detail__body pre {
+  margin: 0;
+  padding: 0.85rem 0.95rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+  background: color-mix(in srgb, var(--surface-2) 70%, var(--surface));
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 0.94rem;
+  line-height: 1.7;
+}
+
+html[data-ui='project'] .situation-guidelines-detail__keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+html[data-ui='project'] .situation-guidelines-detail__keywords span {
+  display: inline-flex;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-2) 90%, var(--border));
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+html[data-ui='project'] .situation-guidelines-detail__foot {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: auto;
+  padding-top: 0.85rem;
+  border-top: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+}
+
+html[data-ui='project'] .situation-guidelines-detail__foot .btn--danger {
+  margin-right: auto;
+}
+
+html[data-ui='project'] .situation-guidelines-detail--edit .situation-guidelines-detail__form {
+  flex: 1;
+  margin-bottom: 0.75rem;
+}
+
+@media (min-width: 901px) {
+  html[data-ui='project'] .situation-guidelines-detail__back {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  html[data-ui='project'] .situation-guidelines-split {
+    display: block;
+    min-height: 0;
+    border: 0;
+    box-shadow: none;
+    background: transparent;
+  }
+
+  html[data-ui='project'] .situation-guidelines-split__list {
+    border-right: 0;
+    background: transparent;
+  }
+
+  html[data-ui='project'] .situation-guidelines-split__detail {
+    display: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  html[data-ui='project'] .situation-guidelines-split.is-mobile-detail .situation-guidelines-split__list {
+    display: none;
+  }
+
+  html[data-ui='project'] .situation-guidelines-split.is-mobile-detail .situation-guidelines-split__detail {
+    display: block;
+  }
+}
+
+html[data-ui='project'] .situation-guideline-card__keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+html[data-ui='project'] .situation-guideline-card__keyword {
+  display: inline-flex;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-2) 90%, var(--border));
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
 }

@@ -9,6 +9,7 @@ import {
   validateParcelInput,
   type ParcelIdentityMode,
 } from '@/lib/parcels/validate';
+import { useDismissibleOverlay } from '@/components/ui/use-dismissible-overlay';
 
 type ParcelFormModalProps = {
   open: boolean;
@@ -47,6 +48,7 @@ export function ParcelFormModal({
   }));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const { overlayProps, panelProps } = useDismissibleOverlay(onClose);
 
   useEffect(() => {
     if (!open) return;
@@ -119,8 +121,8 @@ export function ParcelFormModal({
   }
 
   return (
-    <div className="modal-overlay modal-overlay--parcel" onClick={onClose}>
-      <div className="modal modal--parcel" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+    <div className="modal-overlay modal-overlay--parcel" {...overlayProps}>
+      <div className="modal modal--parcel" {...panelProps} role="dialog" aria-modal="true">
         <form className="modal__form parcel-form" onSubmit={(e) => void handleSubmit(e)}>
           <div className="modal__header">
             <div>
