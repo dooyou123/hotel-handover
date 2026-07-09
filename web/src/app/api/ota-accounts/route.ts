@@ -11,11 +11,15 @@ function readColumns(row: {
   ota_accounts_col_site: string | null;
   ota_accounts_col_login: string | null;
   ota_accounts_col_password: string | null;
+  ota_accounts_col_extra: string | null;
+  ota_accounts_col_url: string | null;
 }): OtaAccountColumnMapping {
   return {
     site: row.ota_accounts_col_site?.trim() || DEFAULT_OTA_ACCOUNT_COLUMNS.site,
     login: row.ota_accounts_col_login?.trim() || DEFAULT_OTA_ACCOUNT_COLUMNS.login,
     password: row.ota_accounts_col_password?.trim() || DEFAULT_OTA_ACCOUNT_COLUMNS.password,
+    extra: row.ota_accounts_col_extra?.trim() || DEFAULT_OTA_ACCOUNT_COLUMNS.extra,
+    url: row.ota_accounts_col_url?.trim() || DEFAULT_OTA_ACCOUNT_COLUMNS.url,
   };
 }
 
@@ -34,7 +38,7 @@ export async function GET(request: NextRequest) {
   const { data: hotel, error: hotelError } = await supabase
     .from('hotels')
     .select(
-      'ota_accounts_sheet_url, ota_accounts_col_site, ota_accounts_col_login, ota_accounts_col_password',
+      'ota_accounts_sheet_url, ota_accounts_col_site, ota_accounts_col_login, ota_accounts_col_password, ota_accounts_col_extra, ota_accounts_col_url',
     )
     .eq('id', DEFAULT_HOTEL_ID)
     .maybeSingle();
@@ -48,6 +52,8 @@ export async function GET(request: NextRequest) {
     ota_accounts_col_site: hotel?.ota_accounts_col_site ?? null,
     ota_accounts_col_login: hotel?.ota_accounts_col_login ?? null,
     ota_accounts_col_password: hotel?.ota_accounts_col_password ?? null,
+    ota_accounts_col_extra: hotel?.ota_accounts_col_extra ?? null,
+    ota_accounts_col_url: hotel?.ota_accounts_col_url ?? null,
   });
 
   try {

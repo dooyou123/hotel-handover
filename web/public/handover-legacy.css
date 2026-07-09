@@ -13104,7 +13104,7 @@ textarea {
 }
 
 .ota-accounts-list-panel {
-  width: min(42rem, 100%);
+  width: min(64rem, 100%);
   max-height: min(70vh, 720px);
   overflow: auto;
   border: 1px solid var(--border);
@@ -13115,8 +13115,8 @@ textarea {
 .ota-accounts-list__head,
 .ota-accounts-list__main {
   display: grid;
-  grid-template-columns: minmax(6.5rem, 8.5rem) minmax(0, 1fr) minmax(0, 1fr) auto;
-  gap: 0.45rem 0.65rem;
+  grid-template-columns: minmax(8rem, 11rem) minmax(0, 1.4fr) minmax(0, 1.2fr) auto;
+  gap: 0.55rem 0.85rem;
   align-items: center;
 }
 

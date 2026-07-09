@@ -81,7 +81,6 @@ function OtaAccountsList({
                   PW
                 </button>
               </div>
-              {account.note ? <p className="ota-accounts-list__note">{account.note}</p> : null}
             </div>
           </li>
         ))}
@@ -109,7 +108,7 @@ export function OtaAccountsPageClient() {
     const q = query.trim().toLowerCase();
     if (!q) return accounts;
     return accounts.filter((account) =>
-      [account.site, account.loginId, account.password, account.note].join(' ').toLowerCase().includes(q),
+      [account.site, account.loginId, account.password].join(' ').toLowerCase().includes(q),
     );
   }, [data?.accounts, query]);
 

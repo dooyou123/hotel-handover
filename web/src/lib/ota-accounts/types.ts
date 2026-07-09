@@ -3,19 +3,24 @@ export type OtaAccount = {
   site: string;
   loginId: string;
   password: string;
-  note: string;
+  extra: string;
+  url: string;
 };
 
 export type OtaAccountColumnMapping = {
   site: string;
   login: string;
   password: string;
+  extra: string;
+  url: string;
 };
 
 export const DEFAULT_OTA_ACCOUNT_COLUMNS: OtaAccountColumnMapping = {
-  site: 'OTA',
+  site: '여행사명',
   login: 'ID',
   password: 'PW',
+  extra: '기타',
+  url: 'URL',
 };
 
 export type OtaAccountsSheetSettings = {

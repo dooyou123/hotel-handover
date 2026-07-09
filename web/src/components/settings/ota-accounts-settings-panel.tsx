@@ -47,6 +47,8 @@ export function OtaAccountsSettingsPanel({ onSaved }: OtaAccountsSettingsPanelPr
           site: colSite.trim() || DEFAULT_OTA_ACCOUNT_COLUMNS.site,
           login: colLogin.trim() || DEFAULT_OTA_ACCOUNT_COLUMNS.login,
           password: colPassword.trim() || DEFAULT_OTA_ACCOUNT_COLUMNS.password,
+          extra: DEFAULT_OTA_ACCOUNT_COLUMNS.extra,
+          url: DEFAULT_OTA_ACCOUNT_COLUMNS.url,
         },
       });
       setSheetUrl(saved.sheetUrl);
@@ -91,11 +93,11 @@ export function OtaAccountsSettingsPanel({ onSaved }: OtaAccountsSettingsPanelPr
 
         <div className="ota-accounts-settings__columns">
           <label className="field">
-            <span>OTA 컬럼</span>
+            <span>여행사명 컬럼</span>
             <input
               value={colSite}
               onChange={(e) => setColSite(e.target.value)}
-              placeholder="OTA"
+              placeholder="여행사명"
               spellCheck={false}
             />
           </label>

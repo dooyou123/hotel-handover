@@ -2032,10 +2032,10 @@ test('buildAttachmentPublicUrl composes public storage path without API call', (
 test('parseOtaAccountCsv maps header columns and skips empty rows', () => {
   const { parseOtaAccountCsv } = require('@/lib/ota-accounts/parse') as typeof import('@/lib/ota-accounts/parse');
   const csv = [
-    'OTA,아이디,비밀번호,메모',
-    'Booking.com,hotel.booking,PW123,메인 계정',
+    'OTA,아이디,비밀번호,메모,URL',
+    'Booking.com,hotel.booking,PW123,메인 계정,https://booking.example.com',
     ',,,',
-    'Agoda,hotel.agoda,secret,',
+    'Agoda,hotel.agoda,secret,,',
   ].join('\n');
 
   const accounts = parseOtaAccountCsv(csv);
@@ -2043,7 +2043,100 @@ test('parseOtaAccountCsv maps header columns and skips empty rows', () => {
   assert.equal(accounts[0].site, 'Booking.com');
   assert.equal(accounts[0].loginId, 'hotel.booking');
   assert.equal(accounts[0].password, 'PW123');
-  assert.equal(accounts[0].note, '메인 계정');
+  assert.equal(accounts[0].extra, '메인 계정');
+  assert.equal(accounts[0].url, 'https://booking.example.com');
+});
+
+test('parseOtaAccountCsv detects header row after instruction line', () => {
+  const { parseOtaAccountCsv } = require('@/lib/ota-accounts/parse') as typeof import('@/lib/ota-accounts/parse');
+  const csv = [
+    'PW는 매월 3째주 수요일 변경',
+    '여행사명,ID,PW,기타,URL',
+    '여행사명,ID,PW',
+    'Agoda,hotel.agoda,secret,60일마다 변경,https://ycs.agoda.com',
+  ].join('\n');
+
+  const accounts = parseOtaAccountCsv(csv);
+  assert.equal(accounts.length, 1);
+  assert.equal(accounts[0].site, 'Agoda');
+  assert.equal(accounts[0].extra, '60일마다 변경');
+  assert.equal(accounts[0].url, 'https://ycs.agoda.com');
+});
+
+test('parseOtaAccountCsv merges continuation rows from merged site cells', () => {
+  const { parseOtaAccountCsv } = require('@/lib/ota-accounts/parse') as typeof import('@/lib/ota-accounts/parse');
+  const csv = [
+    '여행사명,ID,PW,기타,URL',
+    '부킹닷컴(예약실),main-id,main-pw,대표계정,https://admin.booking.com',
+    ',,,ID:fresa_myeong-dong@sotetsu-group.jp,',
+    'ID:sub-login@example.com,,,보조 메모,',
+  ].join('\n');
+
+  const accounts = parseOtaAccountCsv(csv);
+  assert.equal(accounts.length, 1);
+  assert.equal(accounts[0].site, '부킹닷컴(예약실)');
+  assert.equal(accounts[0].loginId, 'main-id');
+  assert.equal(accounts[0].password, 'main-pw');
+  assert.match(accounts[0].extra, /ID:fresa_myeong-dong@sotetsu-group\.jp/);
+  assert.match(accounts[0].extra, /ID:sub-login@example\.com/);
+  assert.match(accounts[0].extra, /보조 메모/);
+});
+
+test('parseOtaAccountCsv keeps multiline 기타 cell on one row', () => {
+  const { parseOtaAccountCsv } = require('@/lib/ota-accounts/parse') as typeof import('@/lib/ota-accounts/parse');
+  const csv = [
+    '여행사명,ID,PW,기타,URL',
+    '라쿠텐,rakuten-id,rakuten-pw,"카드 ID: R177339\n카드 PW: Sotetsu@20260718\n메일 인증: fresamn_md@solaisir.com",https://manage.travel.rakuten.co.jp/,24AM',
+    '라쿠텐(CP),rakuten-cp-id,rakuten-cp-pw,,',
+  ].join('\n');
+
+  const accounts = parseOtaAccountCsv(csv);
+  assert.equal(accounts.length, 2);
+  assert.equal(accounts[0].site, '라쿠텐');
+  assert.equal(accounts[0].loginId, 'rakuten-id');
+  assert.match(accounts[0].extra, /메일 인증/);
+  assert.equal(accounts[1].site, '라쿠텐(CP)');
+});
+
+test('parseOtaAccountCsv merges spilled metadata row into previous account', () => {
+  const { parseOtaAccountCsv } = require('@/lib/ota-accounts/parse') as typeof import('@/lib/ota-accounts/parse');
+  const csv = [
+    '여행사명,ID,PW,기타,URL',
+    'tripla(공홈),tripla-id,tripla-pw,,',
+    '한국: support_ko@tripla.io(메일 보내기), 24AM,,,',
+  ].join('\n');
+
+  const accounts = parseOtaAccountCsv(csv);
+  assert.equal(accounts.length, 1);
+  assert.equal(accounts[0].site, 'tripla(공홈)');
+});
+
+test('parseOtaAccountCsv merges card password line into previous row', () => {
+  const { parseOtaAccountCsv } = require('@/lib/ota-accounts/parse') as typeof import('@/lib/ota-accounts/parse');
+  const csv = [
+    '여행사명,ID,PW,기타,URL',
+    '라쿠텐(개인),rakuten-id,rakuten-pw,,https://travel.rakuten.co.jp',
+    '카드 PW: dajabab,,,,',
+  ].join('\n');
+
+  const accounts = parseOtaAccountCsv(csv);
+  assert.equal(accounts.length, 1);
+  assert.equal(accounts[0].site, '라쿠텐(개인)');
+  assert.match(accounts[0].extra, /카드 PW: dajabab/);
+});
+
+test('parseOtaAccountCsv stops at (사용안함) section', () => {
+  const { parseOtaAccountCsv } = require('@/lib/ota-accounts/parse') as typeof import('@/lib/ota-accounts/parse');
+  const csv = [
+    '여행사명,ID,PW',
+    'Agoda,hotel.agoda,secret',
+    '(사용안함)TripAdvisor,old-id,old-pw',
+    '(사용안함)ecobill,old2-id,old2-pw',
+  ].join('\n');
+
+  const accounts = parseOtaAccountCsv(csv);
+  assert.equal(accounts.length, 1);
+  assert.equal(accounts[0].site, 'Agoda');
 });
 
 test('parseOtaAccountCsv uses configured column headers', () => {
@@ -2054,6 +2147,8 @@ test('parseOtaAccountCsv uses configured column headers', () => {
     site: '플랫폼',
     login: '로그인',
     password: '패스워드',
+    extra: '기타',
+    url: 'URL',
   });
 
   assert.equal(accounts.length, 1);

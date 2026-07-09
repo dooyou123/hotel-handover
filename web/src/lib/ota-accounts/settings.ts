@@ -12,13 +12,26 @@ type HotelOtaAccountsRow = {
   ota_accounts_col_site: string | null;
   ota_accounts_col_login: string | null;
   ota_accounts_col_password: string | null;
+  ota_accounts_col_extra: string | null;
+  ota_accounts_col_url: string | null;
 };
 
-function normalizeColumns(row: Pick<HotelOtaAccountsRow, 'ota_accounts_col_site' | 'ota_accounts_col_login' | 'ota_accounts_col_password'>): OtaAccountColumnMapping {
+function normalizeColumns(
+  row: Pick<
+    HotelOtaAccountsRow,
+    | 'ota_accounts_col_site'
+    | 'ota_accounts_col_login'
+    | 'ota_accounts_col_password'
+    | 'ota_accounts_col_extra'
+    | 'ota_accounts_col_url'
+  >,
+): OtaAccountColumnMapping {
   return {
     site: row.ota_accounts_col_site?.trim() || DEFAULT_OTA_ACCOUNT_COLUMNS.site,
     login: row.ota_accounts_col_login?.trim() || DEFAULT_OTA_ACCOUNT_COLUMNS.login,
     password: row.ota_accounts_col_password?.trim() || DEFAULT_OTA_ACCOUNT_COLUMNS.password,
+    extra: row.ota_accounts_col_extra?.trim() || DEFAULT_OTA_ACCOUNT_COLUMNS.extra,
+    url: row.ota_accounts_col_url?.trim() || DEFAULT_OTA_ACCOUNT_COLUMNS.url,
   };
 }
 
@@ -29,6 +42,8 @@ function rowToSettings(row: HotelOtaAccountsRow | null): OtaAccountsSheetSetting
       ota_accounts_col_site: row?.ota_accounts_col_site ?? null,
       ota_accounts_col_login: row?.ota_accounts_col_login ?? null,
       ota_accounts_col_password: row?.ota_accounts_col_password ?? null,
+      ota_accounts_col_extra: row?.ota_accounts_col_extra ?? null,
+      ota_accounts_col_url: row?.ota_accounts_col_url ?? null,
     }),
   };
 }
@@ -40,7 +55,7 @@ export async function fetchOtaAccountsSheetSettings(
   const { data, error } = await supabase
     .from('hotels')
     .select(
-      'ota_accounts_sheet_url, ota_accounts_col_site, ota_accounts_col_login, ota_accounts_col_password',
+      'ota_accounts_sheet_url, ota_accounts_col_site, ota_accounts_col_login, ota_accounts_col_password, ota_accounts_col_extra, ota_accounts_col_url',
     )
     .eq('id', hotelId)
     .maybeSingle();
@@ -57,6 +72,8 @@ export async function saveOtaAccountsSheetSettings(
     site: input.columns.site.trim() || DEFAULT_OTA_ACCOUNT_COLUMNS.site,
     login: input.columns.login.trim() || DEFAULT_OTA_ACCOUNT_COLUMNS.login,
     password: input.columns.password.trim() || DEFAULT_OTA_ACCOUNT_COLUMNS.password,
+    extra: input.columns.extra.trim() || DEFAULT_OTA_ACCOUNT_COLUMNS.extra,
+    url: input.columns.url.trim() || DEFAULT_OTA_ACCOUNT_COLUMNS.url,
   };
 
   if (sheetUrl && !isValidGoogleSheetShareUrl(sheetUrl)) {
@@ -71,10 +88,12 @@ export async function saveOtaAccountsSheetSettings(
       ota_accounts_col_site: columns.site,
       ota_accounts_col_login: columns.login,
       ota_accounts_col_password: columns.password,
+      ota_accounts_col_extra: columns.extra,
+      ota_accounts_col_url: columns.url,
     })
     .eq('id', hotelId)
     .select(
-      'ota_accounts_sheet_url, ota_accounts_col_site, ota_accounts_col_login, ota_accounts_col_password',
+      'ota_accounts_sheet_url, ota_accounts_col_site, ota_accounts_col_login, ota_accounts_col_password, ota_accounts_col_extra, ota_accounts_col_url',
     )
     .single();
   if (error) throw error;
