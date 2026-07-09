@@ -56,11 +56,42 @@ export type ReviewReplyTemplateInput = {
   is_active?: boolean;
 };
 
+export type ReviewReplyBodies = Pick<
+  ReviewReplyTemplate,
+  'body_ko' | 'body_en' | 'body_zh' | 'body_ja'
+>;
+
+export function replyBodyStrictForLocale(
+  template: ReviewReplyBodies,
+  locale: ReviewReplyLocale,
+): string {
+  if (locale === 'en') return template.body_en.trim();
+  if (locale === 'zh') return template.body_zh.trim();
+  if (locale === 'ja') return template.body_ja.trim();
+  return template.body_ko.trim();
+}
+
+export function hasReplyLocaleBody(
+  template: ReviewReplyBodies,
+  locale: ReviewReplyLocale,
+): boolean {
+  return replyBodyStrictForLocale(template, locale).length > 0;
+}
+
+export function missingReplyLocales(template: ReviewReplyTemplate): ReviewReplyLocale[] {
+  return REVIEW_REPLY_LOCALES.filter((locale) => !hasReplyLocaleBody(template, locale));
+}
+
+export function replyLocaleCompletionCount(template: ReviewReplyTemplate): number {
+  return REVIEW_REPLY_LOCALES.length - missingReplyLocales(template).length;
+}
+
+/** 복사·전송용: 해당 언어가 비어 있으면 한국어로 폴백 */
 export function replyBodyForLocale(template: ReviewReplyTemplate, locale: ReviewReplyLocale): string {
-  if (locale === 'en') return template.body_en || template.body_ko;
-  if (locale === 'zh') return template.body_zh || template.body_ko;
-  if (locale === 'ja') return template.body_ja || template.body_ko;
-  return template.body_ko;
+  const strict = replyBodyStrictForLocale(template, locale);
+  if (strict) return strict;
+  if (locale === 'ko') return '';
+  return template.body_ko.trim();
 }
 
 /** 리뷰 원문에서 답변 언어 추정 */

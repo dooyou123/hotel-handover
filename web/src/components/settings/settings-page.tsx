@@ -25,6 +25,7 @@ import {
 import { ChecklistAdminPanel } from '@/components/settings/checklist-admin-panel';
 import { DataAdminPanel } from '@/components/settings/data-admin-panel';
 import { HotelOpsSettingsPanel } from '@/components/settings/hotel-ops-settings-panel';
+import { OtaAccountsSettingsPanel } from '@/components/settings/ota-accounts-settings-panel';
 import { LeaveSettingsPanel } from '@/components/settings/leave-settings-panel';
 import { NavVisibilityPanel } from '@/components/settings/nav-visibility-panel';
 import { getNavPageMeta } from '@/lib/nav/page-meta';
@@ -545,6 +546,7 @@ export function SettingsPageClient() {
           {activeTab === 'nav' && isManager ? (
             <>
               <NavVisibilityPanel onSaved={() => showToast('사이드바 메뉴 설정이 저장되었습니다.')} />
+              <OtaAccountsSettingsPanel onSaved={showToast} />
               <LeaveSettingsPanel onSaved={showToast} />
               <HotelOpsSettingsPanel onSaved={showToast} />
             </>

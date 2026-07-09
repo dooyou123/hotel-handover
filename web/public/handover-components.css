@@ -543,5 +543,5 @@ a.help-quick-link:hover {
   background: #14532d;
   color: #dcfce7;
   box-shadow: var(--shadow);
-  z-index: 20;
+  z-index: 130;
 }

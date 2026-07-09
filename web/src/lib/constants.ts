@@ -95,6 +95,7 @@ export const APP_NAV = [
   { href: '/office-supplies', label: '사무용품 신청', description: '오피스타운 격주 발주 전 품목을 모아 둡니다.', category: 'ops' as const },
   { href: '/retail', label: '판매상품', description: '판매·배포·입고를 월별로 관리하고 실사로 마감합니다.', category: 'ops' as const },
   { href: '/reviews', label: '리뷰', description: 'OTA 리뷰 관리, 다국어 답변 템플릿, 객실 조치·후속 카드.', category: 'ops' as const },
+  { href: '/ota-accounts', label: 'OTA 계정', description: '구글 시트에 등록된 OTA 사이트 로그인 정보를 조회합니다.', category: 'ops' as const },
   { href: '/guest-notices', label: '고객 안내', description: '투숙객 안내문 작성·출력, 로고·상용구 관리.', category: 'ops' as const },
   { href: '/transport', label: '택시 예약', description: '픽업 예약과 기사님 확인증을 관리합니다.', category: 'ops' as const },
   { href: '/parcels', label: '물건 픽업 장부', description: '보관 물품의 인도·서명을 기록합니다.', category: 'ops' as const },

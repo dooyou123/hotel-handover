@@ -2028,3 +2028,54 @@ test('buildAttachmentPublicUrl composes public storage path without API call', (
     'https://example.supabase.co/storage/v1/object/public/card-attachments/hotel-1/card-1/photo%201.jpg',
   );
 });
+
+test('parseOtaAccountCsv maps header columns and skips empty rows', () => {
+  const { parseOtaAccountCsv } = require('@/lib/ota-accounts/parse') as typeof import('@/lib/ota-accounts/parse');
+  const csv = [
+    'OTA,아이디,비밀번호,메모',
+    'Booking.com,hotel.booking,PW123,메인 계정',
+    ',,,',
+    'Agoda,hotel.agoda,secret,',
+  ].join('\n');
+
+  const accounts = parseOtaAccountCsv(csv);
+  assert.equal(accounts.length, 2);
+  assert.equal(accounts[0].site, 'Booking.com');
+  assert.equal(accounts[0].loginId, 'hotel.booking');
+  assert.equal(accounts[0].password, 'PW123');
+  assert.equal(accounts[0].note, '메인 계정');
+});
+
+test('parseOtaAccountCsv uses configured column headers', () => {
+  const { parseOtaAccountCsv } = require('@/lib/ota-accounts/parse') as typeof import('@/lib/ota-accounts/parse');
+  const csv = ['플랫폼,로그인,패스워드', 'Agoda,hotel.agoda,secret'].join('\n');
+
+  const accounts = parseOtaAccountCsv(csv, {
+    site: '플랫폼',
+    login: '로그인',
+    password: '패스워드',
+  });
+
+  assert.equal(accounts.length, 1);
+  assert.equal(accounts[0].site, 'Agoda');
+  assert.equal(accounts[0].loginId, 'hotel.agoda');
+  assert.equal(accounts[0].password, 'secret');
+});
+
+test('parseGoogleSheetShareUrl accepts edit sharing links', () => {
+  const {
+    parseGoogleSheetShareUrl,
+    googleSheetShareUrlToCsvExportUrl,
+  } = require('@/lib/ota-accounts/sheet-url') as typeof import('@/lib/ota-accounts/sheet-url');
+
+  const parsed = parseGoogleSheetShareUrl(
+    'https://docs.google.com/spreadsheets/d/1mLfu8_cUO589dteaUmGFk9hqGgqnlWQiAk4l0jHjkE4/edit?usp=sharing',
+  );
+  assert.equal(parsed?.spreadsheetId, '1mLfu8_cUO589dteaUmGFk9hqGgqnlWQiAk4l0jHjkE4');
+  assert.equal(parsed?.gid, '0');
+
+  const csvUrl = googleSheetShareUrlToCsvExportUrl(
+    'https://docs.google.com/spreadsheets/d/abc123/edit#gid=42',
+  );
+  assert.equal(csvUrl, 'https://docs.google.com/spreadsheets/d/abc123/export?format=csv&gid=42');
+});

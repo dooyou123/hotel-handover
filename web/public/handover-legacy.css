@@ -12678,6 +12678,112 @@ textarea {
   background: hsl(231 50% 36% / 0.08);
 }
 
+.review-reply-picker__locale.is-missing {
+  border-color: hsl(0 55% 55% / 0.35);
+}
+
+.review-reply-picker__locale-missing {
+  margin-left: 0.2rem;
+  font-size: 0.62rem;
+  color: hsl(0 55% 45%);
+  font-weight: 600;
+}
+
+.review-reply-locale-status {
+  list-style: none;
+  margin: 0 0 0.65rem;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.review-reply-locale-status__item {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.35rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 0.68rem;
+  text-align: center;
+}
+
+.review-reply-locale-status__item.is-present {
+  border-color: hsl(145 45% 40% / 0.35);
+}
+
+.review-reply-locale-status__item.is-missing {
+  border-color: hsl(0 55% 55% / 0.35);
+  background: hsl(0 55% 55% / 0.06);
+}
+
+.review-reply-locale-status__label {
+  color: var(--text-muted);
+}
+
+.review-reply-locale-status__value {
+  font-weight: 600;
+}
+
+.review-reply-locale-status__item.is-present .review-reply-locale-status__value {
+  color: hsl(145 45% 32%);
+}
+
+.review-reply-locale-status__item.is-missing .review-reply-locale-status__value {
+  color: hsl(0 55% 45%);
+}
+
+.review-reply-locale-preview {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.review-reply-locale-preview__ko-ref {
+  padding: 0.55rem 0.65rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.review-reply-locale-preview__ko-label {
+  margin: 0 0 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.review-reply-locale-preview__ko-body {
+  margin: 0;
+  white-space: pre-wrap;
+  font: inherit;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.review-reply-settings__preview-body.is-missing,
+.review-reply-picker__preview.is-missing {
+  color: hsl(0 55% 45%);
+  font-style: italic;
+}
+
+.review-reply-settings__count {
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.review-reply-settings__badge--locales {
+  background: hsl(145 45% 40% / 0.1);
+  color: hsl(145 45% 32%);
+}
+
+.review-reply-settings__badge--locales.is-incomplete {
+  background: hsl(35 80% 45% / 0.12);
+  color: hsl(35 70% 35%);
+}
+
 .review-reply-picker__chips {
   display: flex;
   flex-wrap: wrap;
@@ -12700,13 +12806,14 @@ textarea {
 
 .review-reply-picker__preview {
   width: 100%;
+  margin: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 0.55rem 0.65rem;
   font: inherit;
   font-size: 0.84rem;
   line-height: 1.5;
-  resize: vertical;
+  white-space: pre-wrap;
   background: var(--surface);
 }
 
@@ -12974,6 +13081,202 @@ textarea {
   display: grid;
   place-items: center;
   min-height: 12rem;
+}
+
+.ota-accounts-settings__columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+@media (max-width: 640px) {
+  .ota-accounts-settings__columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* OTA 계정 (구글 시트) */
+.ota-accounts-page__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.ota-accounts-list-panel {
+  width: min(42rem, 100%);
+  max-height: min(70vh, 720px);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.ota-accounts-list__head,
+.ota-accounts-list__main {
+  display: grid;
+  grid-template-columns: minmax(6.5rem, 8.5rem) minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 0.45rem 0.65rem;
+  align-items: center;
+}
+
+.ota-accounts-list__head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.45rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.ota-accounts-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ota-accounts-list__row {
+  border-bottom: 1px solid var(--border);
+}
+
+.ota-accounts-list__row:last-child {
+  border-bottom: 0;
+}
+
+.ota-accounts-list__main {
+  padding: 0.5rem 0.75rem;
+}
+
+.ota-accounts-list__row:hover .ota-accounts-list__main {
+  background: hsl(231 50% 36% / 0.04);
+}
+
+.ota-accounts-list__site {
+  font-weight: 600;
+  font-size: 0.86rem;
+  line-height: 1.35;
+  word-break: keep-all;
+}
+
+.ota-accounts-list__value {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 0.86rem;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  word-break: break-all;
+}
+
+.ota-accounts-list__value:hover {
+  color: var(--accent);
+}
+
+.ota-accounts-list__actions {
+  display: flex;
+  gap: 0.15rem;
+  justify-content: flex-end;
+}
+
+.ota-accounts-list__note {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding-top: 0.1rem;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+@media (max-width: 520px) {
+  .ota-accounts-list__head {
+    display: none;
+  }
+
+  .ota-accounts-list__main {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      'site actions'
+      'id id'
+      'pw pw';
+    gap: 0.25rem 0.45rem;
+  }
+
+  .ota-accounts-list__site {
+    grid-area: site;
+  }
+
+  .ota-accounts-list__value:nth-of-type(1) {
+    grid-area: id;
+  }
+
+  .ota-accounts-list__value:nth-of-type(2) {
+    grid-area: pw;
+  }
+
+  .ota-accounts-list__actions {
+    grid-area: actions;
+  }
+
+  .ota-accounts-list__value::before {
+    display: inline-block;
+    width: 3.25rem;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+  }
+
+  .ota-accounts-list__value:nth-of-type(1)::before {
+    content: '아이디';
+  }
+
+  .ota-accounts-list__value:nth-of-type(2)::before {
+    content: '비밀번호';
+  }
+}
+
+.ota-accounts-page__search {
+  min-width: min(18rem, 100%);
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 0.84rem;
+}
+
+.ota-accounts-page__notice {
+  margin: 0 0 0.85rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid hsl(231 50% 36% / 0.2);
+  border-radius: var(--radius-sm);
+  background: hsl(231 50% 36% / 0.06);
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.ota-accounts-page__notice strong {
+  font-weight: 600;
+}
+
+.ota-accounts-page__meta,
+.ota-accounts-page__status {
+  margin: 0 0 0.85rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.ota-accounts-page__error {
+  padding: 0.85rem 1rem;
+  border: 1px solid hsl(0 55% 55% / 0.35);
+  border-radius: var(--radius-sm);
+  background: hsl(0 55% 55% / 0.06);
+  color: hsl(0 45% 35%);
+  white-space: pre-wrap;
+  font-size: 0.84rem;
 }
 
 @media (max-width: 768px) {

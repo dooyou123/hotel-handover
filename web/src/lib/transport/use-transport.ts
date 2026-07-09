@@ -6,6 +6,12 @@ import { isSupabaseNetworkError } from '@/lib/supabase/env';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { todayDateString } from '@/lib/handover/shift-summary';
 import { createClient } from '@/lib/supabase/client';
+import { useTransportBookingsRealtime } from '@/lib/transport/transport-realtime';
+import {
+  transportBookingsQueryKey,
+  transportBookingsTodayQueryKey,
+  transportTodayPendingQueryKey,
+} from '@/lib/transport/transport-query-keys';
 import {
   normalizeTransportRow,
   toTransportBookingDbPayload,
@@ -18,9 +24,7 @@ export type TransportDateRange = {
   to: string;
 };
 
-export function transportBookingsQueryKey(range: TransportDateRange) {
-  return ['transport-bookings', DEFAULT_HOTEL_ID, range.from, range.to] as const;
-}
+export { transportBookingsQueryKey, transportTodayPendingQueryKey };
 
 async function fetchTransportBookings(range: TransportDateRange): Promise<TransportBooking[]> {
   const supabase = createClient();
@@ -40,36 +44,14 @@ export function useTransportBookings(range: TransportDateRange) {
   const queryClient = useQueryClient();
   const queryKey = transportBookingsQueryKey(range);
 
+  useTransportBookingsRealtime();
+
   const query = useQuery({
     queryKey,
     queryFn: () => fetchTransportBookings(range),
     placeholderData: keepPreviousData,
     retry: (failureCount, error) => isSupabaseNetworkError(error) && failureCount < 2,
   });
-
-  useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`transport-bookings-${DEFAULT_HOTEL_ID}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'transport_bookings',
-          filter: `hotel_id=eq.${DEFAULT_HOTEL_ID}`,
-        },
-        () => {
-          void queryClient.invalidateQueries({ queryKey: ['transport-bookings', DEFAULT_HOTEL_ID] });
-          void queryClient.invalidateQueries({ queryKey: ['transport-today-pending', DEFAULT_HOTEL_ID] });
-        },
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
 
   const createBooking = useMutation({
     mutationFn: async (input: TransportBookingInput) => {
@@ -134,8 +116,6 @@ export function useTransportBookingsForDate(date: string) {
   return useTransportBookings({ from: date, to: date });
 }
 
-export const transportTodayPendingQueryKey = ['transport-today-pending', DEFAULT_HOTEL_ID] as const;
-
 async function fetchTodayPendingTransport(): Promise<TransportBooking[]> {
   const supabase = createClient();
   const today = todayDateString();
@@ -150,21 +130,47 @@ async function fetchTodayPendingTransport(): Promise<TransportBooking[]> {
   return (data ?? []).map((row) => normalizeTransportRow(row as Record<string, unknown>));
 }
 
-/** 오늘 미완료 택시 — 30분 전 알림·네비 배지 */
-export function useTodayPendingTransport(refetchInterval = 30_000) {
+function useRefetchTransportOnDateChange(queryKey: readonly unknown[]) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    let currentDate = todayDateString();
+    const timer = window.setInterval(() => {
+      const nextDate = todayDateString();
+      if (nextDate === currentDate) return;
+      currentDate = nextDate;
+      void queryClient.invalidateQueries({ queryKey });
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, [queryClient, queryKey]);
+}
+
+/** 오늘 미완료 택시 — Realtime 구독으로 갱신 */
+export function useTodayPendingTransport() {
+  const today = todayDateString();
+  const queryKey = [...transportTodayPendingQueryKey, today] as const;
+
+  useTransportBookingsRealtime();
+  useRefetchTransportOnDateChange(queryKey);
+
   return useQuery({
-    queryKey: transportTodayPendingQueryKey,
+    queryKey,
     queryFn: fetchTodayPendingTransport,
-    refetchInterval,
+    staleTime: 5 * 60_000,
   });
 }
 
 /** 오늘 택시 예약 (메인 사이드바·알림) */
 export function useTodayTaxiBookings() {
   const today = todayDateString();
+  const queryKey = transportBookingsTodayQueryKey(today);
+
+  useTransportBookingsRealtime();
+  useRefetchTransportOnDateChange(queryKey);
+
   return useQuery({
-    queryKey: ['transport-bookings-today', DEFAULT_HOTEL_ID, today],
+    queryKey,
     queryFn: () => fetchTransportBookings({ from: today, to: today }),
-    refetchInterval: 60_000,
+    staleTime: 5 * 60_000,
   });
 }

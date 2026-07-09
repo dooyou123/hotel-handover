@@ -5,13 +5,17 @@ import { useDismissibleOverlay } from '@/components/ui/use-dismissible-overlay';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ReviewReplyTemplateSortableList } from '@/components/reviews/review-reply-template-sortable-list';
 import {
+  ReviewReplyLocalePreview,
+  ReviewReplyLocaleStatus,
+  ReviewReplyLocaleTabs,
+} from '@/components/reviews/review-reply-locale-preview';
+import {
   REVIEW_REPLY_CHANNELS,
   REVIEW_REPLY_CHANNEL_LABELS,
-  REVIEW_REPLY_LOCALE_LABELS,
-  REVIEW_REPLY_LOCALES,
   REVIEW_REPLY_SENTIMENTS,
   REVIEW_REPLY_SENTIMENT_LABELS,
-  replyBodyForLocale,
+  hasReplyLocaleBody,
+  replyBodyStrictForLocale,
   type ReviewReplyChannel,
   type ReviewReplyLocale,
   type ReviewReplySentiment,
@@ -68,7 +72,8 @@ function TemplatePreview({
 }) {
   const [locale, setLocale] = useState<ReviewReplyLocale>('ko');
   const { confirm } = useConfirmDialog();
-  const body = replyBodyForLocale(template, locale);
+  const body = replyBodyStrictForLocale(template, locale);
+  const canCopy = hasReplyLocaleBody(template, locale);
 
   return (
     <article className="review-reply-settings__preview">
@@ -107,24 +112,23 @@ function TemplatePreview({
         </div>
       </header>
 
-      <div className="review-reply-picker__locales" role="radiogroup" aria-label="미리보기 언어">
-        {REVIEW_REPLY_LOCALES.map((code) => (
-          <button
-            key={code}
-            type="button"
-            role="radio"
-            aria-checked={locale === code}
-            className={`review-reply-picker__locale${locale === code ? ' is-active' : ''}`}
-            onClick={() => setLocale(code)}
-          >
-            {REVIEW_REPLY_LOCALE_LABELS[code]}
-          </button>
-        ))}
-      </div>
+      <ReviewReplyLocaleStatus template={template} />
 
-      <pre className="review-reply-settings__preview-body">{body || '—'}</pre>
+        <ReviewReplyLocaleTabs
+          locale={locale}
+          bodies={template}
+          onChange={setLocale}
+          ariaLabel="미리보기 언어"
+        />
 
-      <button type="button" className="btn btn--primary btn--small" onClick={() => onCopy(body)}>
+      <ReviewReplyLocalePreview template={template} locale={locale} />
+
+      <button
+        type="button"
+        className="btn btn--primary btn--small"
+        disabled={!canCopy}
+        onClick={() => onCopy(body)}
+      >
         이 언어로 복사
       </button>
     </article>
@@ -230,20 +234,12 @@ function TemplateEditor({
 
       <div className="field field--full">
         <span>답변 본문</span>
-        <div className="review-reply-picker__locales" role="radiogroup" aria-label="편집 언어">
-          {REVIEW_REPLY_LOCALES.map((code) => (
-            <button
-              key={code}
-              type="button"
-              role="radio"
-              aria-checked={locale === code}
-              className={`review-reply-picker__locale${locale === code ? ' is-active' : ''}`}
-              onClick={() => setLocale(code)}
-            >
-              {REVIEW_REPLY_LOCALE_LABELS[code]}
-            </button>
-          ))}
-        </div>
+        <ReviewReplyLocaleTabs
+          locale={locale}
+          bodies={form}
+          onChange={setLocale}
+          ariaLabel="편집 언어"
+        />
         <textarea
           rows={10}
           value={form[bodyKey]}
@@ -363,6 +359,10 @@ export function ReviewReplyTemplatesDrawer({
             <div className="drawer-panel__heading">
               <p className="drawer-panel__mode">리뷰 · 메일 답변</p>
               <h2 className="drawer-panel__title">답변 템플릿</h2>
+              <p className="review-reply-settings__count">
+                총 {templates.length}개
+                {filtered.length !== templates.length ? ` · ${filtered.length}개 표시` : ''}
+              </p>
             </div>
             <button type="button" className="icon-btn" onClick={onClose} aria-label="닫기">
               ✕

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { useDismissibleOverlay } from '@/components/ui/use-dismissible-overlay';
 import { FEEDBACK_CATEGORIES } from '@/lib/constants';
 import { submitFeedback, type FeedbackCategory } from '@/lib/feedback/api';
 import { useWorkSession } from '@/lib/handover/use-work-session';
@@ -15,6 +16,7 @@ type FeedbackModalProps = {
 export function FeedbackModal({ open, onClose, onSuccess }: FeedbackModalProps) {
   const pathname = usePathname();
   const { session } = useWorkSession();
+  const { overlayProps, panelProps } = useDismissibleOverlay(onClose);
   const [category, setCategory] = useState<FeedbackCategory>('feature');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
@@ -60,8 +62,8 @@ export function FeedbackModal({ open, onClose, onSuccess }: FeedbackModalProps) 
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal modal--feedback" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" {...overlayProps}>
+      <div className="modal modal--feedback" {...panelProps}>
         <form noValidate onSubmit={handleSubmit} className="modal__form">
           <div className="modal__header">
             <div>

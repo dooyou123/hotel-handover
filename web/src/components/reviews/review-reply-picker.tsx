@@ -2,12 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
+  ReviewReplyLocalePreview,
+  ReviewReplyLocaleTabs,
+} from '@/components/reviews/review-reply-locale-preview';
+import {
   REVIEW_REPLY_CHANNEL_LABELS,
-  REVIEW_REPLY_LOCALE_LABELS,
-  REVIEW_REPLY_LOCALES,
   detectReviewReplyLocale,
   filterReplyTemplatesForReview,
-  replyBodyForLocale,
+  hasReplyLocaleBody,
+  replyBodyStrictForLocale,
   type ReviewReplyChannel,
   type ReviewReplyLocale,
   type ReviewReplyTemplate,
@@ -38,7 +41,8 @@ export function ReviewReplyPicker({ review, templates, compact, onCopied }: Revi
   );
 
   const selected = filtered.find((row) => row.id === selectedId) ?? filtered[0] ?? null;
-  const body = selected ? replyBodyForLocale(selected, locale) : '';
+  const body = selected ? replyBodyStrictForLocale(selected, locale) : '';
+  const canCopy = selected ? hasReplyLocaleBody(selected, locale) : false;
 
   async function handleCopy() {
     if (!body) return;
@@ -78,20 +82,12 @@ export function ReviewReplyPicker({ review, templates, compact, onCopied }: Revi
             </button>
           ))}
         </div>
-        <div className="review-reply-picker__locales" role="radiogroup" aria-label="답변 언어">
-          {REVIEW_REPLY_LOCALES.map((code) => (
-            <button
-              key={code}
-              type="button"
-              role="radio"
-              aria-checked={locale === code}
-              className={`review-reply-picker__locale${locale === code ? ' is-active' : ''}`}
-              onClick={() => setLocale(code)}
-            >
-              {REVIEW_REPLY_LOCALE_LABELS[code]}
-            </button>
-          ))}
-        </div>
+        <ReviewReplyLocaleTabs
+          locale={locale}
+          bodies={selected}
+          onChange={setLocale}
+          ariaLabel="답변 언어"
+        />
       </div>
 
       {filtered.length ? (
@@ -115,14 +111,17 @@ export function ReviewReplyPicker({ review, templates, compact, onCopied }: Revi
 
       {selected ? (
         <>
-          <textarea
-            className="review-reply-picker__preview"
-            readOnly
-            rows={compact ? 5 : 7}
-            value={body}
-            aria-label="답변 미리보기"
+          <ReviewReplyLocalePreview
+            template={selected}
+            locale={locale}
+            bodyClassName="review-reply-picker__preview"
           />
-          <button type="button" className="btn btn--primary btn--small" onClick={() => void handleCopy()}>
+          <button
+            type="button"
+            className="btn btn--primary btn--small"
+            disabled={!canCopy}
+            onClick={() => void handleCopy()}
+          >
             답변 복사
           </button>
         </>

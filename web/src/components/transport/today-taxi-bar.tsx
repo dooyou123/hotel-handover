@@ -20,7 +20,7 @@ type TodayTaxiBarProps = {
 
 export function TodayTaxiBar({ compact = false }: TodayTaxiBarProps) {
   const [now, setNow] = useState(() => new Date());
-  const { data: bookings = [] } = useTodayPendingTransport(30_000);
+  const { data: bookings = [] } = useTodayPendingTransport();
   const pending = useMemo(() => {
     const today = filterPendingTodayTaxi(bookings);
     return sortTodayTaxiBarBookings(today, now);

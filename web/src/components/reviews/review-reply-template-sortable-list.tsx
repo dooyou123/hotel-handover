@@ -19,6 +19,8 @@ import { CSS } from '@dnd-kit/utilities';
 import {
   REVIEW_REPLY_CHANNEL_LABELS,
   REVIEW_REPLY_SENTIMENT_LABELS,
+  missingReplyLocales,
+  replyLocaleCompletionCount,
   type ReviewReplyTemplate,
 } from '@/lib/reviews/reply-templates';
 
@@ -51,6 +53,9 @@ function SortableTemplateRow({
     transition,
   };
 
+  const missing = missingReplyLocales(template);
+  const localeCount = replyLocaleCompletionCount(template);
+
   return (
     <li
       ref={setNodeRef}
@@ -75,6 +80,12 @@ function SortableTemplateRow({
           </span>
           <span className="review-reply-settings__badge review-reply-settings__badge--channel">
             {REVIEW_REPLY_CHANNEL_LABELS[template.channel]}
+          </span>
+          <span
+            className={`review-reply-settings__badge review-reply-settings__badge--locales${missing.length ? ' is-incomplete' : ''}`}
+            title={missing.length ? '누락 언어 있음' : '4개 언어 모두 있음'}
+          >
+            {localeCount}/4
           </span>
         </span>
       </button>
