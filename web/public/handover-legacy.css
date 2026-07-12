@@ -13673,6 +13673,11 @@ textarea {
   color: #a16207;
 }
 
+.room-search__badge--event {
+  background: #fffbeb;
+  color: #b45309;
+}
+
 .room-search__badge--contact {
   background: #f8fafc;
   color: #475569;

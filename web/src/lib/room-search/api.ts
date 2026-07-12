@@ -1,6 +1,7 @@
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
 import { buildWorkHubHref } from '@/lib/work/work-hub';
+import { buildIlikePattern, sanitizeSearchQuery, searchMatchSnippet } from '@/lib/room-search/format';
 
 export type GlobalSearchHitKind =
   | 'handover'
@@ -9,6 +10,7 @@ export type GlobalSearchHitKind =
   | 'transport'
   | 'notice'
   | 'todo'
+  | 'event'
   | 'contact'
   | 'guest_notice';
 
@@ -24,10 +26,6 @@ export type GlobalSearchHit = {
 /** @deprecated use GlobalSearchHit */
 export type RoomSearchHit = GlobalSearchHit;
 
-function pattern(query: string): string {
-  return `%${query.trim()}%`;
-}
-
 function cardStatusLabel(columnId: string): string {
   if (columnId === 'done') return '완료';
   if (columnId === 'hold') return '보류';
@@ -35,12 +33,24 @@ function cardStatusLabel(columnId: string): string {
   return '긴급';
 }
 
+function todoStatusLabel(status: string): string {
+  return status === 'done' ? '완료' : '진행';
+}
+
+function noticeTypeLabel(type: string): string {
+  return type === 'change' ? '업무 변경' : '업무 공지';
+}
+
+function scheduleHref(date?: string | null): string {
+  return buildWorkHubHref('schedule', date ? { date } : undefined);
+}
+
 export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
-  const q = query.trim();
+  const q = sanitizeSearchQuery(query);
   if (q.length < 2) return [];
 
   const supabase = createClient();
-  const like = pattern(q);
+  const like = buildIlikePattern(q);
   const today = new Date().toISOString().slice(0, 10);
 
   const [
@@ -49,6 +59,7 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
     transportRes,
     noticesRes,
     todosRes,
+    eventsRes,
     contactsRes,
     guestNoticesRes,
   ] = await Promise.all([
@@ -108,14 +119,36 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
       .eq('hotel_id', DEFAULT_HOTEL_ID)
       .or([`content.ilike.${like}`, `author.ilike.${like}`].join(','))
       .order('updated_at', { ascending: false })
-      .limit(15),
+      .limit(20),
     supabase
       .from('todos')
-      .select('id, title, description, due_date, status, assignee_name, updated_at, created_at')
+      .select('id, title, description, due_date, status, assignee_name, assignee_shift, author, updated_at, created_at')
       .eq('hotel_id', DEFAULT_HOTEL_ID)
-      .or([`title.ilike.${like}`, `description.ilike.${like}`, `assignee_name.ilike.${like}`].join(','))
+      .or(
+        [
+          `title.ilike.${like}`,
+          `description.ilike.${like}`,
+          `assignee_name.ilike.${like}`,
+          `assignee_shift.ilike.${like}`,
+          `author.ilike.${like}`,
+        ].join(','),
+      )
       .order('updated_at', { ascending: false })
-      .limit(20),
+      .limit(25),
+    supabase
+      .from('hotel_events')
+      .select('id, title, description, event_date, end_date, category, author, updated_at, created_at, completed_at')
+      .eq('hotel_id', DEFAULT_HOTEL_ID)
+      .or(
+        [
+          `title.ilike.${like}`,
+          `description.ilike.${like}`,
+          `category.ilike.${like}`,
+          `author.ilike.${like}`,
+        ].join(','),
+      )
+      .order('updated_at', { ascending: false })
+      .limit(25),
     supabase
       .from('contacts')
       .select('id, name, department, phone, note, updated_at, created_at')
@@ -141,11 +174,14 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
     if (card.archived_at) continue;
     const isFacility = card.category === '시설' || card.category === '컴플레인';
     const roomPrefix = card.room?.trim() ? `${card.room}호 · ` : '';
+    const detailSnippet = searchMatchSnippet(card.details ?? '', q);
     hits.push({
       kind: isFacility ? 'facility' : 'handover',
       id: card.id,
       title: card.title,
-      subtitle: `${roomPrefix}${card.category} · ${cardStatusLabel(card.column_id)}`,
+      subtitle: detailSnippet
+        ? `${roomPrefix}${card.category} · ${detailSnippet}`
+        : `${roomPrefix}${card.category} · ${cardStatusLabel(card.column_id)}`,
       href: `/handover?card=${card.id}`,
       at: card.updated_at || card.created_at,
     });
@@ -182,25 +218,49 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
   }
 
   for (const notice of noticesRes.data ?? []) {
-    const line = notice.content.split('\n')[0]?.trim() || '게시글';
+    const line = notice.content.split('\n').map((part) => part.trim()).find(Boolean) || '게시글';
+    const contentSnippet = searchMatchSnippet(notice.content, q);
     hits.push({
       kind: 'notice',
       id: notice.id,
-      title: line,
-      subtitle: `${notice.type === 'change' ? '업무 변경' : '업무 공지'} · ${notice.author || '—'}`,
+      title: line.length > 72 ? `${line.slice(0, 72)}…` : line,
+      subtitle: contentSnippet
+        ? `${noticeTypeLabel(notice.type)} · ${contentSnippet}`
+        : `${noticeTypeLabel(notice.type)} · ${notice.author || '—'}`,
       href: buildWorkHubHref('notices', { id: notice.id }),
       at: notice.updated_at || notice.created_at,
     });
   }
 
   for (const todo of todosRes.data ?? []) {
+    const descriptionSnippet = searchMatchSnippet(todo.description ?? '', q);
     hits.push({
       kind: 'todo',
       id: todo.id,
       title: todo.title,
-      subtitle: `${todo.status === 'done' ? '완료' : '진행'}${todo.due_date ? ` · 마감 ${todo.due_date}` : ''}${todo.assignee_name ? ` · ${todo.assignee_name}` : ''}`,
-      href: buildWorkHubHref('schedule'),
+      subtitle: descriptionSnippet
+        ? `${todoStatusLabel(todo.status)} · ${descriptionSnippet}`
+        : `${todoStatusLabel(todo.status)}${todo.due_date ? ` · 마감 ${todo.due_date}` : ''}${todo.assignee_name ? ` · ${todo.assignee_name}` : ''}`,
+      href: scheduleHref(todo.due_date),
       at: todo.updated_at || todo.created_at,
+    });
+  }
+
+  for (const event of eventsRes.data ?? []) {
+    const descriptionSnippet = searchMatchSnippet(event.description ?? '', q);
+    const dateLabel =
+      event.end_date && event.end_date !== event.event_date
+        ? `${event.event_date} ~ ${event.end_date}`
+        : event.event_date;
+    hits.push({
+      kind: 'event',
+      id: event.id,
+      title: event.title,
+      subtitle: descriptionSnippet
+        ? `호텔 일정 · ${dateLabel} · ${descriptionSnippet}`
+        : `호텔 일정 · ${dateLabel}${event.category ? ` · ${event.category}` : ''}`,
+      href: scheduleHref(event.event_date),
+      at: event.updated_at || event.created_at,
     });
   }
 

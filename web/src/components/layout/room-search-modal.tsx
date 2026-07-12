@@ -12,17 +12,18 @@ const KIND_LABELS: Record<GlobalSearchHitKind, string> = {
   facility: '시설·컴플레인',
   review: '리뷰',
   transport: '택시 예약',
-  notice: '게시판',
-  todo: '업무 일정',
+  notice: '공지·변경',
+  todo: '할일',
+  event: '호텔 일정',
   contact: '연락처',
   guest_notice: '고객 안내',
 };
 
-const KIND_TABS: { id: 'all' | GlobalSearchHitKind; label: string }[] = [
+const KIND_TABS: { id: 'all' | GlobalSearchHitKind | 'schedule'; label: string }[] = [
   { id: 'all', label: '전체' },
   { id: 'handover', label: '인수인계' },
-  { id: 'notice', label: '게시판' },
-  { id: 'todo', label: '할일' },
+  { id: 'notice', label: '공지·변경' },
+  { id: 'schedule', label: '할일·일정' },
   { id: 'transport', label: '택시' },
   { id: 'facility', label: '시설' },
   { id: 'review', label: '리뷰' },
@@ -39,7 +40,7 @@ export function RoomSearchModal({ open, onClose }: RoomSearchModalProps) {
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<GlobalSearchHit[]>([]);
   const [loading, setLoading] = useState(false);
-  const [kindTab, setKindTab] = useState<'all' | GlobalSearchHitKind>('all');
+  const [kindTab, setKindTab] = useState<'all' | GlobalSearchHitKind | 'schedule'>('all');
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
   useEffect(() => {
@@ -89,6 +90,7 @@ export function RoomSearchModal({ open, onClose }: RoomSearchModalProps) {
   const trimmed = query.trim();
   const filteredHits = useMemo(() => {
     if (kindTab === 'all') return hits;
+    if (kindTab === 'schedule') return hits.filter((hit) => hit.kind === 'todo' || hit.kind === 'event');
     return hits.filter((hit) => hit.kind === kindTab);
   }, [hits, kindTab]);
 
@@ -99,6 +101,18 @@ export function RoomSearchModal({ open, onClose }: RoomSearchModalProps) {
     }
     return counts;
   }, [hits]);
+
+  function tabCount(tabId: 'all' | GlobalSearchHitKind | 'schedule'): number {
+    if (tabId === 'all') return hits.length;
+    if (tabId === 'schedule') return (kindCounts.get('todo') ?? 0) + (kindCounts.get('event') ?? 0);
+    return kindCounts.get(tabId) ?? 0;
+  }
+
+  function tabEmptyLabel(tabId: 'all' | GlobalSearchHitKind | 'schedule'): string {
+    if (tabId === 'schedule') return '할일·일정';
+    if (tabId === 'all') return '';
+    return KIND_LABELS[tabId];
+  }
 
   if (!open) return null;
 
@@ -129,7 +143,7 @@ export function RoomSearchModal({ open, onClose }: RoomSearchModalProps) {
           <div>
             <h2 id="room-search-title">통합 검색</h2>
             <p className="room-search__desc">
-              인수인계 · 게시판 · 할일 · 리뷰 · 택시 · 연락처 · 고객 안내
+              인수인계 · 공지·변경 · 할일·일정 · 리뷰 · 택시 · 연락처 · 고객 안내
             </p>
           </div>
           <button type="button" className="icon-btn room-search__close" onClick={onClose} aria-label="닫기">
@@ -144,7 +158,7 @@ export function RoomSearchModal({ open, onClose }: RoomSearchModalProps) {
           <input
             className="room-search__input"
             type="search"
-            placeholder="객실, 이름, 제목, 내용, 연락처…"
+            placeholder="객실, 이름, 제목, 공지·할일 내용…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoFocus
@@ -156,7 +170,7 @@ export function RoomSearchModal({ open, onClose }: RoomSearchModalProps) {
         {hits.length > 0 ? (
           <div className="room-search__tabs" role="tablist" aria-label="검색 결과 종류">
             {KIND_TABS.map((tab) => {
-              const count = tab.id === 'all' ? hits.length : (kindCounts.get(tab.id) ?? 0);
+              const count = tabCount(tab.id);
               if (tab.id !== 'all' && count === 0) return null;
               return (
                 <button
@@ -210,7 +224,7 @@ export function RoomSearchModal({ open, onClose }: RoomSearchModalProps) {
 
           {showEmpty ? (
             <div className="room-search__state room-search__state--empty">
-              <p>「{trimmed}」 검색 결과 없음{kindTab !== 'all' ? ` (${KIND_LABELS[kindTab]})` : ''}</p>
+              <p>「{trimmed}」 검색 결과 없음{kindTab !== 'all' ? ` (${tabEmptyLabel(kindTab)})` : ''}</p>
               <small>제목·내용·객실·이름·연락처 등 전체 데이터에서 찾습니다.</small>
             </div>
           ) : null}

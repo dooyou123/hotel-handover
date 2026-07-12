@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { EventModal } from '@/components/schedule/event-modal';
 import { TodoModal } from '@/components/todos/todo-modal';
 import {
@@ -65,6 +66,7 @@ function eventMatchesFilter(event: HotelEvent, filter: TodoFilter): boolean {
 }
 
 export function WorkHubSchedulePanel() {
+  const searchParams = useSearchParams();
   const today = todayDateString();
   const todayMonth = today.slice(0, 7);
   const [month, setMonth] = useState(todayMonth);
@@ -98,6 +100,13 @@ export function WorkHubSchedulePanel() {
       .order('sort_order')
       .then(({ data }) => setStaffNames((data ?? []).map((row) => row.name)));
   }, []);
+
+  useEffect(() => {
+    const date = searchParams.get('date');
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    setSelectedDate(date);
+    setMonth(date.slice(0, 7));
+  }, [searchParams]);
 
   useEffect(() => {
     setSelectedDate((current) => {

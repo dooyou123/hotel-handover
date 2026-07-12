@@ -1566,6 +1566,20 @@ test('transport needs input within 30 minutes', () => {
   assert.equal(filterTransportNeedsInput([incomplete, complete]).length, 1);
 });
 
+test('room search helpers sanitize query and build snippets', () => {
+  const {
+    sanitizeSearchQuery,
+    buildIlikePattern,
+    searchMatchSnippet,
+  } = require('@/lib/room-search/format') as typeof import('@/lib/room-search/format');
+
+  assert.equal(sanitizeSearchQuery('  키오스크, 세프로  '), '키오스크 세프로');
+  assert.equal(buildIlikePattern('abc%'), '%abc\\%%');
+  const longText = `${'앞부분 '.repeat(8)}키오스크 설치 안내${' 뒷부분'.repeat(8)}`;
+  assert.match(searchMatchSnippet(longText, '키오스크'), /키오스크/);
+  assert.match(searchMatchSnippet(longText, '키오스크'), /^…/);
+});
+
 test('room search recent stores up to 5 unique terms', () => {
   const { rememberRoomSearch, loadRecentRoomSearches } =
     require('@/lib/room-search/recent') as typeof import('@/lib/room-search/recent');
