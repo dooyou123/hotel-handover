@@ -67,11 +67,14 @@ export function RoomSearchModal({ open, onClose }: RoomSearchModalProps) {
     const term = query.trim();
     if (term.length < 2) {
       setHits([]);
+      setLoading(false);
       return;
     }
 
+    setLoading(true);
+    setKindTab('all');
+
     const timer = window.setTimeout(() => {
-      setLoading(true);
       searchGlobal(term)
         .then((results) => {
           setHits(results);
@@ -142,9 +145,7 @@ export function RoomSearchModal({ open, onClose }: RoomSearchModalProps) {
         <header className="room-search__header">
           <div>
             <h2 id="room-search-title">통합 검색</h2>
-            <p className="room-search__desc">
-              인수인계 · 공지·변경 · 할일·일정 · 리뷰 · 택시 · 연락처 · 고객 안내
-            </p>
+            <p className="room-search__desc">인수인계, 공지·할일, 리뷰, 택시, 연락처 등 전체 검색</p>
           </div>
           <button type="button" className="icon-btn room-search__close" onClick={onClose} aria-label="닫기">
             ✕
@@ -167,29 +168,30 @@ export function RoomSearchModal({ open, onClose }: RoomSearchModalProps) {
           />
         </div>
 
-        {hits.length > 0 ? (
-          <div className="room-search__tabs" role="tablist" aria-label="검색 결과 종류">
-            {KIND_TABS.map((tab) => {
-              const count = tabCount(tab.id);
-              if (tab.id !== 'all' && count === 0) return null;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={kindTab === tab.id}
-                  className={`room-search__tab${kindTab === tab.id ? ' is-active' : ''}`}
-                  onClick={() => setKindTab(tab.id)}
-                >
-                  {tab.label}
-                  {count > 0 ? ` (${count})` : ''}
-                </button>
-              );
-            })}
-          </div>
-        ) : null}
+        <div className="room-search__body">
+          {hits.length > 0 && !loading ? (
+            <div className="room-search__tabs" role="tablist" aria-label="검색 결과 종류">
+              {KIND_TABS.map((tab) => {
+                const count = tabCount(tab.id);
+                if (tab.id !== 'all' && count === 0) return null;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={kindTab === tab.id}
+                    className={`room-search__tab${kindTab === tab.id ? ' is-active' : ''}`}
+                    onClick={() => setKindTab(tab.id)}
+                  >
+                    {tab.label}
+                    {count > 0 ? ` (${count})` : ''}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
 
-        <div className="room-search__results" aria-live="polite">
+          <div className="room-search__results" aria-live="polite">
           {loading ? (
             <div className="room-search__state">
               <span className="room-search__spinner" aria-hidden />
@@ -253,6 +255,7 @@ export function RoomSearchModal({ open, onClose }: RoomSearchModalProps) {
               ))}
             </ul>
           ) : null}
+          </div>
         </div>
 
         <footer className="room-search__footer">
