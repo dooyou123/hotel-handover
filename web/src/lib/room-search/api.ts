@@ -1,4 +1,5 @@
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
+import { noticeListTitle } from '@/lib/handover/notice-utils';
 import { createClient } from '@/lib/supabase/client';
 import { buildWorkHubHref } from '@/lib/work/work-hub';
 import { buildIlikePattern, sanitizeSearchQuery, searchMatchSnippet } from '@/lib/room-search/format';
@@ -218,8 +219,8 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
   }
 
   for (const notice of noticesRes.data ?? []) {
-    const line = notice.content.split('\n').map((part) => part.trim()).find(Boolean) || '게시글';
-    const contentSnippet = searchMatchSnippet(notice.content, q);
+    const line = noticeListTitle(notice.content ?? '');
+    const contentSnippet = searchMatchSnippet(notice.content ?? '', q);
     hits.push({
       kind: 'notice',
       id: notice.id,
