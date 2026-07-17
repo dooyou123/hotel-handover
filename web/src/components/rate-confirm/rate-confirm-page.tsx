@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ERROR_LABELS,
   performReconciliation,
@@ -28,7 +28,6 @@ import {
 } from '@/lib/rate-confirm/parse';
 import { RateConfirmHistoryPanel } from '@/components/rate-confirm/rate-confirm-history-panel';
 import { RateConfirmResolutionForm } from '@/components/rate-confirm/rate-confirm-resolution-form';
-import { RateConfirmSaveDialog } from '@/components/rate-confirm/rate-confirm-save-dialog';
 import {
   ReconcileErrorsTable,
   ReconcileMatchesTable,
@@ -257,9 +256,8 @@ export function RateConfirmPageClient() {
   const { createSession } = useRateConfirmSessions();
   const [pageTab, setPageTab] = useState<PageTab>('reconcile');
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [saveNotes, setSaveNotes] = useState('');
-  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const autoSaveStartedRef = useRef(false);
   const { detailQuery: activeSessionQuery, saveResolution } = useRateConfirmSessionDetail(
     activeSessionId,
   );
@@ -327,33 +325,42 @@ export function RateConfirmPageClient() {
 
   function resetSavedSession() {
     setActiveSessionId(null);
+    autoSaveStartedRef.current = false;
   }
 
-  async function handleSaveSession() {
-    if (!result || !tlSheet || !pmsSheet) return;
-    if (!requireSession('기록 저장')) return;
-    if (activeSessionId) {
-      showToast('이미 저장된 대조입니다. 이력 탭에서 확인하세요.');
-      return;
-    }
+  useEffect(() => {
+    if (!result || !tlSheet || !pmsSheet || activeSessionId || autoSaveStartedRef.current) return;
+    if (!session.group || !session.name) return;
 
-    try {
-      const detail = await createSession.mutateAsync({
+    autoSaveStartedRef.current = true;
+
+    void createSession
+      .mutateAsync({
         author: authorLabel,
         workGroup: session.group,
         tlFileName: tlSheet.fileName,
         pmsFileName: pmsSheet.fileName,
-        notes: saveNotes.trim(),
+        notes: '',
         result,
+      })
+      .then((detail) => {
+        setActiveSessionId(detail.id);
+        showToast('대조 결과를 자동 저장했습니다.');
+      })
+      .catch((caught: unknown) => {
+        autoSaveStartedRef.current = false;
+        showToast(caught instanceof Error ? caught.message : '자동 저장에 실패했습니다.');
       });
-      setActiveSessionId(detail.id);
-      setSaveDialogOpen(false);
-      setSaveNotes('');
-      showToast('대조 결과를 저장했습니다. 불일치 건마다 처리 기록을 남겨 주세요.');
-    } catch (caught) {
-      showToast(caught instanceof Error ? caught.message : '저장에 실패했습니다.');
-    }
-  }
+  }, [
+    result,
+    tlSheet,
+    pmsSheet,
+    activeSessionId,
+    session.group,
+    session.name,
+    authorLabel,
+    createSession,
+  ]);
 
   async function loadFile(file: File, target: 'tl' | 'pms') {
     resetSavedSession();
@@ -446,14 +453,15 @@ export function RateConfirmPageClient() {
         </div>
         {result && pageTab === 'reconcile' ? (
           <div className="rc-page__hero-actions">
-            <button
-              type="button"
-              className="btn btn--primary btn--small"
-              disabled={createSession.isPending || Boolean(activeSessionId)}
-              onClick={() => setSaveDialogOpen(true)}
-            >
-              {activeSessionId ? '저장됨' : createSession.isPending ? '저장 중…' : '기록 저장'}
-            </button>
+            <span className="rc-page__save-status" aria-live="polite">
+              {activeSessionId
+                ? '자동 저장됨'
+                : createSession.isPending
+                  ? '자동 저장 중…'
+                  : session.group && session.name
+                    ? '저장 대기'
+                    : '조·담당자 선택 후 자동 저장'}
+            </span>
             <button
               type="button"
               className="btn btn--outline btn--small"
@@ -555,16 +563,20 @@ export function RateConfirmPageClient() {
 
       {result && activeSessionId && activeSessionQuery.data ? (
         <p className="rc-banner rc-banner--saved">
-          저장됨 · {sessionProgressLabel(activeSessionQuery.data.items)}
+          자동 저장됨 · {sessionProgressLabel(activeSessionQuery.data.items)}
           {' · '}
           <button type="button" className="rc-banner__link" onClick={() => setPageTab('history')}>
             이력에서 보기
           </button>
         </p>
-      ) : result ? (
+      ) : result && createSession.isPending ? (
+        <p className="rc-banner">대조 결과를 자동 저장하는 중…</p>
+      ) : result && !(session.group && session.name) ? (
         <p className="rc-banner">
-          대조가 끝났습니다. <strong>기록 저장</strong> 후 각 불일치 건의 PMS 수정 내용을 남겨 주세요.
+          대조가 끝났습니다. <strong>조·담당자</strong>를 선택하면 자동으로 기록이 저장됩니다.
         </p>
+      ) : result ? (
+        <p className="rc-banner">대조가 끝났습니다. 저장이 끝나면 불일치 건마다 처리 기록을 남겨 주세요.</p>
       ) : null}
 
       {result ? (
@@ -710,18 +722,6 @@ export function RateConfirmPageClient() {
       ) : null}
         </>
       ) : null}
-
-      <RateConfirmSaveDialog
-        open={saveDialogOpen}
-        saving={createSession.isPending}
-        notes={saveNotes}
-        tlFileName={tlSheet?.fileName}
-        pmsFileName={pmsSheet?.fileName}
-        result={result}
-        onNotesChange={setSaveNotes}
-        onClose={() => setSaveDialogOpen(false)}
-        onSave={() => void handleSaveSession()}
-      />
 
       {toast ? <div className="toast">{toast}</div> : null}
     </section>

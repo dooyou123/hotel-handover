@@ -128,15 +128,15 @@ export function useScheduleMutations() {
   const queryClient = useQueryClient();
 
   const createEntry = useMutation({
-    mutationFn: async (input: ScheduleEntryInput) => {
+    mutationFn: async (input: ScheduleEntryInput | ScheduleEntryInput[]) => {
+      const rows = (Array.isArray(input) ? input : [input]).map((row) => ({
+        ...row,
+        hotel_id: DEFAULT_HOTEL_ID,
+      }));
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from('schedule_entries')
-        .insert({ ...input, hotel_id: DEFAULT_HOTEL_ID })
-        .select('*')
-        .single();
+      const { data, error } = await supabase.from('schedule_entries').insert(rows).select('*');
       if (error) throw error;
-      return data as ScheduleEntry;
+      return (data ?? []) as ScheduleEntry[];
     },
     onSuccess: () => invalidateScheduleQueries(queryClient),
   });
@@ -165,5 +165,20 @@ export function useScheduleMutations() {
     onSuccess: () => invalidateScheduleQueries(queryClient),
   });
 
-  return { createEntry, updateEntry, deleteEntry };
+  const deleteMonth = useMutation({
+    mutationFn: async (month: string) => {
+      const supabase = createClient();
+      const { start, end } = monthDateRange(month);
+      const { error } = await supabase
+        .from('schedule_entries')
+        .delete()
+        .eq('hotel_id', DEFAULT_HOTEL_ID)
+        .gte('work_date', start)
+        .lte('work_date', end);
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateScheduleQueries(queryClient),
+  });
+
+  return { createEntry, updateEntry, deleteEntry, deleteMonth };
 }

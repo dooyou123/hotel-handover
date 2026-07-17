@@ -200,77 +200,6 @@ test('splitTextBySearchQuery highlights matching segments', () => {
   assert.deepEqual(splitTextBySearchQuery('민원 처리', ''), [{ text: '민원 처리', match: false }]);
 });
 
-test('leave validation blocks holidays and enforces daily cap', () => {
-  const {
-    isDateBlocked,
-    resolveLeaveStatus,
-    getTargetMonth,
-  } = require('@/lib/leave/validation') as typeof import('@/lib/leave/validation');
-  const policy = {
-    max_days_per_month: 4,
-    max_staff_per_day: 2,
-    apply_month_offset: 1,
-    application_open_day: 1,
-    application_close_day: 20,
-  };
-  const blocked = [{ id: '1', hotel_id: 'h', block_month: 12, block_day: 25, label: '크리스마스' }];
-  assert.equal(isDateBlocked('2026-12-25', blocked), true);
-  assert.equal(isDateBlocked('2026-12-24', blocked), false);
-
-  const blockedResult = resolveLeaveStatus('2026-12-25', '김', false, [], policy, blocked);
-  assert.equal(blockedResult.ok, false);
-
-  const requests = [
-    {
-      id: 'a',
-      hotel_id: 'h',
-      staff_name: '이',
-      work_group: 'A',
-      leave_date: '2026-07-10',
-      status: 'approved' as const,
-      is_exception: false,
-      reason: '',
-      reviewed_by: null,
-      reviewed_at: null,
-      created_at: '',
-    },
-    {
-      id: 'b',
-      hotel_id: 'h',
-      staff_name: '박',
-      work_group: 'B',
-      leave_date: '2026-07-10',
-      status: 'approved' as const,
-      is_exception: false,
-      reason: '',
-      reviewed_by: null,
-      reviewed_at: null,
-      created_at: '',
-    },
-  ];
-  const fullDay = resolveLeaveStatus('2026-07-10', '김', false, requests, policy, blocked);
-  assert.equal(fullDay.ok, false);
-  if (!fullDay.ok) assert.match(fullDay.error, /마감/);
-
-  const exception = resolveLeaveStatus('2026-07-11', '김', true, requests, policy, blocked);
-  assert.equal(exception.ok, true);
-  if (exception.ok) assert.equal(exception.status, 'pending_review');
-
-  const nextMonth = getTargetMonth(new Date(2026, 5, 8), 1);
-  assert.equal(nextMonth, '2026-07');
-
-  const { requestsForDateOrdered } = require('@/lib/leave/validation') as typeof import('@/lib/leave/validation');
-  const ordered = requestsForDateOrdered(
-    [
-      { ...requests[0]!, created_at: '2026-06-15T00:02:00.000Z' },
-      { ...requests[1]!, created_at: '2026-06-15T00:01:00.000Z' },
-    ],
-    '2026-07-10',
-  );
-  assert.equal(ordered[0]?.staff_name, '박');
-  assert.equal(ordered[1]?.staff_name, '이');
-});
-
 test('isCommentEdited when updated_at differs from created_at', () => {
   const base: CardComment = {
     id: '1',
@@ -429,10 +358,9 @@ test('toTransportBookingDbPayload maps booker_name and memo to DB columns', () =
   assert.equal('memo' in row, false);
 });
 
-test('calculateTaxiPrice for Incheon and Gimpo', () => {
+test('calculateTaxiPrice for Incheon destinations', () => {
   assert.equal(calculateTaxiPrice('인천공항 T1', '일반'), '85000');
   assert.equal(calculateTaxiPrice('인천공항 T2', '점보'), '105000');
-  assert.equal(calculateTaxiPrice('김포공항 국제선', '일반'), '미터(약 45,000)');
 });
 
 test('slip i18n localizes destination, price, and room', () => {

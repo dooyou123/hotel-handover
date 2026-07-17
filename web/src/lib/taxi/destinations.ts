@@ -1,8 +1,6 @@
 export const TAXI_DESTINATIONS = [
   '인천공항 T1',
   '인천공항 T2',
-  '김포공항 국제선',
-  '김포공항 국내선',
 ] as const;
 
 export type TaxiDestination = (typeof TAXI_DESTINATIONS)[number];

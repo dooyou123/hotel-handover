@@ -5591,27 +5591,6 @@ html[data-ui='project'] .contact-card--tile:hover {
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
 
-html[data-ui='project'] .schedule-page .schedule-tabs__btn {
-  padding: 0.42rem 0.8rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface);
-  font-size: 0.82rem;
-  font-weight: 700;
-}
-
-html[data-ui='project'] .schedule-page .schedule-tabs__btn.is-active {
-  border-color: var(--primary);
-  background: var(--primary);
-  color: #fff;
-}
-
-html[data-ui='project'] .schedule-page .schedule-page__tab-hint {
-  margin: 0;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
 html[data-ui='project'] .checklist-page .checklist-page__meta {
   margin: 0 0 0.75rem;
   font-size: 0.84rem;

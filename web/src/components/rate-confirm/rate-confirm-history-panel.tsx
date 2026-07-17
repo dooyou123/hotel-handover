@@ -79,7 +79,7 @@ export function RateConfirmHistoryPanel({
       <div className="rc-history__list">
         <h3 className="rc-section__title">저장된 대조 ({sessions.length})</h3>
         {!sessions.length ? (
-          <p className="rc-empty">저장된 대조 이력이 없습니다. 새 대조 후 「기록 저장」을 사용하세요.</p>
+          <p className="rc-empty">저장된 대조 이력이 없습니다. 새 대조를 하면 자동으로 저장됩니다.</p>
         ) : (
           <ul className="rc-history__sessions">
             {sessions.map((row) => {
