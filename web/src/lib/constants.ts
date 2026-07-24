@@ -101,6 +101,7 @@ export const APP_NAV = [
   { href: '/parcels', label: '물건 픽업 장부', description: '보관 물품의 인도·서명을 기록합니다.', category: 'ops' as const },
   { href: '/facility', label: '시설 현황', description: '시설 이슈와 루틴 점검을 카드로 추적합니다.', category: 'ops' as const },
   { href: '/rate-confirm', label: '객실료 컨펌', description: 'TL 예약과 PMS 데이터를 대조합니다.', category: 'ops' as const },
+  { href: '/year-end-party', label: '연말 회식', description: '직원 명단·장소 투표·일정 조율·예산·초청장을 한곳에서 관리합니다.', category: 'ops' as const },
   { href: '/stats', label: '통계', description: '인수인계·체크리스트·리뷰 등 운영 지표를 봅니다.', category: 'insight' as const },
   { href: '/insights/floor', label: '층별 히트맵', description: '층·객실별 이슈·리뷰·HK를 히트맵으로 봅니다.', category: 'insight' as const },
   { href: '/board', label: '라이브 보드', description: '실시간 운영 피드를 한 화면에 표시합니다.', category: 'insight' as const },

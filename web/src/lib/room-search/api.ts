@@ -42,8 +42,22 @@ function noticeTypeLabel(type: string): string {
   return type === 'change' ? '업무 변경' : '업무 공지';
 }
 
-function scheduleHref(date?: string | null): string {
-  return buildWorkHubHref('schedule', date ? { date } : undefined);
+function scheduleHref(input: {
+  date?: string | null;
+  todoId?: string;
+  eventId?: string;
+}): string {
+  return buildWorkHubHref('schedule', {
+    date: input.date,
+    todo: input.todoId,
+    event: input.eventId,
+  });
+}
+
+function throwIfSearchError(label: string, error: { message: string } | null) {
+  if (error) {
+    throw new Error(`${label} 검색 실패: ${error.message}`);
+  }
 }
 
 export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
@@ -169,6 +183,16 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
       .limit(15),
   ]);
 
+  // 본문 검색 소스(공지·할일·일정) 오류는 숨기지 않음
+  throwIfSearchError('공지·변경', noticesRes.error);
+  throwIfSearchError('할일', todosRes.error);
+  throwIfSearchError('호텔 일정', eventsRes.error);
+  throwIfSearchError('인수인계', cardsRes.error);
+  throwIfSearchError('리뷰', reviewsRes.error);
+  throwIfSearchError('택시', transportRes.error);
+  throwIfSearchError('연락처', contactsRes.error);
+  throwIfSearchError('고객 안내', guestNoticesRes.error);
+
   const hits: GlobalSearchHit[] = [];
 
   for (const card of cardsRes.data ?? []) {
@@ -242,7 +266,7 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
       subtitle: descriptionSnippet
         ? `${todoStatusLabel(todo.status)} · ${descriptionSnippet}`
         : `${todoStatusLabel(todo.status)}${todo.due_date ? ` · 마감 ${todo.due_date}` : ''}${todo.assignee_name ? ` · ${todo.assignee_name}` : ''}`,
-      href: scheduleHref(todo.due_date),
+      href: scheduleHref({ date: todo.due_date, todoId: todo.id }),
       at: todo.updated_at || todo.created_at,
     });
   }
@@ -260,7 +284,7 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
       subtitle: descriptionSnippet
         ? `호텔 일정 · ${dateLabel} · ${descriptionSnippet}`
         : `호텔 일정 · ${dateLabel}${event.category ? ` · ${event.category}` : ''}`,
-      href: scheduleHref(event.event_date),
+      href: scheduleHref({ date: event.event_date, eventId: event.id }),
       at: event.updated_at || event.created_at,
     });
   }
@@ -277,11 +301,14 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
   }
 
   for (const notice of guestNoticesRes.data ?? []) {
+    const bodySnippet = searchMatchSnippet(notice.body_ko ?? '', q);
     hits.push({
       kind: 'guest_notice',
       id: notice.id,
       title: notice.title,
-      subtitle: `고객 안내 · ${notice.category}`,
+      subtitle: bodySnippet
+        ? `고객 안내 · ${notice.category} · ${bodySnippet}`
+        : `고객 안내 · ${notice.category}`,
       href: '/guest-notices',
       at: notice.updated_at || notice.created_at,
     });

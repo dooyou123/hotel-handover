@@ -16,6 +16,10 @@ import {
   useRateConfirmSessionDetail,
   useRateConfirmSessions,
 } from '@/lib/rate-confirm/use-rate-confirm-history';
+import {
+  useGuestRateConfirmSessionDetail,
+  useGuestRateConfirmSessions,
+} from '@/lib/rate-confirm/use-rate-confirm-guest';
 import type { RateConfirmItem } from '@/lib/rate-confirm/history-types';
 import { useWorkSession } from '@/lib/handover/use-work-session';
 import { getNavPageMeta } from '@/lib/nav/page-meta';
@@ -27,6 +31,7 @@ import {
   type ParsedSheet,
 } from '@/lib/rate-confirm/parse';
 import { RateConfirmHistoryPanel } from '@/components/rate-confirm/rate-confirm-history-panel';
+import { RateConfirmGuestPinSettings } from '@/components/rate-confirm/rate-confirm-guest-pin-settings';
 import { RateConfirmResolutionForm } from '@/components/rate-confirm/rate-confirm-resolution-form';
 import {
   ReconcileErrorsTable,
@@ -211,11 +216,12 @@ type UploadZoneProps = {
   id: string;
   title: string;
   hint: string;
+  exampleName?: string;
   sheet: ParsedSheet | null;
   onFile: (file: File) => void;
 };
 
-function UploadZone({ id, title, hint, sheet, onFile }: UploadZoneProps) {
+function UploadZone({ id, title, hint, exampleName, sheet, onFile }: UploadZoneProps) {
   return (
     <label
       htmlFor={id}
@@ -241,26 +247,52 @@ function UploadZone({ id, title, hint, sheet, onFile }: UploadZoneProps) {
           <span className="rc-upload__meta">{sheet.rows.length.toLocaleString()}행</span>
         </>
       ) : (
-        <span className="rc-upload__hint">{hint}</span>
+        <>
+          <span className="rc-upload__hint">{hint}</span>
+          {exampleName ? (
+            <span className="rc-upload__example" title="파일명 예시">
+              {exampleName}
+            </span>
+          ) : null}
+        </>
       )}
       <span className="rc-upload__action">{sheet ? '다른 파일 선택' : '클릭하여 업로드'}</span>
     </label>
   );
 }
 
+function formatTodayGuide(now = new Date()) {
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return {
+    label: `${now.getMonth() + 1}월 ${now.getDate()}일`,
+    ymd: `${y}${m}${d}`,
+  };
+}
+
 type PageTab = 'reconcile' | 'history';
 
-export function RateConfirmPageClient() {
+type RateConfirmPageClientProps = {
+  mode?: 'staff' | 'guest';
+};
+
+export function RateConfirmPageClient({ mode = 'staff' }: RateConfirmPageClientProps) {
+  const isGuest = mode === 'guest';
   const pageMeta = getNavPageMeta('/rate-confirm');
   const { session, authorLabel, requireSession } = useWorkSession();
-  const { createSession } = useRateConfirmSessions();
+  const [guestAuthor, setGuestAuthor] = useState('');
+  const guestWorkGroup = '게스트';
+  const staffSessions = useRateConfirmSessions(!isGuest);
+  const guestSessions = useGuestRateConfirmSessions(isGuest);
+  const { createSession } = isGuest ? guestSessions : staffSessions;
   const [pageTab, setPageTab] = useState<PageTab>('reconcile');
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const autoSaveStartedRef = useRef(false);
-  const { detailQuery: activeSessionQuery, saveResolution } = useRateConfirmSessionDetail(
-    activeSessionId,
-  );
+  const staffDetail = useRateConfirmSessionDetail(activeSessionId, !isGuest);
+  const guestDetail = useGuestRateConfirmSessionDetail(activeSessionId, isGuest);
+  const { detailQuery: activeSessionQuery, saveResolution } = isGuest ? guestDetail : staffDetail;
   const [tlSheet, setTlSheet] = useState<ParsedSheet | null>(null);
   const [pmsSheet, setPmsSheet] = useState<ParsedSheet | null>(null);
   const [tlMapping, setTlMapping] = useState<ColumnMappingFields>({
@@ -309,6 +341,9 @@ export function RateConfirmPageClient() {
   }, [result, query]);
 
   const step = !tlSheet || !pmsSheet ? 1 : result ? 3 : 2;
+  const todayGuide = useMemo(() => formatTodayGuide(), []);
+  const tlExampleName = `예약검색${todayGuide.ymd}2006-1.csv`;
+  const pmsExampleName = `Reservation+List_${todayGuide.ymd}-1.xlsx`;
 
   const itemsByOta = useMemo(() => {
     const map = new Map<string, RateConfirmItem>();
@@ -330,14 +365,21 @@ export function RateConfirmPageClient() {
 
   useEffect(() => {
     if (!result || !tlSheet || !pmsSheet || activeSessionId || autoSaveStartedRef.current) return;
-    if (!session.group || !session.name) return;
+
+    const author = isGuest ? guestAuthor.trim() : authorLabel;
+    const workGroup = isGuest ? guestWorkGroup : session.group;
+    if (isGuest) {
+      if (!guestAuthor.trim()) return;
+    } else if (!session.group || !session.name) {
+      return;
+    }
 
     autoSaveStartedRef.current = true;
 
     void createSession
       .mutateAsync({
-        author: authorLabel,
-        workGroup: session.group,
+        author,
+        workGroup,
         tlFileName: tlSheet.fileName,
         pmsFileName: pmsSheet.fileName,
         notes: '',
@@ -356,6 +398,8 @@ export function RateConfirmPageClient() {
     tlSheet,
     pmsSheet,
     activeSessionId,
+    isGuest,
+    guestAuthor,
     session.group,
     session.name,
     authorLabel,
@@ -458,9 +502,13 @@ export function RateConfirmPageClient() {
                 ? '자동 저장됨'
                 : createSession.isPending
                   ? '자동 저장 중…'
-                  : session.group && session.name
-                    ? '저장 대기'
-                    : '조·담당자 선택 후 자동 저장'}
+                  : isGuest
+                    ? guestAuthor.trim()
+                      ? '저장 대기'
+                      : '담당자 이름 입력 후 자동 저장'
+                    : session.group && session.name
+                      ? '저장 대기'
+                      : '조·담당자 선택 후 자동 저장'}
             </span>
             <button
               type="button"
@@ -472,6 +520,32 @@ export function RateConfirmPageClient() {
           </div>
         ) : null}
       </header>
+
+      {isGuest ? (
+        <div className="rc-guest-identity">
+          <div className="rc-guest-identity__head">
+            <h3>1단계 · 담당자 이름</h3>
+            <p className="rc-muted">이름을 먼저 적어야 결과가 저장됩니다. (조는 「게스트」로 기록)</p>
+          </div>
+          <label className="field">
+            <span>담당자 이름 (기록용)</span>
+            <input
+              value={guestAuthor}
+              onChange={(e) => setGuestAuthor(e.target.value)}
+              placeholder="예: 김프런트"
+              maxLength={40}
+              autoComplete="name"
+            />
+          </label>
+          {guestAuthor.trim() ? (
+            <p className="rc-guest-identity__ok">준비됨 · 이제 TL·PMS 파일을 업로드하세요.</p>
+          ) : (
+            <p className="rc-guest-identity__warn">이름이 비어 있으면 자동 저장·처리 기록이 되지 않습니다.</p>
+          )}
+        </div>
+      ) : (
+        <RateConfirmGuestPinSettings />
+      )}
 
       <div className="rc-page__tabs" role="tablist" aria-label="객실료 컨펌">
         <button
@@ -496,6 +570,9 @@ export function RateConfirmPageClient() {
 
       {pageTab === 'history' ? (
         <RateConfirmHistoryPanel
+          mode={mode}
+          guestAuthor={guestAuthor}
+          guestWorkGroup={guestWorkGroup}
           activeSessionId={activeSessionId}
           onOpenSession={(id) => setActiveSessionId(id)}
         />
@@ -509,18 +586,38 @@ export function RateConfirmPageClient() {
         <li className={step >= 3 ? 'is-active' : ''}>③ 결과</li>
       </ol>
 
+      <aside className="rc-file-guide" aria-label="파일 준비 안내">
+        <p className="rc-file-guide__date">
+          오늘 <strong>{todayGuide.label}</strong> → TL·PMS 모두{' '}
+          <strong>{todayGuide.label} 체크인</strong>으로 검색·보내기한 파일만 사용하세요.
+          날짜가 다른 파일은 함께 올리지 마세요.
+        </p>
+        <ul className="rc-file-guide__list">
+          <li>
+            <span>TL-Lincoln RAW</span>
+            <code>{tlExampleName}</code>
+          </li>
+          <li>
+            <span>PMS보내기</span>
+            <code>{pmsExampleName}</code>
+          </li>
+        </ul>
+      </aside>
+
       <div className="rc-upload-row">
         <UploadZone
           id="rc-tl-file"
           title="TL-Lincoln RAW"
-          hint="예약 목록 CSV / Excel"
+          hint="예약검색 CSV / Excel"
+          exampleName={tlExampleName}
           sheet={tlSheet}
           onFile={(f) => void loadFile(f, 'tl')}
         />
         <UploadZone
           id="rc-pms-file"
           title="PMS보내기"
-          hint="산하 IT PMS export"
+          hint="Reservation List Excel / CSV"
+          exampleName={pmsExampleName}
           sheet={pmsSheet}
           onFile={(f) => void loadFile(f, 'pms')}
         />
@@ -557,7 +654,11 @@ export function RateConfirmPageClient() {
 
       {!tlSheet || !pmsSheet ? (
         <div className="rc-empty">
-          <p>양쪽 파일을 모두 업로드하면 자동으로 대조합니다.</p>
+          <p>
+            양쪽 파일을 모두 업로드하면 자동으로 대조합니다.
+            <br />
+            <strong>{todayGuide.label} 체크인</strong> 자료만 올렸는지 확인하세요.
+          </p>
         </div>
       ) : null}
 
@@ -571,9 +672,18 @@ export function RateConfirmPageClient() {
         </p>
       ) : result && createSession.isPending ? (
         <p className="rc-banner">대조 결과를 자동 저장하는 중…</p>
-      ) : result && !(session.group && session.name) ? (
+      ) : result && !(isGuest ? guestAuthor.trim() : session.group && session.name) ? (
         <p className="rc-banner">
-          대조가 끝났습니다. <strong>조·담당자</strong>를 선택하면 자동으로 기록이 저장됩니다.
+          {isGuest ? (
+            <>
+              대조가 끝났습니다. 위쪽 <strong>담당자 이름</strong>을 입력하면 이 결과가 자동으로
+              저장됩니다. 저장 후 불일치 건마다 처리 기록을 남길 수 있습니다.
+            </>
+          ) : (
+            <>
+              대조가 끝났습니다. <strong>조·담당자</strong>를 선택하면 자동으로 기록이 저장됩니다.
+            </>
+          )}
         </p>
       ) : result ? (
         <p className="rc-banner">대조가 끝났습니다. 저장이 끝나면 불일치 건마다 처리 기록을 남겨 주세요.</p>
@@ -663,15 +773,19 @@ export function RateConfirmPageClient() {
                       ? (item) => (
                           <RateConfirmResolutionForm
                             item={item}
-                            disabled={!session.name}
+                            disabled={isGuest ? !guestAuthor.trim() : !session.name}
                             onSave={async (input) => {
-                              if (!requireSession('처리 기록') || !activeSessionId) return;
+                              if (isGuest) {
+                                if (!guestAuthor.trim() || !activeSessionId) return;
+                              } else if (!requireSession('처리 기록') || !activeSessionId) {
+                                return;
+                              }
                               await saveResolution.mutateAsync({
                                 itemId: item.id,
                                 sessionId: activeSessionId,
                                 input,
-                                author: authorLabel,
-                                workGroup: session.group,
+                                author: isGuest ? guestAuthor.trim() : authorLabel,
+                                workGroup: isGuest ? guestWorkGroup : session.group,
                               });
                               showToast('처리 기록을 저장했습니다.');
                             }}

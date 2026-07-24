@@ -27,6 +27,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             </p>
           ) : null}
           <LoginForm redirectTo={params.next ?? '/handover'} />
+          <p className="login-page__guest-link">
+            <a href="/rate-confirm/guest">객실료 컨펌 (게스트 PIN)</a>
+          </p>
         </div>
       </div>
     </div>

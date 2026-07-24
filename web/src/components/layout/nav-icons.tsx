@@ -123,6 +123,12 @@ export function NavIcon({ href, className }: NavIconProps) {
           <path d="M9 8h6M9 12h6M9 16h4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
         </IconShell>
       );
+    case '/year-end-party':
+      return (
+        <IconShell className={className}>
+          <path d="M12 3 14.5 8.5 20.5 9.3 16 13.4 17.2 19.3 12 16.4 6.8 19.3 8 13.4 3.5 9.3 9.5 8.5 12 3Z" stroke="currentColor" strokeWidth="1.75" strokeLinejoin="round" />
+        </IconShell>
+      );
     case '/stats':
       return (
         <IconShell className={className}>

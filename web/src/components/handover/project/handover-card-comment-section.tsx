@@ -2,7 +2,16 @@
 
 import { useState } from 'react';
 import { ImagePreviewModal } from '@/components/ui/image-preview-modal';
-import { formatTime, getLatestActiveCardComment, getLatestCardComment, isCommentDeleted, isCommentEdited, formatDeletedCommentLabel, countActiveCardComments, hasActiveCardComments } from '@/lib/handover/card-utils';
+import {
+  formatTime,
+  getLatestActiveCardComment,
+  getLatestCardComment,
+  isCommentDeleted,
+  isCommentEdited,
+  formatDeletedCommentLabel,
+  countActiveCardComments,
+  hasActiveCardComments,
+} from '@/lib/handover/card-utils';
 import type { Card } from '@/lib/handover/types';
 import { CardCommentComposer } from '@/components/handover/card-comment-composer';
 
@@ -29,23 +38,10 @@ export function HandoverCardCommentSection({
   const [expanded, setExpanded] = useState(false);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const hasComments = comments.length > 0;
+  const showComposer = !hasComments || expanded;
 
   function commentPreviewText(comment: (typeof comments)[number]): string {
     return isCommentDeleted(comment) ? formatDeletedCommentLabel(comment) : comment.content;
-  }
-
-  if (!hasComments && !attachments.length) {
-    return (
-      <div className="project-list-row__comments" onClick={(event) => event.stopPropagation()}>
-        <CardCommentComposer
-          staffName={staffName}
-          placeholder="댓글을 입력하세요…"
-          disabled={disabled}
-          compact
-          onSubmit={onAddComment}
-        />
-      </div>
-    );
   }
 
   return (
@@ -144,13 +140,6 @@ export function HandoverCardCommentSection({
               </span>
             </button>
           ) : null}
-          <CardCommentComposer
-            staffName={staffName}
-            placeholder="댓글을 입력하세요…"
-            disabled={disabled}
-            compact
-            onSubmit={onAddComment}
-          />
         </>
       ) : null}
 
@@ -172,6 +161,16 @@ export function HandoverCardCommentSection({
             ))}
           </div>
         </div>
+      ) : null}
+
+      {showComposer ? (
+        <CardCommentComposer
+          staffName={staffName}
+          placeholder="댓글을 입력하세요…"
+          disabled={disabled}
+          compact
+          onSubmit={onAddComment}
+        />
       ) : null}
 
       <ImagePreviewModal

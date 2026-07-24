@@ -40,6 +40,7 @@ export function RoomSearchModal({ open, onClose }: RoomSearchModalProps) {
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<GlobalSearchHit[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [kindTab, setKindTab] = useState<'all' | GlobalSearchHitKind | 'schedule'>('all');
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
@@ -47,6 +48,7 @@ export function RoomSearchModal({ open, onClose }: RoomSearchModalProps) {
     if (!open) return;
     setQuery('');
     setHits([]);
+    setError(null);
     setKindTab('all');
     setRecentSearches(loadRecentRoomSearches());
   }, [open]);
@@ -67,11 +69,13 @@ export function RoomSearchModal({ open, onClose }: RoomSearchModalProps) {
     const term = query.trim();
     if (term.length < 2) {
       setHits([]);
+      setError(null);
       setLoading(false);
       return;
     }
 
     setLoading(true);
+    setError(null);
     setKindTab('all');
 
     const timer = window.setTimeout(() => {
@@ -83,7 +87,10 @@ export function RoomSearchModal({ open, onClose }: RoomSearchModalProps) {
             setRecentSearches(loadRecentRoomSearches());
           }
         })
-        .catch(() => setHits([]))
+        .catch((caught: unknown) => {
+          setHits([]);
+          setError(caught instanceof Error ? caught.message : '검색에 실패했습니다.');
+        })
         .finally(() => setLoading(false));
     }, 280);
 
@@ -119,8 +126,8 @@ export function RoomSearchModal({ open, onClose }: RoomSearchModalProps) {
 
   if (!open) return null;
 
-  const showHint = !loading && trimmed.length < 2;
-  const showEmpty = !loading && trimmed.length >= 2 && !filteredHits.length;
+  const showHint = !loading && !error && trimmed.length < 2;
+  const showEmpty = !loading && !error && trimmed.length >= 2 && !filteredHits.length;
   const showRecent = showHint && recentSearches.length > 0;
 
   function selectRecent(term: string) {
@@ -145,7 +152,9 @@ export function RoomSearchModal({ open, onClose }: RoomSearchModalProps) {
         <header className="room-search__header">
           <div>
             <h2 id="room-search-title">통합 검색</h2>
-            <p className="room-search__desc">인수인계, 공지·할일, 리뷰, 택시, 연락처 등 전체 검색</p>
+            <p className="room-search__desc">
+              인수인계·공지·변경·할일·일정 제목과 본문, 리뷰, 택시, 연락처 등
+            </p>
           </div>
           <button type="button" className="icon-btn room-search__close" onClick={onClose} aria-label="닫기">
             ✕
@@ -220,14 +229,21 @@ export function RoomSearchModal({ open, onClose }: RoomSearchModalProps) {
           {showHint && !showRecent ? (
             <div className="room-search__state room-search__state--hint">
               <p>2자 이상 입력</p>
-              <small>예: 1502, 키오스크, 홍길동, 세프로</small>
+              <small>예: 1502, 키오스크, 공지 본문 키워드, 할일 내용</small>
+            </div>
+          ) : null}
+
+          {error ? (
+            <div className="room-search__state room-search__state--empty">
+              <p>검색에 실패했습니다.</p>
+              <small>{error}</small>
             </div>
           ) : null}
 
           {showEmpty ? (
             <div className="room-search__state room-search__state--empty">
               <p>「{trimmed}」 검색 결과 없음{kindTab !== 'all' ? ` (${tabEmptyLabel(kindTab)})` : ''}</p>
-              <small>제목·내용·객실·이름·연락처 등 전체 데이터에서 찾습니다.</small>
+              <small>공지·변경·할일·일정 본문과 인수인계·리뷰 등에서 찾습니다.</small>
             </div>
           ) : null}
 

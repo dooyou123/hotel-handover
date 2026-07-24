@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { EventModal } from '@/components/schedule/event-modal';
 import { TodoModal } from '@/components/todos/todo-modal';
@@ -11,6 +11,7 @@ import {
   WorkHubList,
   WorkHubPanel,
   WorkHubRow,
+  WorkHubSearch,
   WorkHubSection,
   WorkHubToolbar,
   WorkHubToolbarGroup,
@@ -65,6 +66,15 @@ function eventMatchesFilter(event: HotelEvent, filter: TodoFilter): boolean {
   return true;
 }
 
+function matchesScheduleText(
+  query: string,
+  fields: Array<string | null | undefined>,
+): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return fields.some((field) => (field ?? '').toLowerCase().includes(q));
+}
+
 export function WorkHubSchedulePanel() {
   const searchParams = useSearchParams();
   const today = todayDateString();
@@ -72,12 +82,14 @@ export function WorkHubSchedulePanel() {
   const [month, setMonth] = useState(todayMonth);
   const [selectedDate, setSelectedDate] = useState(today);
   const [filter, setFilter] = useState<TodoFilter>('open');
+  const [textQuery, setTextQuery] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<HotelEvent | null>(null);
   const [staffNames, setStaffNames] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
+  const openedDeepLinkRef = useRef<string | null>(null);
 
   const { session, authorLabel, requireSession } = useWorkSession();
   const { cards, createCard, updateCard } = useCards();
@@ -103,10 +115,39 @@ export function WorkHubSchedulePanel() {
 
   useEffect(() => {
     const date = searchParams.get('date');
-    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
-    setSelectedDate(date);
-    setMonth(date.slice(0, 7));
-  }, [searchParams]);
+    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      setSelectedDate(date);
+      setMonth(date.slice(0, 7));
+    }
+
+    const todoId = searchParams.get('todo');
+    const eventId = searchParams.get('event');
+    const deepLinkKey = todoId ? `todo:${todoId}` : eventId ? `event:${eventId}` : null;
+    if (!deepLinkKey || openedDeepLinkRef.current === deepLinkKey) return;
+
+    setFilter('all');
+    if (todoId) {
+      const todo = todos.find((item) => item.id === todoId);
+      if (!todo) return;
+      if (todo.due_date) {
+        setSelectedDate(todo.due_date);
+        setMonth(todo.due_date.slice(0, 7));
+      }
+      setEditingTodo(todo);
+      setModalOpen(true);
+      openedDeepLinkRef.current = deepLinkKey;
+      return;
+    }
+    if (eventId) {
+      const event = events.find((item) => item.id === eventId);
+      if (!event) return;
+      setSelectedDate(event.event_date);
+      setMonth(event.event_date.slice(0, 7));
+      setEditingEvent(event);
+      setEventModalOpen(true);
+      openedDeepLinkRef.current = deepLinkKey;
+    }
+  }, [searchParams, todos, events]);
 
   useEffect(() => {
     setSelectedDate((current) => {
@@ -118,23 +159,39 @@ export function WorkHubSchedulePanel() {
 
   const filteredTodos = useMemo(() => {
     return todos.filter((todo) => {
-      if (filter === 'open') return matchesTodoOpenFilter(todo);
-      if (filter === 'done') return todo.status === 'done';
-      if (filter === 'mine') {
+      if (filter === 'open') {
+        if (!matchesTodoOpenFilter(todo)) return false;
+      } else if (filter === 'done') {
+        if (todo.status !== 'done') return false;
+      } else if (filter === 'mine') {
         if (!session.name) return false;
         const mine = todo.assignee_name === session.name || todo.author === session.name;
         if (!mine) return false;
         if (todo.status === 'done' && isDoneTodoHiddenFromList(todo)) return false;
-        return true;
+      } else if (todo.status === 'done' && isDoneTodoHiddenFromList(todo)) {
+        return false;
       }
-      if (todo.status === 'done' && isDoneTodoHiddenFromList(todo)) return false;
-      return true;
+      return matchesScheduleText(textQuery, [
+        todo.title,
+        todo.description,
+        todo.assignee_name,
+        todo.author,
+      ]);
     });
-  }, [todos, filter, session.name]);
+  }, [todos, filter, session.name, textQuery]);
 
   const filteredEvents = useMemo(
-    () => events.filter((event) => eventMatchesFilter(event, filter)),
-    [events, filter],
+    () =>
+      events.filter((event) => {
+        if (!eventMatchesFilter(event, filter)) return false;
+        return matchesScheduleText(textQuery, [
+          event.title,
+          event.description,
+          event.category,
+          event.author,
+        ]);
+      }),
+    [events, filter, textQuery],
   );
 
   const undatedTodos = useMemo(
@@ -315,6 +372,12 @@ export function WorkHubSchedulePanel() {
               }))}
               value={filter}
               onChange={setFilter}
+            />
+            <WorkHubSearch
+              value={textQuery}
+              onChange={setTextQuery}
+              placeholder="제목·내용·담당 검색…"
+              ariaLabel="할일·일정 내용 검색"
             />
           </WorkHubToolbarGroup>
           <WorkHubToolbarGroup>

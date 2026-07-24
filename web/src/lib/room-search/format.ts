@@ -22,8 +22,9 @@ export function sanitizeSearchQuery(query: string): string {
 export function buildIlikePattern(query: string): string {
   const sanitized = sanitizeSearchQuery(query);
   if (!sanitized) return '';
-  const escaped = sanitized.replace(/[%_\\]/g, '\\$&');
-  return `%${escaped}%`;
+  // PostgREST .or() 값에 % 등이 깨지지 않도록 따옴표로 감쌉니다.
+  const escaped = sanitized.replace(/[%_\\]/g, '\\$&').replace(/"/g, '\\"');
+  return `"%${escaped}%"`;
 }
 
 export function searchMatchSnippet(text: string, query: string, maxLen = 96): string {

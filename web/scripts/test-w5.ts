@@ -1502,7 +1502,7 @@ test('room search helpers sanitize query and build snippets', () => {
   } = require('@/lib/room-search/format') as typeof import('@/lib/room-search/format');
 
   assert.equal(sanitizeSearchQuery('  키오스크, 세프로  '), '키오스크 세프로');
-  assert.equal(buildIlikePattern('abc%'), '%abc\\%%');
+  assert.equal(buildIlikePattern('abc%'), '"%abc\\%%"');
   const longText = `${'앞부분 '.repeat(8)}키오스크 설치 안내${' 뒷부분'.repeat(8)}`;
   assert.match(searchMatchSnippet(longText, '키오스크'), /키오스크/);
   assert.match(searchMatchSnippet(longText, '키오스크'), /^…/);

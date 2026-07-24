@@ -13,6 +13,10 @@ import {
   useRateConfirmSessionDetail,
   useRateConfirmSessions,
 } from '@/lib/rate-confirm/use-rate-confirm-history';
+import {
+  useGuestRateConfirmSessionDetail,
+  useGuestRateConfirmSessions,
+} from '@/lib/rate-confirm/use-rate-confirm-guest';
 import { useWorkSession } from '@/lib/handover/use-work-session';
 import { RateConfirmResolutionForm } from './rate-confirm-resolution-form';
 import { ReconcileErrorsTable } from './rate-confirm-table';
@@ -28,19 +32,34 @@ function formatSessionWhen(iso: string): string {
 }
 
 type RateConfirmHistoryPanelProps = {
+  mode?: 'staff' | 'guest';
+  guestAuthor?: string;
+  guestWorkGroup?: string;
   activeSessionId?: string | null;
   onOpenSession?: (sessionId: string) => void;
 };
 
 export function RateConfirmHistoryPanel({
+  mode = 'staff',
+  guestAuthor = '게스트',
+  guestWorkGroup = '게스트',
   activeSessionId = null,
   onOpenSession,
 }: RateConfirmHistoryPanelProps) {
+  const isGuest = mode === 'guest';
   const { session, authorLabel, requireSession } = useWorkSession();
-  const { listQuery } = useRateConfirmSessions();
+  const staffSessions = useRateConfirmSessions(!isGuest);
+  const guestSessions = useGuestRateConfirmSessions(isGuest);
+  const { listQuery } = isGuest ? guestSessions : staffSessions;
   const [selectedId, setSelectedId] = useState<string | null>(activeSessionId);
   const viewId = selectedId ?? activeSessionId;
-  const { detailQuery, saveResolution } = useRateConfirmSessionDetail(viewId);
+  const staffDetail = useRateConfirmSessionDetail(viewId, !isGuest);
+  const guestDetail = useGuestRateConfirmSessionDetail(viewId, isGuest);
+  const { detailQuery, saveResolution } = isGuest ? guestDetail : staffDetail;
+
+  const author = isGuest ? guestAuthor : authorLabel;
+  const workGroup = isGuest ? guestWorkGroup : session.group;
+  const canResolve = isGuest ? Boolean(guestAuthor.trim()) : Boolean(session.name);
 
   const itemsByOta = useMemo(() => {
     const map = new Map<string, RateConfirmItem>();
@@ -139,15 +158,19 @@ export function RateConfirmHistoryPanel({
                 renderResolution={(item) => (
                   <RateConfirmResolutionForm
                     item={item}
-                    disabled={!session.name}
+                    disabled={!canResolve}
                     onSave={async (input) => {
-                      if (!requireSession('처리 기록')) return;
+                      if (isGuest) {
+                        if (!guestAuthor.trim()) return;
+                      } else if (!requireSession('처리 기록')) {
+                        return;
+                      }
                       await saveResolution.mutateAsync({
                         itemId: item.id,
                         sessionId: detailQuery.data!.id,
                         input,
-                        author: authorLabel,
-                        workGroup: session.group,
+                        author,
+                        workGroup,
                       });
                     }}
                   />

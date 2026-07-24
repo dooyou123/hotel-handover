@@ -48,12 +48,13 @@ async function fetchSessionDetail(sessionId: string): Promise<RateConfirmSession
   };
 }
 
-export function useRateConfirmSessions() {
+export function useRateConfirmSessions(enabled = true) {
   const queryClient = useQueryClient();
 
   const listQuery = useQuery({
     queryKey: sessionsKey,
     queryFn: fetchSessions,
+    enabled,
   });
 
   const createSession = useMutation({
@@ -103,13 +104,13 @@ export function useRateConfirmSessions() {
   return { listQuery, createSession };
 }
 
-export function useRateConfirmSessionDetail(sessionId: string | null) {
+export function useRateConfirmSessionDetail(sessionId: string | null, enabled = true) {
   const queryClient = useQueryClient();
 
   const detailQuery = useQuery({
     queryKey: sessionId ? sessionDetailKey(sessionId) : ['rate-confirm-session', 'none'],
     queryFn: () => fetchSessionDetail(sessionId!),
-    enabled: Boolean(sessionId),
+    enabled: Boolean(sessionId) && enabled,
   });
 
   const saveResolution = useMutation({
