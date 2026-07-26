@@ -8,33 +8,37 @@ import {
   budgetTotals,
   budgetFitLabel,
   buildInvitationText,
+  canVoteNow,
   categoryDistribution,
   downloadPartyWorkbook,
   formatDeadlineLabel,
   fromDatetimeLocalValue,
-  getVoteDeadlineState,
+  getVoteWindowState,
+  arePartyResultsPublished,
+  rankMeta,
   toDatetimeLocalValue,
   topVenueId,
   venueAccentIndex,
   venueBarData,
+  venueRankBreakdown,
   venueScore,
   venueVoteCount,
+  voteLockMessage,
   slotCounts,
   assignTables,
   shuffleInPlace,
 } from '@/lib/year-end-party/helpers';
 import {
-  PARTY_AVAILABILITY,
-  PARTY_PREFERENCES,
   PARTY_SUBSIDY_OPTIONS,
   PARTY_VENUE_CATEGORIES,
   type EmployeeSortMode,
   type PartyAvailability,
   type PartyEmployee,
-  type PartyPreference,
   type PartyVenue,
   type PartyVenueInput,
 } from '@/lib/year-end-party/types';
+import { PartyBallotModal } from '@/components/year-end-party/party-ballot-modal';
+import { PartyVoteResults } from '@/components/year-end-party/party-vote-results';
 import {
   usePartyDietary,
   usePartyEmployees,
@@ -61,7 +65,7 @@ type PrepareSubId = 'employees' | 'schedule' | 'dietary' | 'budget' | 'deadline'
 type ToolsSubId = 'games' | 'invite' | 'charts';
 
 const TABS: Array<{ id: TabId; label: string; hint: string }> = [
-  { id: 'home', label: '투표', hint: '일정·장소 투표' },
+  { id: 'home', label: '투표', hint: '순위·결과' },
   { id: 'prepare', label: '준비', hint: '명단·설정' },
   { id: 'tools', label: '도구', hint: '게임·초청·차트' },
 ];
@@ -71,7 +75,7 @@ const PREPARE_SUBS: Array<{ id: PrepareSubId; label: string }> = [
   { id: 'schedule', label: '일정 후보' },
   { id: 'dietary', label: '식성' },
   { id: 'budget', label: '예산' },
-  { id: 'deadline', label: '투표 기한' },
+  { id: 'deadline', label: '투표 기간' },
 ];
 
 const TOOLS_SUBS: Array<{ id: ToolsSubId; label: string }> = [
@@ -112,9 +116,9 @@ export function YearEndPartyPageClient() {
     deleteAllEmployees,
     moveEmployee,
   } = usePartyEmployees();
-  const { venues, votes, saveVenue, deleteVenue, upsertVote, deleteVote } = usePartyVenues();
-  const { slots, votes: dateVotes, saveSlot, deleteSlot, upsertDateVote, deleteDateVote } =
-    usePartySchedule();
+  const { venues, votes, saveVenue, deleteVenue, saveBallot, unlockBallot, clearBallot } =
+    usePartyVenues();
+  const { slots, votes: dateVotes, saveSlot, deleteSlot } = usePartySchedule();
   const { dietary, saveDietary, deleteDietary } = usePartyDietary();
 
   const [employeeSort, setEmployeeSort] = useState<EmployeeSortMode>('manual');
@@ -134,15 +138,11 @@ export function YearEndPartyPageClient() {
   const [venueModalOpen, setVenueModalOpen] = useState(false);
   const [editingVenue, setEditingVenue] = useState<PartyVenue | null>(null);
   const [venueForm, setVenueForm] = useState<PartyVenueInput>(emptyVenueForm());
-  const [voteModalVenue, setVoteModalVenue] = useState<PartyVenue | null>(null);
-  const [voteForm, setVoteForm] = useState<{
-    voter_name: string;
-    preference: PartyPreference;
-    comment: string;
-  }>({ voter_name: '', preference: 'love', comment: '' });
+  const [ballotOpen, setBallotOpen] = useState(false);
+  const [ballotInitialVoter, setBallotInitialVoter] = useState('');
+  const [ballotSaving, setBallotSaving] = useState(false);
 
   const [slotForm, setSlotForm] = useState({ slot_date: '', slot_time: '19:00', label: '' });
-  const [scheduleVoter, setScheduleVoter] = useState('');
 
   const [dietaryForm, setDietaryForm] = useState({
     employee_name: '',
@@ -159,11 +159,23 @@ export function YearEndPartyPageClient() {
 
   const [inviteText, setInviteText] = useState('');
   const [polishing, setPolishing] = useState(false);
+  const [opensDate, setOpensDate] = useState('');
+  const [opensTime, setOpensTime] = useState('09:00');
   const [deadlineDate, setDeadlineDate] = useState('');
   const [deadlineTime, setDeadlineTime] = useState('18:00');
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
+    const opensLocal = toDatetimeLocalValue(settings?.vote_opens_at);
+    if (!opensLocal) {
+      setOpensDate('');
+      setOpensTime('09:00');
+    } else {
+      const [datePart, timePart] = opensLocal.split('T');
+      setOpensDate(datePart ?? '');
+      setOpensTime((timePart ?? '09:00').slice(0, 5));
+    }
+
     const local = toDatetimeLocalValue(settings?.vote_deadline_at);
     if (!local) {
       setDeadlineDate('');
@@ -173,7 +185,7 @@ export function YearEndPartyPageClient() {
     const [datePart, timePart] = local.split('T');
     setDeadlineDate(datePart ?? '');
     setDeadlineTime((timePart ?? '18:00').slice(0, 5));
-  }, [settings?.vote_deadline_at]);
+  }, [settings?.vote_opens_at, settings?.vote_deadline_at]);
 
   useEffect(() => {
     const id = window.setInterval(() => setNowMs(Date.now()), 1000);
@@ -203,11 +215,12 @@ export function YearEndPartyPageClient() {
   }, [employees, employeeSort]);
 
   const headcount = attendingCount(employees, settings?.headcount_override);
-  const crownId = topVenueId(venues, votes);
+  const resultsPublished = arePartyResultsPublished(settings?.results_published_at);
+  const crownId = resultsPublished ? topVenueId(venues, votes) : null;
   const confirmedVenue = venues.find((v) => v.id === settings?.confirmed_venue_id) ?? null;
   const confirmedSlot = slots.find((s) => s.id === settings?.confirmed_slot_id) ?? null;
   const leadingSlot = useMemo(() => {
-    if (!slots.length) return null;
+    if (!resultsPublished || !slots.length) return null;
     let best = slots[0]!;
     let bestScore = -1;
     for (const slot of slots) {
@@ -218,7 +231,7 @@ export function YearEndPartyPageClient() {
       }
     }
     return bestScore > 0 ? best : null;
-  }, [slots, dateVotes]);
+  }, [slots, dateVotes, resultsPublished]);
   const budget = budgetTotals({
     headcount,
     subsidy: settings?.subsidy_per_person ?? 100000,
@@ -226,8 +239,9 @@ export function YearEndPartyPageClient() {
   });
   const displayVenue = confirmedVenue ?? venues.find((v) => v.id === crownId) ?? null;
   const displaySlot = confirmedSlot ?? leadingSlot;
-  const deadlineState = getVoteDeadlineState(settings?.vote_deadline_at, nowMs);
-  const votingClosed = deadlineState.status === 'closed';
+  const voteWindow = getVoteWindowState(settings?.vote_opens_at, settings?.vote_deadline_at, nowMs);
+  const votingClosed = !canVoteNow(voteWindow);
+  const lockMessage = voteLockMessage(voteWindow) || '지금은 투표할 수 없습니다.';
 
   const filteredVenues = useMemo(() => {
     const q = venueQuery.trim().toLowerCase();
@@ -322,44 +336,62 @@ export function YearEndPartyPageClient() {
     showToast('장소를 삭제했습니다.');
   }
 
-  async function handleVoteSubmit() {
+  async function handleBallotSubmit(input: {
+    voter_name: string;
+    ranks: import('@/lib/year-end-party/types').PartyBallotRanks;
+    dateVotes: Array<{ slot_id: string; availability: PartyAvailability }>;
+    pin: string;
+    pin_confirm?: string;
+    new_pin?: string;
+  }) {
     if (votingClosed) {
-      showToast('투표 기한이 마감되었습니다.');
+      showToast(lockMessage);
       return;
     }
-    if (!voteModalVenue || !voteForm.voter_name.trim()) {
-      showToast('투표자를 선택해 주세요.');
-      return;
+    setBallotSaving(true);
+    try {
+      await saveBallot.mutateAsync(input);
+      setBallotOpen(false);
+      showToast(`${input.voter_name}님 투표를 저장했습니다.`);
+    } catch (caught) {
+      showToast(caught instanceof Error ? caught.message : '투표 저장에 실패했습니다.');
+    } finally {
+      setBallotSaving(false);
     }
-    await upsertVote.mutateAsync({
-      venue_id: voteModalVenue.id,
-      voter_name: voteForm.voter_name,
-      preference: voteForm.preference,
-      comment: voteForm.comment,
-    });
-    setVoteModalVenue(null);
-    setVoteForm({ voter_name: '', preference: 'love', comment: '' });
-    showToast('투표를 반영했습니다.');
   }
 
-  async function handleWithdrawVenueVote(venueId: string, voterName: string, opts?: { closeModal?: boolean }) {
+  async function handleBallotUnlock(input: { voter_name: string; pin: string }) {
+    return unlockBallot.mutateAsync(input);
+  }
+
+  async function handleClearBallot(input: { voter_name: string; pin: string }) {
     if (votingClosed) {
-      showToast('투표 기한이 마감되어 철회할 수 없습니다.');
-      return;
+      showToast(
+        voteWindow.status === 'scheduled'
+          ? '투표 시작 전이라 삭제할 수 없습니다.'
+          : '투표 기한이 마감되어 삭제할 수 없습니다.',
+      );
+      return false;
     }
     const ok = await confirm({
-      title: '투표 철회',
-      message: `${voterName}님의 장소 투표를 철회할까요?`,
-      confirmLabel: '철회',
+      title: '투표 삭제',
+      message: `${input.voter_name}님의 장소 순위·일정 투표를 모두 삭제할까요? 삭제 후에는 다시 투표할 수 있습니다.`,
+      confirmLabel: '삭제',
       tone: 'danger',
     });
-    if (!ok) return;
-    await deleteVote.mutateAsync({ venue_id: venueId, voter_name: voterName });
-    if (opts?.closeModal) {
-      setVoteModalVenue(null);
-      setVoteForm({ voter_name: '', preference: 'love', comment: '' });
+    if (!ok) return false;
+    setBallotSaving(true);
+    try {
+      await clearBallot.mutateAsync(input);
+      setBallotOpen(false);
+      showToast('투표를 삭제했습니다.');
+      return true;
+    } catch (caught) {
+      showToast(caught instanceof Error ? caught.message : '삭제에 실패했습니다.');
+      throw caught;
+    } finally {
+      setBallotSaving(false);
     }
-    showToast('장소 투표를 철회했습니다.');
   }
 
   async function handleAddSlot() {
@@ -372,75 +404,86 @@ export function YearEndPartyPageClient() {
     showToast('일정 후보를 추가했습니다.');
   }
 
-  async function handleDateVote(slotId: string, availability: PartyAvailability) {
-    if (votingClosed) {
-      showToast('투표 기한이 마감되었습니다.');
-      return;
-    }
-    if (!scheduleVoter.trim()) {
-      showToast('투표자 이름을 선택해 주세요.');
-      return;
-    }
-    const existing = dateVotes.find(
-      (vote) => vote.slot_id === slotId && vote.voter_name === scheduleVoter,
-    );
-    if (existing?.availability === availability) {
-      await deleteDateVote.mutateAsync({ slot_id: slotId, voter_name: scheduleVoter });
-      showToast('일정 투표를 철회했습니다.');
-      return;
-    }
-    await upsertDateVote.mutateAsync({
-      slot_id: slotId,
-      voter_name: scheduleVoter,
-      availability,
-    });
-    showToast('일정 투표를 반영했습니다.');
-  }
-
-  async function handleWithdrawDateVote(slotId: string) {
-    if (votingClosed) {
-      showToast('투표 기한이 마감되어 철회할 수 없습니다.');
-      return;
-    }
-    if (!scheduleVoter.trim()) {
-      showToast('투표자 이름을 선택해 주세요.');
-      return;
-    }
-    await deleteDateVote.mutateAsync({ slot_id: slotId, voter_name: scheduleVoter });
-    showToast('일정 투표를 철회했습니다.');
-  }
-
   async function handleSaveDeadline() {
-    if (!deadlineDate.trim()) {
-      showToast('마감 날짜를 선택해 주세요.');
+    const opensIso = opensDate.trim()
+      ? fromDatetimeLocalValue(`${opensDate}T${opensTime.trim() || '09:00'}`)
+      : null;
+    if (opensDate.trim() && !opensIso) {
+      showToast('올바른 시작 날짜·시간을 선택해 주세요.');
       return;
     }
-    const time = deadlineTime.trim() || '18:00';
-    const iso = fromDatetimeLocalValue(`${deadlineDate}T${time}`);
-    if (!iso) {
-      showToast('올바른 날짜·시간을 선택해 주세요.');
+
+    const deadlineIso = deadlineDate.trim()
+      ? fromDatetimeLocalValue(`${deadlineDate}T${deadlineTime.trim() || '18:00'}`)
+      : null;
+    if (deadlineDate.trim() && !deadlineIso) {
+      showToast('올바른 마감 날짜·시간을 선택해 주세요.');
       return;
     }
+
+    if (!opensIso && !deadlineIso) {
+      showToast('시작 또는 마감 시각 중 하나 이상을 선택해 주세요.');
+      return;
+    }
+    if (opensIso && deadlineIso && new Date(opensIso).getTime() > new Date(deadlineIso).getTime()) {
+      showToast('투표 시작은 마감보다 이전이어야 합니다.');
+      return;
+    }
+
     try {
-      await saveSettings.mutateAsync({ vote_deadline_at: iso });
-      showToast('투표 기한을 저장했습니다.');
+      await saveSettings.mutateAsync({
+        vote_opens_at: opensIso,
+        vote_deadline_at: deadlineIso,
+      });
+      showToast('투표 기간을 저장했습니다.');
     } catch (caught) {
       showToast(
         caught instanceof Error
           ? caught.message
-          : '저장에 실패했습니다. DB 마이그레이션(078)을 확인하세요.',
+          : '저장에 실패했습니다. DB 마이그레이션(082)을 확인하세요.',
       );
     }
   }
 
   async function handleClearDeadline() {
     try {
+      setOpensDate('');
+      setOpensTime('09:00');
       setDeadlineDate('');
       setDeadlineTime('18:00');
-      await saveSettings.mutateAsync({ vote_deadline_at: null });
-      showToast('투표 기한을 해제했습니다.');
+      await saveSettings.mutateAsync({ vote_opens_at: null, vote_deadline_at: null });
+      showToast('투표 기간을 해제했습니다.');
     } catch (caught) {
       showToast(caught instanceof Error ? caught.message : '해제에 실패했습니다.');
+    }
+  }
+
+  async function handlePublishResults() {
+    try {
+      await saveSettings.mutateAsync({ results_published_at: new Date().toISOString() });
+      showToast('투표 결과를 공개했습니다.');
+    } catch (caught) {
+      showToast(
+        caught instanceof Error
+          ? caught.message
+          : '공개에 실패했습니다. DB 마이그레이션(085)을 확인하세요.',
+      );
+    }
+  }
+
+  async function handleUnpublishResults() {
+    const ok = await confirm({
+      title: '결과 비공개',
+      message: '장소·일정 상세 결과를 다시 숨길까요? 직원들은 누가·어디에 찍었는지 볼 수 없게 됩니다.',
+      confirmLabel: '비공개로',
+      tone: 'danger',
+    });
+    if (!ok) return;
+    try {
+      await saveSettings.mutateAsync({ results_published_at: null });
+      showToast('결과를 비공개로 돌렸습니다.');
+    } catch (caught) {
+      showToast(caught instanceof Error ? caught.message : '비공개 처리에 실패했습니다.');
     }
   }
 
@@ -547,6 +590,10 @@ export function YearEndPartyPageClient() {
   }
 
   async function exportExcel() {
+    if (!resultsPublished) {
+      showToast('결과 공개 전에는 엑셀에 투표 상세가 포함되지 않도록 막아 두었습니다. 준비 → 투표 기간에서 공개하세요.');
+      return;
+    }
     await downloadPartyWorkbook({
       employees,
       venues,
@@ -568,7 +615,13 @@ export function YearEndPartyPageClient() {
           <p>일정과 장소를 고르고, 준비·도구는 필요할 때만 엽니다.</p>
         </div>
         <div className="yp-page__hero-actions">
-          <button type="button" className="btn btn--outline btn--small" onClick={() => void exportExcel()}>
+          <button
+            type="button"
+            className="btn btn--outline btn--small"
+            disabled={!resultsPublished}
+            title={resultsPublished ? undefined : '결과 공개 후 내보낼 수 있습니다'}
+            onClick={() => void exportExcel()}
+          >
             Excel 내보내기
           </button>
         </div>
@@ -593,43 +646,57 @@ export function YearEndPartyPageClient() {
       {tab === 'home' ? (
         <div className="yp-panel">
           <div
-            className={`yp-countdown${deadlineState.status === 'closed' ? ' is-closed' : ''}${deadlineState.status === 'unset' ? ' is-unset' : ''}`}
+            className={`yp-countdown${voteWindow.status === 'closed' ? ' is-closed' : ''}${voteWindow.status === 'unset' ? ' is-unset' : ''}${voteWindow.status === 'scheduled' ? ' is-scheduled' : ''}`}
           >
             <div className="yp-countdown__copy">
-              <span>투표 기한</span>
-              {deadlineState.status === 'unset' ? (
+              <span>투표 기간</span>
+              {voteWindow.status === 'unset' ? (
                 <>
-                  <strong>아직 설정되지 않음</strong>
-                  <em>준비 → 투표 기한에서 마감 시각을 정하세요.</em>
+                  <strong>상시 투표 (기간 미설정)</strong>
+                  <em>준비 → 투표 기간에서 시작·마감 시각을 정하세요.</em>
                 </>
-              ) : deadlineState.status === 'closed' ? (
+              ) : voteWindow.status === 'scheduled' ? (
+                <>
+                  <strong>투표 시작까지</strong>
+                  <em>{formatDeadlineLabel(settings?.vote_opens_at)} 부터</em>
+                </>
+              ) : voteWindow.status === 'closed' ? (
                 <>
                   <strong>투표가 마감되었습니다</strong>
                   <em>{formatDeadlineLabel(settings?.vote_deadline_at)} 까지</em>
                 </>
+              ) : voteWindow.status === 'open-indefinite' ? (
+                <>
+                  <strong>투표 진행 중</strong>
+                  <em>{formatDeadlineLabel(settings?.vote_opens_at)} 부터 · 마감 없음</em>
+                </>
               ) : (
                 <>
                   <strong>마감까지 남은 시간</strong>
-                  <em>{formatDeadlineLabel(settings?.vote_deadline_at)} 까지</em>
+                  <em>
+                    {settings?.vote_opens_at
+                      ? `${formatDeadlineLabel(settings.vote_opens_at)} ~ ${formatDeadlineLabel(settings.vote_deadline_at)}`
+                      : `${formatDeadlineLabel(settings?.vote_deadline_at)} 까지`}
+                  </em>
                 </>
               )}
             </div>
-            {deadlineState.status === 'open' ? (
+            {voteWindow.status === 'open' || voteWindow.status === 'scheduled' ? (
               <div className="yp-countdown__units" aria-live="polite">
                 <div>
-                  <strong>{String(deadlineState.days).padStart(2, '0')}</strong>
+                  <strong>{String(voteWindow.days).padStart(2, '0')}</strong>
                   <span>일</span>
                 </div>
                 <div>
-                  <strong>{String(deadlineState.hours).padStart(2, '0')}</strong>
+                  <strong>{String(voteWindow.hours).padStart(2, '0')}</strong>
                   <span>시간</span>
                 </div>
                 <div>
-                  <strong>{String(deadlineState.minutes).padStart(2, '0')}</strong>
+                  <strong>{String(voteWindow.minutes).padStart(2, '0')}</strong>
                   <span>분</span>
                 </div>
                 <div>
-                  <strong>{String(deadlineState.seconds).padStart(2, '0')}</strong>
+                  <strong>{String(voteWindow.seconds).padStart(2, '0')}</strong>
                   <span>초</span>
                 </div>
               </div>
@@ -642,7 +709,7 @@ export function YearEndPartyPageClient() {
                   setPrepareSub('deadline');
                 }}
               >
-                기한 설정
+                기간 설정
               </button>
             )}
           </div>
@@ -653,14 +720,34 @@ export function YearEndPartyPageClient() {
               <strong>
                 {displaySlot
                   ? `${displaySlot.slot_date} ${displaySlot.slot_time}`
-                  : '아직 없음'}
+                  : resultsPublished
+                    ? '아직 없음'
+                    : '비밀 집계 중'}
               </strong>
-              <em>{confirmedSlot ? '확정' : leadingSlot ? '유력' : '준비 탭에서 후보 추가'}</em>
+              <em>
+                {confirmedSlot
+                  ? '확정'
+                  : resultsPublished
+                    ? leadingSlot
+                      ? '유력'
+                      : '준비 탭에서 후보 추가'
+                    : '결과 공개 후 표시'}
+              </em>
             </div>
             <div className="yp-home-summary__card">
               <span>장소</span>
-              <strong>{displayVenue?.name ?? '아직 없음'}</strong>
-              <em>{confirmedVenue ? '확정' : crownId ? '최다 득표' : '아래에서 투표'}</em>
+              <strong>
+                {displayVenue?.name ?? (resultsPublished ? '아직 없음' : '비밀 집계 중')}
+              </strong>
+              <em>
+                {confirmedVenue
+                  ? '확정'
+                  : resultsPublished
+                    ? crownId
+                      ? '최다 득점'
+                      : '아래에서 순위 투표'
+                    : '결과 공개 후 표시'}
+              </em>
             </div>
             <div className="yp-home-summary__card">
               <span>참석</span>
@@ -669,11 +756,61 @@ export function YearEndPartyPageClient() {
             </div>
           </div>
 
+          <div className="yp-ballot-cta">
+            <div>
+              <h2>직원별 일괄 투표</h2>
+              <p className="yp-muted">
+                1·2·3순위·싫어요·일정을 한 번에 제출합니다. 개인 비밀번호로 보호되며, 재투표·수정은
+                비밀번호가 필요합니다.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="btn btn--primary"
+              disabled={votingClosed}
+              onClick={() => {
+                if (votingClosed) {
+                  showToast(lockMessage);
+                  return;
+                }
+                setBallotInitialVoter('');
+                setBallotOpen(true);
+              }}
+            >
+              {votingClosed
+                ? voteWindow.status === 'scheduled'
+                  ? '투표 시작 전'
+                  : '투표 마감'
+                : '🗳 내 순위·일정 투표하기'}
+            </button>
+          </div>
+
+          <PartyVoteResults
+            employees={employees}
+            venues={venues}
+            venueVotes={votes}
+            dateVotes={dateVotes}
+            published={resultsPublished}
+            votingClosed={votingClosed}
+            onRevote={(name) => {
+              if (votingClosed) {
+                showToast(lockMessage);
+                return;
+              }
+              setBallotInitialVoter(name);
+              setBallotOpen(true);
+            }}
+          />
+
           <section className="yp-home-section">
             <div className="yp-home-section__head">
               <div>
-                <h2>일정 투표</h2>
-                <p className="yp-muted">이름을 고른 뒤 ⭕ / 🔺 / ❌ 로 응답하세요. 같은 버튼을 다시 누르면 철회됩니다.</p>
+                <h2>일정 후보 현황</h2>
+                <p className="yp-muted">
+                  {resultsPublished
+                    ? '집계만 표시합니다. 일정 응답 수정은 비밀번호로 잠금 해제한 뒤 일괄 투표에서 하세요.'
+                    : '비밀 투표 중에는 일정별 가능/불가 집계도 숨깁니다. 응답은 일괄 투표에서 제출하세요.'}
+                </p>
               </div>
               <button
                 type="button"
@@ -687,43 +824,27 @@ export function YearEndPartyPageClient() {
               </button>
             </div>
 
-            <div className="yp-toolbar">
-              <span className="yp-muted">투표자</span>
-              <div className="yp-name-chips">
-                {employees.map((row) => (
-                  <button
-                    key={row.id}
-                    type="button"
-                    className={`yp-name-chip${scheduleVoter === row.name ? ' is-active' : ''}`}
-                    onClick={() => setScheduleVoter(row.name)}
-                  >
-                    {row.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {slots.length ? (
               <div className="yp-table-wrap">
                 <table className="yp-table">
                   <thead>
                     <tr>
                       <th>일정</th>
-                      <th>가능 ⭕</th>
-                      <th>세모 🔺</th>
-                      <th>불가 ❌</th>
-                      <th>투표</th>
+                      {resultsPublished ? (
+                        <>
+                          <th>가능 ⭕</th>
+                          <th>세모 🔺</th>
+                          <th>불가 ❌</th>
+                        </>
+                      ) : (
+                        <th>집계</th>
+                      )}
                       <th />
                     </tr>
                   </thead>
                   <tbody>
                     {slots.map((slot) => {
                       const counts = slotCounts(dateVotes.filter((v) => v.slot_id === slot.id));
-                      const myVote = scheduleVoter
-                        ? dateVotes.find(
-                            (vote) => vote.slot_id === slot.id && vote.voter_name === scheduleVoter,
-                          )
-                        : undefined;
                       return (
                         <tr key={slot.id}>
                           <td>
@@ -732,44 +853,22 @@ export function YearEndPartyPageClient() {
                             </strong>
                             {slot.label ? <div className="yp-muted">{slot.label}</div> : null}
                           </td>
-                          <td>{counts.yes}</td>
-                          <td>{counts.maybe}</td>
-                          <td>{counts.no}</td>
-                          <td>
-                            <div className="yp-inline-actions">
-                              {(Object.keys(PARTY_AVAILABILITY) as PartyAvailability[]).map((key) => (
-                                <button
-                                  key={key}
-                                  type="button"
-                                  className={`btn btn--ghost btn--small${myVote?.availability === key ? ' is-active' : ''}`}
-                                  aria-pressed={myVote?.availability === key}
-                                  title={
-                                    myVote?.availability === key
-                                      ? '다시 누르면 철회'
-                                      : PARTY_AVAILABILITY[key].label
-                                  }
-                                  onClick={() => void handleDateVote(slot.id, key)}
-                                  disabled={votingClosed}
-                                >
-                                  {PARTY_AVAILABILITY[key].emoji}
-                                </button>
-                              ))}
-                              {myVote && !votingClosed ? (
-                                <button
-                                  type="button"
-                                  className="btn btn--ghost btn--danger btn--small"
-                                  onClick={() => void handleWithdrawDateVote(slot.id)}
-                                >
-                                  철회
-                                </button>
-                              ) : null}
-                            </div>
-                          </td>
+                          {resultsPublished ? (
+                            <>
+                              <td>{counts.yes}</td>
+                              <td>{counts.maybe}</td>
+                              <td>{counts.no}</td>
+                            </>
+                          ) : (
+                            <td className="yp-muted">🔒 공개 후</td>
+                          )}
                           <td>
                             <button
                               type="button"
                               className="btn btn--outline btn--small"
-                              onClick={() => void saveSettings.mutateAsync({ confirmed_slot_id: slot.id })}
+                              onClick={() =>
+                                void saveSettings.mutateAsync({ confirmed_slot_id: slot.id })
+                              }
                             >
                               {settings?.confirmed_slot_id === slot.id ? '확정됨' : '확정'}
                             </button>
@@ -842,22 +941,23 @@ export function YearEndPartyPageClient() {
               <div className="yp-venue-grid">
                 {[...filteredVenues]
                   .sort((a, b) => {
-                    const scoreDiff =
-                      venueScore(votes.filter((v) => v.venue_id === b.id)) -
-                      venueScore(votes.filter((v) => v.venue_id === a.id));
-                    if (scoreDiff !== 0) return scoreDiff;
+                    if (resultsPublished) {
+                      const scoreDiff =
+                        venueScore(votes.filter((v) => v.venue_id === b.id)) -
+                        venueScore(votes.filter((v) => v.venue_id === a.id));
+                      if (scoreDiff !== 0) return scoreDiff;
+                    }
                     return a.name.localeCompare(b.name, 'ko');
                   })
                   .map((venue) => {
                 const venueVotes = votes.filter((v) => v.venue_id === venue.id);
-                const isCrown = venue.id === crownId;
+                const isCrown = resultsPublished && venue.id === crownId;
                 const score = venueScore(venueVotes);
                 const count = venueVoteCount(venueVotes);
                 const subsidy = settings?.subsidy_per_person ?? 100000;
                 const estimated = venue.price_per_person * Math.max(headcount, 1);
                 const fit = budgetFitLabel(venue.price_per_person, subsidy);
                 const accent = venueAccentIndex(venue.id || venue.name);
-                const comments = venueVotes.filter((vote) => vote.comment.trim());
 
                 return (
                   <article
@@ -948,39 +1048,38 @@ export function YearEndPartyPageClient() {
                     </div>
 
                     <div className="yp-venue-card__voters">
-                      <p>👥 투표자 ({count}표 · {score}점)</p>
-                      {venueVotes.length ? (
-                        <div className="yp-voter-chips">
-                          {venueVotes.map((vote) => (
-                            <button
-                              key={vote.id}
-                              type="button"
-                              className="yp-voter-chip yp-voter-chip--action"
-                              title={
-                                votingClosed
-                                  ? `${vote.voter_name} (마감됨)`
-                                  : `${vote.voter_name} 투표 철회`
-                              }
-                              disabled={votingClosed}
-                              onClick={() => void handleWithdrawVenueVote(venue.id, vote.voter_name)}
-                            >
-                              <span>
-                                {vote.voter_name} {PARTY_PREFERENCES[vote.preference].emoji}
-                              </span>
-                              <span className="yp-voter-chip__x" aria-hidden>
-                                ×
-                              </span>
-                            </button>
-                          ))}
-                        </div>
+                      {resultsPublished ? (
+                        <>
+                          <p>
+                            👥 순위 득표 ({count}표 · {score}점)
+                          </p>
+                          {venueVotes.length ? (
+                            <div className="yp-voter-chips">
+                              {venueVotes.map((vote) => (
+                                <span key={vote.id} className="yp-voter-chip">
+                                  {vote.voter_name} {rankMeta(vote.rank).emoji}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="yp-muted">아직 이 장소를 고른 사람이 없습니다.</p>
+                          )}
+                          {(() => {
+                            const breakdown = venueRankBreakdown(venueVotes);
+                            return (
+                              <p className="yp-muted">
+                                1순위 {breakdown[1].length} · 2순위 {breakdown[2].length} · 3순위{' '}
+                                {breakdown[3].length}
+                                {breakdown.veto.length
+                                  ? ` · 🚫 싫어요 ${breakdown.veto.length}`
+                                  : ''}
+                              </p>
+                            );
+                          })()}
+                        </>
                       ) : (
-                        <p className="yp-muted">아직 투표한 사람이 없습니다.</p>
+                        <p className="yp-muted">🔒 득표·투표자는 결과 공개 후 표시됩니다.</p>
                       )}
-                      {comments.slice(0, 2).map((vote) => (
-                        <blockquote key={`${vote.id}-comment`} className="yp-venue-card__quote">
-                          {vote.voter_name}: “{vote.comment}”
-                        </blockquote>
-                      ))}
                     </div>
 
                     <div className="yp-venue-card__footer">
@@ -990,14 +1089,18 @@ export function YearEndPartyPageClient() {
                         disabled={votingClosed}
                         onClick={() => {
                           if (votingClosed) {
-                            showToast('투표 기한이 마감되었습니다.');
+                            showToast(lockMessage);
                             return;
                           }
-                          setVoteModalVenue(venue);
-                          setVoteForm({ voter_name: '', preference: 'love', comment: '' });
+                          setBallotInitialVoter('');
+                          setBallotOpen(true);
                         }}
                       >
-                        {votingClosed ? '투표 마감' : '🗳 이 장소에 투표하기'}
+                        {votingClosed
+                          ? voteWindow.status === 'scheduled'
+                            ? '투표 시작 전'
+                            : '투표 마감'
+                          : '🗳 순위 투표하기'}
                       </button>
                       <button
                         type="button"
@@ -1436,11 +1539,20 @@ export function YearEndPartyPageClient() {
           {prepareSub === 'deadline' ? (
             <div className="yp-prepare-block">
               <article className="yp-card">
-                <h3>투표 기한</h3>
+                <h3>투표 기간</h3>
                 <p className="yp-muted">
-                  마감 시각이 지나면 일정·장소 투표와 철회가 잠깁니다. 메인 투표 화면에 카운트다운이 표시됩니다.
+                  시작 시각 이전에는 투표·철회가 잠기고, 마감 이후에도 잠깁니다. 시작만 두면 무기한 진행, 마감만
+                  두면 즉시 투표 가능합니다.
                 </p>
                 <div className="yp-form-grid">
+                  <label className="field">
+                    <span>시작 날짜</span>
+                    <input type="date" value={opensDate} onChange={(e) => setOpensDate(e.target.value)} />
+                  </label>
+                  <label className="field">
+                    <span>시작 시간</span>
+                    <input type="time" value={opensTime} onChange={(e) => setOpensTime(e.target.value)} />
+                  </label>
                   <label className="field">
                     <span>마감 날짜</span>
                     <input
@@ -1465,19 +1577,62 @@ export function YearEndPartyPageClient() {
                   <button
                     type="button"
                     className="btn btn--ghost"
-                    disabled={!settings?.vote_deadline_at && !deadlineDate}
+                    disabled={
+                      !settings?.vote_opens_at &&
+                      !settings?.vote_deadline_at &&
+                      !opensDate &&
+                      !deadlineDate
+                    }
                     onClick={() => void handleClearDeadline()}
                   >
-                    기한 해제
+                    기간 해제
                   </button>
                 </div>
                 <p className="yp-muted">
-                  현재 설정: {formatDeadlineLabel(settings?.vote_deadline_at)}
-                  {deadlineState.status === 'open'
-                    ? ` · 남은 시간 ${deadlineState.days}일 ${deadlineState.hours}시간 ${deadlineState.minutes}분`
-                    : deadlineState.status === 'closed'
-                      ? ' · 마감됨'
-                      : ''}
+                  현재: 시작 {formatDeadlineLabel(settings?.vote_opens_at)} · 마감{' '}
+                  {formatDeadlineLabel(settings?.vote_deadline_at)}
+                  {voteWindow.status === 'open'
+                    ? ` · 마감까지 ${voteWindow.days}일 ${voteWindow.hours}시간 ${voteWindow.minutes}분`
+                    : voteWindow.status === 'scheduled'
+                      ? ` · 시작까지 ${voteWindow.days}일 ${voteWindow.hours}시간 ${voteWindow.minutes}분`
+                      : voteWindow.status === 'closed'
+                        ? ' · 마감됨'
+                        : voteWindow.status === 'open-indefinite'
+                          ? ' · 진행 중'
+                          : ''}
+                </p>
+              </article>
+
+              <article className="yp-card">
+                <h3>결과 공개</h3>
+                <p className="yp-muted">
+                  기본은 비밀 투표입니다. 공개하기 전에는 누가·어디에 찍었는지, 장소·일정 집계가
+                  보이지 않습니다. 마감·독려가 끝난 뒤 공개하세요.
+                </p>
+                <div className="yp-inline-actions">
+                  {resultsPublished ? (
+                    <button
+                      type="button"
+                      className="btn btn--ghost"
+                      onClick={() => void handleUnpublishResults()}
+                    >
+                      다시 비공개
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn--primary"
+                      onClick={() => void handlePublishResults()}
+                    >
+                      결과 공개
+                    </button>
+                  )}
+                </div>
+                <p className="yp-muted">
+                  현재:{' '}
+                  {resultsPublished
+                    ? `공개됨 (${formatDeadlineLabel(settings?.results_published_at)})`
+                    : '🔒 비공개 (비밀 투표)'}
                 </p>
               </article>
             </div>
@@ -1576,38 +1731,55 @@ export function YearEndPartyPageClient() {
           ) : null}
 
           {toolsSub === 'charts' ? (
-            <div className="yp-panel__grid">
-          <article className="yp-card yp-card--chart">
-            <h3>장소별 득표</h3>
-            <div className="yp-chart">
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={barData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-20} textAnchor="end" height={60} />
-                  <YAxis allowDecimals={false} />
-                  <Tooltip />
-                  <Bar dataKey="score" name="득점" fill="#0f766e" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </article>
-          <article className="yp-card yp-card--chart">
-            <h3>카테고리 분포</h3>
-            <div className="yp-chart">
-              <ResponsiveContainer width="100%" height={280}>
-                <PieChart>
-                  <Pie data={pieData} dataKey="value" nameKey="name" outerRadius={95} label>
-                    {pieData.map((entry, index) => (
-                      <Cell key={entry.name} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </article>
-            </div>
+            resultsPublished ? (
+              <div className="yp-panel__grid">
+                <article className="yp-card yp-card--chart">
+                  <h3>장소별 득표</h3>
+                  <div className="yp-chart">
+                    <ResponsiveContainer width="100%" height={280}>
+                      <BarChart data={barData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis
+                          dataKey="name"
+                          tick={{ fontSize: 11 }}
+                          interval={0}
+                          angle={-20}
+                          textAnchor="end"
+                          height={60}
+                        />
+                        <YAxis allowDecimals={false} />
+                        <Tooltip />
+                        <Bar dataKey="score" name="득점" fill="#0f766e" radius={[6, 6, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </article>
+                <article className="yp-card yp-card--chart">
+                  <h3>카테고리 분포</h3>
+                  <div className="yp-chart">
+                    <ResponsiveContainer width="100%" height={280}>
+                      <PieChart>
+                        <Pie data={pieData} dataKey="value" nameKey="name" outerRadius={95} label>
+                          {pieData.map((entry, index) => (
+                            <Cell key={entry.name} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </article>
+              </div>
+            ) : (
+              <article className="yp-card yp-results__card--sealed">
+                <h3>차트 잠금</h3>
+                <p className="yp-muted">
+                  비밀 투표 중에는 득표·카테고리 차트를 숨깁니다. 준비 → 투표 기간에서 결과를
+                  공개하면 볼 수 있습니다.
+                </p>
+              </article>
+            )
           ) : null}
         </div>
       ) : null}
@@ -1753,117 +1925,21 @@ export function YearEndPartyPageClient() {
         </div>
       ) : null}
 
-      {voteModalVenue ? (
-        <div className="modal-overlay" onClick={() => setVoteModalVenue(null)}>
-          <div className="modal yp-vote-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal__header">
-              <div>
-                <p className="yp-vote-modal__eyebrow">장소 투표</p>
-                <h2>{voteModalVenue.name}</h2>
-              </div>
-              <button type="button" className="icon-btn" onClick={() => setVoteModalVenue(null)} aria-label="닫기">
-                ✕
-              </button>
-            </div>
-
-            <div className="yp-vote-modal__body">
-              <section className="yp-vote-modal__section">
-                <h3>투표자</h3>
-                <p className="yp-muted">이름을 눌러 선택하세요. 이미 투표한 사람은 수정·철회할 수 있습니다.</p>
-                <div className="yp-name-chips">
-                  {employees.map((row) => {
-                    const existing = votes.find(
-                      (vote) => vote.venue_id === voteModalVenue.id && vote.voter_name === row.name,
-                    );
-                    return (
-                      <button
-                        key={row.id}
-                        type="button"
-                        className={`yp-name-chip${voteForm.voter_name === row.name ? ' is-active' : ''}${existing ? ' has-vote' : ''}`}
-                        onClick={() =>
-                          setVoteForm({
-                            voter_name: row.name,
-                            preference: existing?.preference ?? 'love',
-                            comment: existing?.comment ?? '',
-                          })
-                        }
-                      >
-                        {row.name}
-                        {existing ? ` ${PARTY_PREFERENCES[existing.preference].emoji}` : ''}
-                      </button>
-                    );
-                  })}
-                </div>
-                {!employees.length ? <p className="yp-muted">준비 → 직원에서 명단을 먼저 등록해 주세요.</p> : null}
-              </section>
-
-              <section className="yp-vote-modal__section">
-                <h3>선호도</h3>
-                <div className="yp-vote-prefs" role="group" aria-label="선호도">
-                  {(Object.keys(PARTY_PREFERENCES) as PartyPreference[]).map((key) => (
-                    <button
-                      key={key}
-                      type="button"
-                      className={`yp-vote-pref${voteForm.preference === key ? ' is-active' : ''}`}
-                      aria-pressed={voteForm.preference === key}
-                      onClick={() => setVoteForm({ ...voteForm, preference: key })}
-                    >
-                      <span className="yp-vote-pref__emoji" aria-hidden>
-                        {PARTY_PREFERENCES[key].emoji}
-                      </span>
-                      <span className="yp-vote-pref__label">{PARTY_PREFERENCES[key].label}</span>
-                    </button>
-                  ))}
-                </div>
-              </section>
-
-              <section className="yp-vote-modal__section">
-                <label className="field">
-                  <span>한줄평 (선택)</span>
-                  <input
-                    value={voteForm.comment}
-                    onChange={(e) => setVoteForm({ ...voteForm, comment: e.target.value })}
-                    placeholder="분위기가 좋아요 등"
-                  />
-                </label>
-              </section>
-            </div>
-
-            <div className="modal__footer">
-              {voteForm.voter_name &&
-              votes.some(
-                (vote) => vote.venue_id === voteModalVenue.id && vote.voter_name === voteForm.voter_name,
-              ) ? (
-                <button
-                  type="button"
-                  className="btn btn--ghost btn--danger"
-                  onClick={() =>
-                    void handleWithdrawVenueVote(voteModalVenue.id, voteForm.voter_name, {
-                      closeModal: true,
-                    })
-                  }
-                >
-                  투표 철회
-                </button>
-              ) : (
-                <span />
-              )}
-              <div className="modal__footer-actions">
-                <button type="button" className="btn btn--ghost" onClick={() => setVoteModalVenue(null)}>
-                  취소
-                </button>
-                <button type="button" className="btn btn--primary" onClick={() => void handleVoteSubmit()}>
-                  {votes.some(
-                    (vote) => vote.venue_id === voteModalVenue.id && vote.voter_name === voteForm.voter_name,
-                  )
-                    ? '다시 투표하기'
-                    : '투표하기'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <PartyBallotModal
+        open={ballotOpen}
+        locked={votingClosed}
+        lockMessage={lockMessage}
+        employees={employees}
+        venues={venues}
+        slots={slots}
+        venueVotes={votes}
+        initialVoter={ballotInitialVoter}
+        saving={ballotSaving}
+        onClose={() => setBallotOpen(false)}
+        onUnlock={handleBallotUnlock}
+        onSubmit={handleBallotSubmit}
+        onClear={handleClearBallot}
+      />
 
       {deleteAllOpen ? (
         <div className="modal-overlay" onClick={() => setDeleteAllOpen(false)}>

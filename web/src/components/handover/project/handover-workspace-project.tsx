@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { HandoverRecordsTab } from '@/lib/handover/records';
-import type { ShiftSummaryData } from '@/lib/handover/shift-summary';
+import { isToday, type ShiftSummaryData } from '@/lib/handover/shift-summary';
 import type { Card, HandoverViewMode, QuickFilter, WorkSession } from '@/lib/handover/types';
 import type { HotelEvent } from '@/lib/events/types';
 import type { TodayAlertItem } from '@/lib/today/alerts';
 import type { Todo } from '@/lib/todos/types';
 import { RoomView } from '@/components/handover/room-view';
+import { buildProjectListSections } from '@/lib/handover/card-utils';
 import { HandoverArchiveProject } from './handover-archive-project';
 import { HandoverAsideProject } from './handover-aside-project';
 import { HandoverMobilePanel } from './handover-mobile-panel';
@@ -17,6 +18,7 @@ import { HandoverListProject } from './handover-list-project';
 import { HandoverListSummary } from './handover-list-summary';
 import { HandoverShiftBriefProject } from './handover-shift-brief-project';
 import { HandoverToolbarProject } from './handover-toolbar-project';
+import type { HandoverStatusTab } from './handover-status-tabs';
 
 type HandoverWorkspaceProjectProps = {
   summaryData: ShiftSummaryData;
@@ -146,10 +148,41 @@ export function HandoverWorkspaceProject({
   const isBriefView = viewMode === 'brief';
   const panelViewMode = isBriefView ? 'board' : viewMode;
   const [mobileView, setMobileView] = useState<HandoverMobileView>('list');
+  const [listStatusTab, setListStatusTab] = useState<Exclude<HandoverStatusTab, 'archive'>>('progress');
   const mobilePanelBadge = useMemo(
     () => summaryData.unackedUrgent.length + alerts.length,
     [summaryData.unackedUrgent.length, alerts.length],
   );
+
+  const statusCounts = useMemo(() => {
+    const sections = buildProjectListSections(visibleCards, staffNames);
+    const sectionMap = new Map(sections.map((section) => [section.id, section]));
+    const progress = [
+      ...(sectionMap.get('unacked')?.cards ?? []),
+      ...(sectionMap.get('progress')?.cards ?? []),
+    ];
+    const hold = sectionMap.get('hold')?.cards ?? [];
+    const doneAll = [
+      ...(sectionMap.get('done')?.cards ?? []),
+      ...(sectionMap.get('archived')?.cards ?? []),
+    ];
+    const doneToday = doneAll.filter((card) => isToday(card.updated_at || card.created_at));
+    return {
+      progress: progress.length,
+      hold: hold.length,
+      done: searchQuery.trim() ? doneAll.length : doneToday.length,
+      archive: archivedCount,
+    } satisfies Record<HandoverStatusTab, number>;
+  }, [visibleCards, staffNames, archivedCount, searchQuery]);
+
+  function handleStatusTabChange(tab: HandoverStatusTab) {
+    if (tab === 'archive') {
+      onViewModeChange('archive');
+      return;
+    }
+    setListStatusTab(tab);
+    onViewModeChange('board');
+  }
 
   useEffect(() => {
     if (!isBriefView) return;
@@ -204,16 +237,13 @@ export function HandoverWorkspaceProject({
           <div className="project-handover__main-head">
             <HandoverToolbarProject
               viewMode={viewMode}
-              quickFilter={quickFilter}
               doneCount={doneCount}
-              archivedCount={archivedCount}
               archivedSearchCount={archivedSearchCount}
               isManager={isManager}
               searchQuery={searchQuery}
               searchDateFrom={searchDateFrom}
               searchDateTo={searchDateTo}
               onViewModeChange={onViewModeChange}
-              onQuickFilterChange={onQuickFilterChange}
               onSearchChange={onSearchChange}
               onSearchDateFromChange={onSearchDateFromChange}
               onSearchDateToChange={onSearchDateToChange}
@@ -231,6 +261,8 @@ export function HandoverWorkspaceProject({
                 searchDateFrom={searchDateFrom}
                 searchDateTo={searchDateTo}
                 session={session}
+                statusCounts={statusCounts}
+                onStatusTabChange={handleStatusTabChange}
                 onOpenCard={onOpenCard}
                 onRestore={onRestoreFromArchive}
               />
@@ -253,6 +285,10 @@ export function HandoverWorkspaceProject({
                 quickFilter={quickFilter}
                 staffNames={staffNames}
                 isManager={isManager}
+                archivedCount={archivedCount}
+                statusTab={listStatusTab}
+                onStatusTabChange={setListStatusTab}
+                onOpenArchive={() => onViewModeChange('archive')}
                 onOpenCard={onOpenCard}
                 onOpenCardComments={onOpenCardComments}
                 onAddComment={onAddComment}

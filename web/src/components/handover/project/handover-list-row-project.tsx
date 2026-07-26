@@ -1,16 +1,11 @@
 'use client';
 
-import type { KeyboardEvent } from 'react';
+import { useState } from 'react';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { PRIORITY_LABELS } from '@/lib/handover/constants';
 import {
   formatAssigneeLabel,
-  formatHoldStaleBadge,
   formatSnoozeUntil,
-  formatStaleBadge,
-  formatUpdatedAt,
-  getHoldStaleLevel,
-  getStaleLevel,
   isArchivedCard,
   isCardDueActive,
   isCardSnoozed,
@@ -82,14 +77,14 @@ export function HandoverListRowProject({
   const teamAckPending = isTeamAckPending(card, staffNames);
   const archived = isArchivedCard(card);
   const snoozed = isCardSnoozed(card);
-  const staleLevel = getStaleLevel(card);
-  const holdStaleLevel = getHoldStaleLevel(card);
   const needsFirstResponse = needsComplaintFirstResponse(card);
   const activeCommentCount = countActiveCardComments(card);
   const hasComments = hasActiveCardComments(card);
   const nextAction = card.next_action?.trim() || '';
   const details = card.details?.trim() || '';
   const resolution = card.resolution?.trim() || '';
+  const hasDetails = Boolean(nextAction || details || resolution);
+  const [expanded, setExpanded] = useState(needsMyAck);
   const remedySummary =
     card.category === '컴플레인' && hasComplaintRemedies(card.complaint_remedies, card.complaint_remedy_other)
       ? formatComplaintRemedies(card.complaint_remedies, card.complaint_remedy_other)
@@ -110,7 +105,7 @@ export function HandoverListRowProject({
   const canSnooze = !bulkMode && isCardDueActive(card);
   const author = card.author?.trim() || '미입력';
   const assignee = formatAssigneeLabel(card);
-  const updatedAt = formatUpdatedAt(card.updated_at || card.created_at);
+  const canExpand = hasDetails || hasComments || Boolean(remedySummary) || (isUrgent && staffNames.length > 0);
 
   const statusClass =
     status === '미확인'
@@ -123,68 +118,18 @@ export function HandoverListRowProject({
             ? 'hold'
             : 'active';
 
-  const openHandlers = {
-    role: 'button' as const,
-    tabIndex: 0,
-    onClick: onOpen,
-    onKeyDown: (event: KeyboardEvent) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        onOpen();
-      }
-    },
-  };
-
-  const actionBar =
-    !bulkMode ? (
-      <div className="project-list-row__actions">
-        {needsMyAck ? null : teamAckPending ? (
-          <span className="project-list-row__ack-done">내 확인 완료</span>
-        ) : null}
-        {canComplete && !(isUrgent && teamAckPending) ? (
-          <button
-            type="button"
-            className="project-list-row__done project-list-row__done--primary"
-            onClick={async (event) => {
-              event.stopPropagation();
-              const ok = await confirm({
-                title: '완료 처리',
-                message: '이 카드를 완료 처리할까요?',
-                detail: card.title,
-                confirmLabel: '완료',
-                tone: 'warning',
-              });
-              if (ok) onMarkDone();
-            }}
-          >
-            완료
-          </button>
-        ) : null}
-        <HandoverListRowMoreMenu
-          cardTitle={card.title}
-          canHold={canHold}
-          canResume={canResume}
-          needsFirstResponse={needsFirstResponse}
-          canSnooze={canSnooze}
-          snoozed={snoozed}
-          canAssign={canAssign}
-          staffNames={staffNames}
-          assigneeName={card.assignee_name}
-          onHold={onHold}
-          onResume={onResume}
-          onRecordFirstResponse={onRecordFirstResponse}
-          onSnooze={onSnooze}
-          onUnsnooze={onUnsnooze}
-          onAssignChange={onAssignChange}
-        />
-      </div>
-    ) : null;
+  const metaBits = [
+    assignee ? `담당 ${assignee}` : `작성 ${author}`,
+    hasComments ? `댓글 ${activeCommentCount}` : null,
+  ].filter(Boolean);
 
   return (
     <article
       id={`handover-card-${card.id}`}
       className={[
         'project-list-row',
+        'project-list-row--ticket',
+        expanded ? 'is-expanded' : 'is-compact',
         needsMyAck || teamAckPending ? 'is-unacked' : '',
         needsMyAck ? 'is-needs-my-ack' : '',
         archived ? 'is-archived' : '',
@@ -208,14 +153,33 @@ export function HandoverListRowProject({
           />
         </label>
       ) : null}
-      <div className="project-list-row__body">
-        <div className="project-list-row__head">
-          <div className="project-list-row__head-main" {...openHandlers}>
-            <div className="project-list-row__top">
-              <span className={`project-list-row__status project-list-row__status--${statusClass}`}>
-                {status}
+
+      <div className="project-list-row__ticket">
+        <button type="button" className="project-list-row__stub" onClick={onOpen}>
+          <span className={`project-list-row__stub-status project-list-row__stub-status--${statusClass}`}>
+            {status}
+          </span>
+          <span className="project-list-row__stub-room" title={card.room ? `객실 ${card.room}` : '객실 미지정'}>
+            {card.room ? <SearchHighlight text={card.room} query={searchQuery} /> : '—'}
+          </span>
+          {position ? (
+            <span className="project-list-row__stub-pos" aria-label={`${position.index}번째, 남은 ${position.total}건`}>
+              {position.index}/{position.total}
+            </span>
+          ) : null}
+        </button>
+
+        <div className="project-list-row__perforation" aria-hidden>
+          <span />
+        </div>
+
+        <div className="project-list-row__pass" onClick={onOpen}>
+          <div className="project-list-row__pass-top">
+            <div className="project-list-row__pass-heading">
+              <span className="project-list-row__title" title={card.title}>
+                <SearchHighlight text={card.title} query={searchQuery} />
               </span>
-              <span className="project-list-row__meta">
+              <span className="project-list-row__pass-flags">
                 {isUrgent ? (
                   <span className="project-list-row__badge project-list-row__badge--urgent">
                     {PRIORITY_LABELS[card.priority]}
@@ -226,51 +190,105 @@ export function HandoverListRowProject({
                     알림 끔 · {formatSnoozeUntil(card.snoozed_until)}까지
                   </span>
                 ) : null}
-                {staleLevel ? (
-                  <span
-                    className={`project-list-row__badge project-list-row__badge--stale${staleLevel === 'high' ? ' project-list-row__badge--stale-high' : ''}`}
-                  >
-                    {formatStaleBadge(staleLevel)}
-                  </span>
-                ) : null}
-                {holdStaleLevel ? (
-                  <span
-                    className={`project-list-row__badge project-list-row__badge--hold-stale${holdStaleLevel === 'high' ? ' project-list-row__badge--hold-stale-high' : ''}`}
-                  >
-                    {formatHoldStaleBadge(holdStaleLevel)}
-                  </span>
-                ) : null}
-              </span>
-              <ComplaintSlaBadge card={card} />
-            </div>
-          </div>
-          {actionBar}
-        </div>
-        <div className="project-list-row__main" {...openHandlers}>
-          <div className="project-list-row__title-row">
-            <div className="project-list-row__title-wrap">
-              <span className="project-list-row__title" title={card.title}>
-                {card.room ? (
-                  <span className="project-list-row__room card-room-badge" title={`객실 ${card.room}`}>
-                    <SearchHighlight text={card.room} query={searchQuery} />
-                  </span>
-                ) : null}
-                {position ? (
-                  <span className="project-list-row__position" aria-label={`${position.index}번째, 남은 ${position.total}건`}>
-                    {position.index}/{position.total}
-                  </span>
-                ) : null}
-                <SearchHighlight text={card.title} query={searchQuery} />
+                <ComplaintSlaBadge card={card} />
               </span>
             </div>
-            {needsMyAck ? (
-              <CardAckUrgentCallout
-                staffName={staffName}
-                onAcknowledge={() => onAcknowledge()}
-              />
+            {!bulkMode ? (
+              <div
+                className="project-list-row__pass-more"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <HandoverListRowMoreMenu
+                  cardTitle={card.title}
+                  canHold={canHold}
+                  canResume={canResume}
+                  needsFirstResponse={needsFirstResponse}
+                  canSnooze={canSnooze}
+                  snoozed={snoozed}
+                  canAssign={canAssign}
+                  staffNames={staffNames}
+                  assigneeName={card.assignee_name}
+                  onHold={onHold}
+                  onResume={onResume}
+                  onRecordFirstResponse={onRecordFirstResponse}
+                  onSnooze={onSnooze}
+                  onUnsnooze={onUnsnooze}
+                  onAssignChange={onAssignChange}
+                />
+              </div>
             ) : null}
           </div>
 
+          <div className="project-list-row__pass-meta">
+            {metaBits.map((bit, index) => (
+              <span key={`${bit}-${index}`}>
+                {index > 0 ? <span className="project-list-row__pass-dot" aria-hidden>·</span> : null}
+                {bit}
+              </span>
+            ))}
+          </div>
+
+          {needsMyAck ? (
+            <div className="project-list-row__pass-ack" onClick={(event) => event.stopPropagation()}>
+              <CardAckUrgentCallout staffName={staffName} onAcknowledge={() => onAcknowledge()} />
+            </div>
+          ) : null}
+
+          {canExpand ? (
+            <button
+              type="button"
+              className={[
+                'project-list-row__expand-toggle',
+                hasComments ? 'has-comments' : '',
+                expanded ? 'is-expanded' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              aria-expanded={expanded}
+              onClick={(event) => {
+                event.stopPropagation();
+                setExpanded((prev) => !prev);
+              }}
+            >
+              {expanded
+                ? '접기'
+                : hasComments
+                  ? `상세·댓글 ${activeCommentCount}`
+                  : '상세 보기'}
+            </button>
+          ) : null}
+        </div>
+
+        {!bulkMode ? (
+          <div className="project-list-row__gate">
+            {needsMyAck ? null : teamAckPending ? (
+              <span className="project-list-row__ack-done">내 확인 완료</span>
+            ) : null}
+            {canComplete && !(isUrgent && teamAckPending) ? (
+              <button
+                type="button"
+                className="project-list-row__done project-list-row__done--primary"
+                onClick={async (event) => {
+                  event.stopPropagation();
+                  const ok = await confirm({
+                    title: '완료 처리',
+                    message: '이 카드를 완료 처리할까요?',
+                    detail: card.title,
+                    confirmLabel: '완료',
+                    tone: 'warning',
+                  });
+                  if (ok) onMarkDone();
+                }}
+              >
+                완료
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+
+      {expanded ? (
+        <div className="project-list-row__details">
           {remedySummary ? (
             <span className="project-list-row__preview project-list-row__preview--remedy" title={remedySummary}>
               제공: <SearchHighlight text={remedySummary} query={searchQuery} />
@@ -282,7 +300,7 @@ export function HandoverListRowProject({
             nextAction={nextAction}
             details={details}
             resolution={card.column_id === 'done' || archived ? resolution : ''}
-            clampLines={hasComments ? 2 : undefined}
+            collapsible={false}
           />
 
           {isUrgent && staffNames.length ? (
@@ -296,42 +314,16 @@ export function HandoverListRowProject({
             />
           ) : null}
 
-          <span className="project-list-row__foot">
-            <span className="project-list-row__foot-meta">
-              <span className="project-list-row__foot-tag">{card.category}</span>
-              {hasComments ? (
-                <span className="project-list-row__foot-tag project-list-row__foot-tag--comments">
-                  댓글 {activeCommentCount}
-                </span>
-              ) : null}
-            </span>
-            <span className="project-list-row__people">
-              <span className="project-list-row__person">
-                <span className="project-list-row__person-label">작성</span>
-                <span className="project-list-row__person-value">{author}</span>
-              </span>
-              {assignee ? (
-                <span className="project-list-row__person">
-                  <span className="project-list-row__person-label">담당</span>
-                  <span className="project-list-row__person-value">{assignee}</span>
-                </span>
-              ) : null}
-            </span>
-            {updatedAt.label ? (
-              <time className="project-list-row__updated" dateTime={updatedAt.iso} title={updatedAt.title}>
-                {updatedAt.label}
-              </time>
-            ) : null}
-          </span>
+          <HandoverCardCommentSection
+            card={card}
+            staffName={staffName}
+            disabled={commentDisabled}
+            onAddComment={onAddComment}
+            onOpenComments={onOpenComments}
+            showAll
+          />
         </div>
-        <HandoverCardCommentSection
-          card={card}
-          staffName={staffName}
-          disabled={commentDisabled}
-          onAddComment={onAddComment}
-          onOpenComments={onOpenComments}
-        />
-      </div>
+      ) : null}
     </article>
   );
 }

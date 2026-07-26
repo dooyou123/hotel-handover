@@ -13,7 +13,7 @@ export async function fetchHotelSettings(hotelId = DEFAULT_HOTEL_ID): Promise<Ho
     .eq('id', hotelId)
     .maybeSingle();
   if (error) throw error;
-  return { auto_archive_done_days: data?.auto_archive_done_days ?? 0 };
+  return { auto_archive_done_days: data?.auto_archive_done_days ?? 1 };
 }
 
 export async function saveHotelAutoArchiveDays(days: number, hotelId = DEFAULT_HOTEL_ID): Promise<void> {

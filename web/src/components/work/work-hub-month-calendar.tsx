@@ -8,10 +8,16 @@ import {
 } from '@/lib/work/calendar-month';
 import { todayDateString } from '@/lib/handover/shift-summary';
 
+export type WorkHubDayMarks = {
+  todo: boolean;
+  event: boolean;
+  urgent: boolean;
+};
+
 type WorkHubMonthCalendarProps = {
   month: string;
   selectedDate: string;
-  dayCounts: Map<string, number>;
+  dayMarks: Map<string, WorkHubDayMarks>;
   onMonthChange: (month: string) => void;
   onSelectDate: (date: string) => void;
 };
@@ -19,7 +25,7 @@ type WorkHubMonthCalendarProps = {
 export function WorkHubMonthCalendar({
   month,
   selectedDate,
-  dayCounts,
+  dayMarks,
   onMonthChange,
   onSelectDate,
 }: WorkHubMonthCalendarProps) {
@@ -69,31 +75,62 @@ export function WorkHubMonthCalendar({
 
           const isToday = cell.date === today;
           const isSelected = cell.date === selectedDate;
-          const count = dayCounts.get(cell.date) ?? 0;
-          const hasItems = count > 0;
+          const isPast = cell.date < today;
+          const marks = dayMarks.get(cell.date);
+          const hasItems = Boolean(marks?.todo || marks?.event);
+          const labelParts = [
+            `${cell.day}일`,
+            marks?.event ? '일정' : '',
+            marks?.todo ? '할일' : '',
+            marks?.urgent ? '긴급' : '',
+            isToday ? '오늘' : '',
+            isPast ? '지난 날' : '',
+          ].filter(Boolean);
 
           return (
             <button
               key={cell.key}
               type="button"
               role="gridcell"
-              aria-label={`${cell.day}일${hasItems ? ` · 일정 ${count}건` : ''}${isToday ? ' · 오늘' : ''}`}
+              aria-label={labelParts.join(' · ')}
               aria-pressed={isSelected}
               className={[
                 'work-hub-month-cal__day',
                 isToday ? 'is-today' : '',
                 isSelected ? 'is-selected' : '',
+                isPast ? 'is-past' : '',
                 hasItems ? 'has-items' : '',
+                marks?.urgent ? 'has-urgent' : '',
               ]
                 .filter(Boolean)
                 .join(' ')}
               onClick={() => onSelectDate(cell.date!)}
             >
               <span className="work-hub-month-cal__day-num">{cell.day}</span>
-              {hasItems ? <span className="work-hub-month-cal__day-badge">{count}</span> : null}
+              {hasItems ? (
+                <span className="work-hub-month-cal__dots" aria-hidden>
+                  {marks?.event ? <i className="is-event" /> : null}
+                  {marks?.todo ? <i className="is-todo" /> : null}
+                  {marks?.urgent ? <i className="is-urgent" /> : null}
+                </span>
+              ) : (
+                <span className="work-hub-month-cal__dots is-empty" aria-hidden />
+              )}
             </button>
           );
         })}
+      </div>
+
+      <div className="work-hub-month-cal__legend" aria-hidden>
+        <span>
+          <i className="is-event" /> 일정
+        </span>
+        <span>
+          <i className="is-todo" /> 할일
+        </span>
+        <span>
+          <i className="is-urgent" /> 긴급
+        </span>
       </div>
     </div>
   );

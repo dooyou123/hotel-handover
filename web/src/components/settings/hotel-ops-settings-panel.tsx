@@ -9,7 +9,7 @@ type HotelOpsSettingsPanelProps = {
 };
 
 export function HotelOpsSettingsPanel({ onSaved }: HotelOpsSettingsPanelProps) {
-  const [days, setDays] = useState(0);
+  const [days, setDays] = useState(1);
   const [whatsApp, setWhatsApp] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -56,7 +56,8 @@ export function HotelOpsSettingsPanel({ onSaved }: HotelOpsSettingsPanelProps) {
             onChange={(e) => setDays(Math.max(0, Number(e.target.value) || 0))}
           />
           <small style={{ color: 'var(--text-muted)' }}>
-            0 = 사용 안 함. 완료 후 N일이 지난 카드를 자동으로 보관함으로 이동합니다. (하루 1회 실행)
+            0 = 사용 안 함. 기본 1일(약 24시간). 완료 후 N일이 지난 카드를 자동으로 보관함으로
+            이동합니다. (접속 시 하루 1회 실행)
           </small>
         </label>
         <label className="field field--full">

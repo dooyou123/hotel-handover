@@ -26,6 +26,7 @@ export function computeNavBadges(input: {
   events: HotelEvent[];
   transportBookings: TransportBooking[];
   pinnedContactsCount: number;
+  scheduleConfirmCount?: number;
 }): NavBadgeMap {
   const badges: NavBadgeMap = {};
   const summary = buildShiftSummaryData(input.cards, input.notices);
@@ -78,6 +79,14 @@ export function computeNavBadges(input: {
     badges['/transport'] = {
       count: pendingTaxis.length,
       tone: hasOverdue ? 'urgent' : 'warn',
+    };
+  }
+
+  const scheduleConfirmCount = input.scheduleConfirmCount ?? 0;
+  if (scheduleConfirmCount > 0) {
+    badges['/schedules'] = {
+      count: scheduleConfirmCount,
+      tone: 'urgent',
     };
   }
 

@@ -21,6 +21,8 @@ type HandoverCardCommentSectionProps = {
   disabled?: boolean;
   onAddComment: (content: string) => Promise<void>;
   onOpenComments?: () => void;
+  /** true면 최신 미리보기 없이 댓글 전체·작성란을 바로 표시 */
+  showAll?: boolean;
 };
 
 export function HandoverCardCommentSection({
@@ -29,16 +31,18 @@ export function HandoverCardCommentSection({
   disabled = false,
   onAddComment,
   onOpenComments,
+  showAll = false,
 }: HandoverCardCommentSectionProps) {
   const comments = [...card.card_comments].sort((a, b) => a.created_at.localeCompare(b.created_at));
   const activeCommentCount = countActiveCardComments(card);
   const hasActiveComments = hasActiveCardComments(card);
   const latestComment = hasActiveComments ? getLatestActiveCardComment(card) : getLatestCardComment(card);
   const attachments = card.card_attachments.filter((item) => item.url);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(showAll);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const hasComments = comments.length > 0;
-  const showComposer = !hasComments || expanded;
+  const threadOpen = showAll || expanded;
+  const showComposer = !hasComments || threadOpen;
 
   function commentPreviewText(comment: (typeof comments)[number]): string {
     return isCommentDeleted(comment) ? formatDeletedCommentLabel(comment) : comment.content;
@@ -54,7 +58,7 @@ export function HandoverCardCommentSection({
         .join(' ')}
       onClick={(event) => event.stopPropagation()}
     >
-      {hasComments && !expanded ? (
+      {hasComments && !threadOpen ? (
         <button
           type="button"
           className={[
@@ -82,64 +86,50 @@ export function HandoverCardCommentSection({
         </button>
       ) : null}
 
-      {hasComments && expanded ? (
+      {hasComments && threadOpen ? (
         <>
           <div className="project-list-row__comment-thread-head">
             <span className="project-list-row__comment-thread-title">
               {hasActiveComments ? `댓글 ${activeCommentCount}개` : `댓글 ${comments.length}개`}
             </span>
-            <button
-              type="button"
-              className="project-list-row__comment-collapse"
-              onClick={() => setExpanded(false)}
-            >
-              접기
-            </button>
+            {!showAll ? (
+              <button
+                type="button"
+                className="project-list-row__comment-collapse"
+                onClick={() => setExpanded(false)}
+              >
+                접기
+              </button>
+            ) : null}
           </div>
           <div className="project-list-row__comment-thread">
-            {comments.slice(0, -1).map((comment) => (
+            {comments.map((comment) => (
               <button
                 key={comment.id}
                 type="button"
-                className={`project-list-row__comment-bubble${isCommentDeleted(comment) ? ' project-list-row__comment-bubble--deleted' : ''}`}
+                className={[
+                  'project-list-row__comment-bubble',
+                  isCommentDeleted(comment) ? 'project-list-row__comment-bubble--deleted' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
                 onClick={onOpenComments}
               >
-                <span className="project-list-row__comment-author">{comment.staff_name || comment.shift}</span>
-                <span className="project-list-row__comment-text">{commentPreviewText(comment)}</span>
-                <time className="project-list-row__comment-time" dateTime={comment.created_at}>
-                  {formatTime(comment.created_at)}
-                </time>
+                <span className="project-list-row__comment-head">
+                  <span className="project-list-row__comment-author">
+                    {comment.staff_name || comment.shift}
+                  </span>
+                  <span className="project-list-row__comment-meta">
+                    <time dateTime={comment.created_at}>{formatTime(comment.created_at)}</time>
+                    {isCommentEdited(comment) ? ' · 수정됨' : ''}
+                  </span>
+                </span>
+                <span className="project-list-row__comment-text" title={commentPreviewText(comment)}>
+                  {commentPreviewText(comment)}
+                </span>
               </button>
             ))}
           </div>
-          {latestComment ? (
-            <button
-              type="button"
-              className={[
-                'project-list-row__comment-bubble',
-                'project-list-row__comment-bubble--latest',
-                latestComment && isCommentDeleted(latestComment) ? 'project-list-row__comment-bubble--deleted' : '',
-                hasActiveComments && latestComment && !isCommentDeleted(latestComment)
-                  ? 'project-list-row__comment-bubble--latest-active'
-                  : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              onClick={onOpenComments}
-            >
-              <span className="project-list-row__comment-author">
-                {latestComment.staff_name || latestComment.shift}
-              </span>
-              <span className="project-list-row__comment-text" title={commentPreviewText(latestComment)}>
-                {commentPreviewText(latestComment)}
-              </span>
-              <span className="project-list-row__comment-meta">
-                <time dateTime={latestComment.created_at}>{formatTime(latestComment.created_at)}</time>
-                {isCommentEdited(latestComment) ? ' · 수정됨' : ''}
-                {comments.length > 1 ? ` · 외 ${comments.length - 1}건` : ''}
-              </span>
-            </button>
-          ) : null}
         </>
       ) : null}
 

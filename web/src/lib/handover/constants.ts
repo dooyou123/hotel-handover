@@ -22,7 +22,7 @@ export const HANDOVER_COLUMNS: {
   {
     id: 'done',
     title: '✅ 완료',
-    hint: '처리 완료 — 교대 끝나면 보관',
+    hint: '처리 완료 — 24시간 후 보관함으로 이동',
     columnClass: 'column--done',
   },
 ];

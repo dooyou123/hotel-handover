@@ -1,22 +1,17 @@
 'use client';
 
-import { QUICK_FILTERS } from '@/lib/handover/constants';
-import { getNavPageMeta } from '@/lib/nav/page-meta';
-import type { HandoverViewMode, QuickFilter } from '@/lib/handover/types';
+import type { HandoverViewMode } from '@/lib/handover/types';
 import { HandoverSearchBar } from './handover-search-bar';
 
 type HandoverToolbarProjectProps = {
   viewMode: HandoverViewMode;
-  quickFilter: QuickFilter;
   doneCount: number;
-  archivedCount: number;
   archivedSearchCount: number;
   isManager: boolean;
   searchQuery: string;
   searchDateFrom: string;
   searchDateTo: string;
   onViewModeChange: (mode: HandoverViewMode) => void;
-  onQuickFilterChange: (filter: QuickFilter) => void;
   onSearchChange: (value: string) => void;
   onSearchDateFromChange: (value: string) => void;
   onSearchDateToChange: (value: string) => void;
@@ -24,80 +19,62 @@ type HandoverToolbarProjectProps = {
   onArchiveDone: () => void;
 };
 
-export function HandoverToolbarProject(props: HandoverToolbarProjectProps) {
-  const {
-    viewMode,
-    quickFilter,
-    doneCount,
-    archivedCount,
-    archivedSearchCount,
-    isManager,
-    searchQuery,
-    searchDateFrom,
-    searchDateTo,
-    onViewModeChange,
-    onQuickFilterChange,
-    onSearchChange,
-    onSearchDateFromChange,
-    onSearchDateToChange,
-    onAdd,
-    onArchiveDone,
-  } = props;
-
+export function HandoverToolbarProject({
+  viewMode,
+  doneCount,
+  archivedSearchCount,
+  isManager,
+  searchQuery,
+  searchDateFrom,
+  searchDateTo,
+  onViewModeChange,
+  onSearchChange,
+  onSearchDateFromChange,
+  onSearchDateToChange,
+  onAdd,
+  onArchiveDone,
+}: HandoverToolbarProjectProps) {
   const isArchiveView = viewMode === 'archive';
   const isBriefView = viewMode === 'brief';
   const isBoardView = viewMode === 'board';
 
-  const handoverMeta = getNavPageMeta('/handover');
-
   return (
     <section className="project-handover-toolbar project-handover-toolbar--main" aria-label="인수인계 도구">
-      <div className="project-handover-toolbar__row project-handover-toolbar__row--primary">
-        <div className="project-handover-toolbar__head">
+      <div className="project-handover-toolbar__top">
+        <div className="project-handover-toolbar__brand">
           <h2 className="project-handover-toolbar__title">인수인계장</h2>
-          <p className="project-handover-toolbar__desc">{handoverMeta.description}</p>
+          <div className="project-handover-toolbar__view" role="tablist" aria-label="보기 방식">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={isBoardView || isArchiveView}
+              className={isBoardView || isArchiveView ? 'is-active' : ''}
+              onClick={() => onViewModeChange('board')}
+            >
+              목록
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={viewMode === 'room'}
+              className={viewMode === 'room' ? 'is-active' : ''}
+              onClick={() => onViewModeChange('room')}
+            >
+              객실
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={isBriefView}
+              className={isBriefView ? 'is-active' : ''}
+              onClick={() => onViewModeChange('brief')}
+            >
+              인계
+            </button>
+          </div>
         </div>
 
-        <div className="project-handover-toolbar__view" role="tablist" aria-label="보기 방식">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={isBoardView}
-            className={isBoardView ? 'is-active' : ''}
-            onClick={() => onViewModeChange('board')}
-          >
-            목록
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={viewMode === 'room'}
-            className={viewMode === 'room' ? 'is-active' : ''}
-            onClick={() => onViewModeChange('room')}
-          >
-            객실
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={isBriefView}
-            className={isBriefView ? 'is-active' : ''}
-            onClick={() => onViewModeChange('brief')}
-          >
-            인계
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={isArchiveView}
-            className={isArchiveView ? 'is-active' : ''}
-            onClick={() => onViewModeChange('archive')}
-          >
-            보관함{archivedCount > 0 ? ` ${archivedCount}` : ''}
-          </button>
-        </div>
-
-        <div className="project-handover-toolbar__cluster">
+        <div className="project-handover-toolbar__tools">
           <HandoverSearchBar
             searchQuery={searchQuery}
             searchDateFrom={searchDateFrom}
@@ -107,60 +84,33 @@ export function HandoverToolbarProject(props: HandoverToolbarProjectProps) {
             onSearchDateFromChange={onSearchDateFromChange}
             onSearchDateToChange={onSearchDateToChange}
           />
-          <div className="project-handover-toolbar__actions">
-            {isManager && doneCount > 0 ? (
-              <button type="button" className="project-handover-toolbar__btn" onClick={onArchiveDone}>
-                완료 비우기
-              </button>
-            ) : null}
-            <button
-              type="button"
-              className="project-handover-toolbar__btn project-handover-toolbar__btn--primary"
-              onClick={onAdd}
-            >
-              + 새 인수인계
+          {isManager && doneCount > 0 ? (
+            <button type="button" className="project-handover-toolbar__btn" onClick={onArchiveDone}>
+              완료 비우기
             </button>
-          </div>
+          ) : null}
+          <button
+            type="button"
+            className="project-handover-toolbar__btn project-handover-toolbar__btn--primary"
+            onClick={onAdd}
+          >
+            + 새 인수인계
+          </button>
         </div>
       </div>
 
-      {isBoardView ? (
-        <div className="project-handover-toolbar__row project-handover-toolbar__row--filters">
-          <div className="project-handover-toolbar__filters" role="tablist" aria-label="빠른 필터">
-            {QUICK_FILTERS.map((filter) => (
-              <button
-                key={filter.id}
-                type="button"
-                role="tab"
-                aria-selected={quickFilter === filter.id}
-                onClick={() => onQuickFilterChange(filter.id)}
-                className={[
-                  'project-handover-toolbar__filter',
-                  quickFilter === filter.id ? 'is-active' : '',
-                  filter.id === 'due-soon' || filter.id === 'hold-long'
-                    ? 'project-handover-toolbar__filter--warn'
-                    : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : isBriefView ? (
-        <p className="project-handover-toolbar__archive-hint">
-          교대 인수 전 확인 화면입니다. 위 숫자 칩으로 한눈에 보고, 항목을 누르면 카드 상세로 이동합니다.
+      {isBriefView ? (
+        <p className="project-handover-toolbar__hint">
+          교대 인수 전 확인 화면입니다. 항목을 누르면 카드 상세로 이동합니다.
         </p>
-      ) : (
-        <p className="project-handover-toolbar__archive-hint">
-          완료 비우기로 옮긴 카드입니다. 검색·기간 필터로 찾을 수 있고, 관리자는 완료 칸으로 복원할 수 있습니다.
+      ) : isArchiveView ? (
+        <p className="project-handover-toolbar__hint">
+          완료 후 약 24시간이 지나면 자동 보관됩니다. 검색·기간으로 찾을 수 있습니다.
           {archivedSearchCount > 0 && searchQuery.trim()
             ? ` · 목록 검색에도 맞는 보관 ${archivedSearchCount}건`
             : ''}
         </p>
-      )}
+      ) : null}
     </section>
   );
 }

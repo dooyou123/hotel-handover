@@ -74,6 +74,8 @@ type HandoverCardBodyPreviewProps = {
   details?: string;
   resolution?: string;
   clampLines?: number;
+  /** false면 본문 전체 표시(더 보기 없음) */
+  collapsible?: boolean;
 };
 
 export function HandoverCardBodyPreview({
@@ -82,6 +84,7 @@ export function HandoverCardBodyPreview({
   details = '',
   resolution = '',
   clampLines = CARD_BODY_PREVIEW_MAX_LINES,
+  collapsible = true,
 }: HandoverCardBodyPreviewProps) {
   const fields: { label: string; text: string; emphasize?: boolean; collapsible?: boolean }[] = [];
 
@@ -89,10 +92,10 @@ export function HandoverCardBodyPreview({
     fields.push({ label: '다음 조치', text: nextAction, emphasize: true, collapsible: false });
   }
   if (details) {
-    fields.push({ label: '상세', text: details });
+    fields.push({ label: '상세', text: details, collapsible });
   }
   if (resolution) {
-    fields.push({ label: '처리 결과', text: resolution });
+    fields.push({ label: '처리 결과', text: resolution, collapsible });
   }
 
   if (!fields.length) return null;

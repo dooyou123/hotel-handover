@@ -74,9 +74,7 @@ export function HandoverCreateTemplates({
       <div className="handover-create-templates__head">
         <div>
           <h3 className="handover-create-templates__title">템플릿으로 시작</h3>
-          <p className="handover-create-templates__intro">
-            항목을 고르면 제목·내용·다음 조치가 채워집니다. 이어서 객실 번호 등만 수정하세요.
-          </p>
+          <p className="handover-create-templates__intro">자주 쓰는 항목을 고르면 제목·내용이 채워집니다.</p>
         </div>
         <Link href="/settings" className="handover-create-templates__manage link-btn">
           템플릿 관리

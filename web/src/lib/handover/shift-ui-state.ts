@@ -50,4 +50,4 @@ export function formatAsideRecordTime(value: string): string {
 
 export type AsideFeedTab = 'all' | 'shift' | 'activity';
 
-export const ASIDE_FEED_DISPLAY_LIMIT = 8;
+export const ASIDE_FEED_DISPLAY_LIMIT = 4;

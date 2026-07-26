@@ -112,12 +112,15 @@ export function WorkHubEmpty({ children }: { children: ReactNode }) {
   return <p className="work-hub-today__empty">{children}</p>;
 }
 
+type WorkHubTone = 'event' | 'todo' | 'urgent' | 'announcement' | 'change';
+
 type WorkHubRowProps = {
   kind: ReactNode;
   title: ReactNode;
   meta?: ReactNode;
   href?: string;
   onClick?: () => void;
+  tone?: WorkHubTone;
   liClassName?: string;
   rowClassName?: string;
   leading?: ReactNode;
@@ -129,12 +132,14 @@ export function WorkHubRow({
   meta,
   href,
   onClick,
+  tone,
   liClassName,
   rowClassName,
   leading,
 }: WorkHubRowProps) {
   const rowClass = [
     'work-hub-today__row',
+    tone ? `work-hub-today__row--${tone}` : '',
     href || onClick ? 'work-hub-today__row--interactive' : '',
     rowClassName,
   ]

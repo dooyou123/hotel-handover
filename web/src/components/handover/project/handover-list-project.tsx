@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { buildProjectListSections, isActiveHandoverCard, isBulkArchivableCard } from '@/lib/handover/card-utils';
+import { isToday } from '@/lib/handover/shift-summary';
 import type { Card, QuickFilter } from '@/lib/handover/types';
 import { HandoverListRowProject } from './handover-list-row-project';
+import { HandoverStatusTabs, type HandoverStatusTab } from './handover-status-tabs';
 
 type HandoverListProjectProps = {
   cards: Card[];
@@ -12,6 +14,10 @@ type HandoverListProjectProps = {
   quickFilter?: QuickFilter;
   staffNames: string[];
   isManager?: boolean;
+  archivedCount?: number;
+  statusTab?: Exclude<HandoverStatusTab, 'archive'>;
+  onStatusTabChange?: (tab: Exclude<HandoverStatusTab, 'archive'>) => void;
+  onOpenArchive?: () => void;
   onOpenCard: (card: Card) => void;
   onOpenCardComments: (card: Card) => void;
   onAddComment: (cardId: string, content: string) => Promise<void>;
@@ -34,7 +40,11 @@ type HandoverListProjectProps = {
   onBulkArchive: (cardIds: string[]) => Promise<void>;
 };
 
-type CollapsibleSectionId = 'done' | 'hold';
+type ListStatusTab = Exclude<HandoverStatusTab, 'archive'>;
+
+function isDoneToday(card: Card): boolean {
+  return isToday(card.updated_at || card.created_at);
+}
 
 export function HandoverListProject({
   cards,
@@ -62,21 +72,56 @@ export function HandoverListProject({
   onBulkResume,
   onBulkArchive,
   isManager = false,
+  archivedCount = 0,
+  statusTab: statusTabProp,
+  onStatusTabChange,
+  onOpenArchive,
 }: HandoverListProjectProps) {
   const { confirm } = useConfirmDialog();
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkAssignee, setBulkAssignee] = useState('');
-  const [expandedSections, setExpandedSections] = useState<Record<CollapsibleSectionId, boolean>>({
-    done: false,
-    hold: false,
-  });
-  const doneSectionRef = useRef<HTMLElement>(null);
-  const scrollDoneOnExpandRef = useRef(false);
+  const [statusTabState, setStatusTabState] = useState<ListStatusTab>('progress');
+  const statusTab = statusTabProp ?? statusTabState;
+  const setStatusTab = onStatusTabChange ?? setStatusTabState;
+  const [doneShowAll, setDoneShowAll] = useState(false);
+
   const sections = useMemo(() => buildProjectListSections(cards, staffNames), [cards, staffNames]);
+  const sectionMap = useMemo(() => {
+    const map = new Map(sections.map((section) => [section.id, section]));
+    return map;
+  }, [sections]);
+
+  const progressCards = useMemo(() => {
+    const unacked = sectionMap.get('unacked')?.cards ?? [];
+    const progress = sectionMap.get('progress')?.cards ?? [];
+    return [...unacked, ...progress];
+  }, [sectionMap]);
+
+  const holdCards = sectionMap.get('hold')?.cards ?? [];
+  const doneAllCards = useMemo(() => {
+    const done = sectionMap.get('done')?.cards ?? [];
+    const archived = sectionMap.get('archived')?.cards ?? [];
+    return [...done, ...archived];
+  }, [sectionMap]);
+
+  const doneTodayCards = useMemo(() => doneAllCards.filter(isDoneToday), [doneAllCards]);
+  const doneCards =
+    doneShowAll || Boolean(searchQuery?.trim()) ? doneAllCards : doneTodayCards;
+
+  const tabCounts: Record<HandoverStatusTab, number> = {
+    progress: progressCards.length,
+    hold: holdCards.length,
+    done: doneShowAll || Boolean(searchQuery?.trim()) ? doneAllCards.length : doneTodayCards.length,
+    archive: archivedCount,
+  };
+
+  const activeCards =
+    statusTab === 'progress' ? progressCards : statusTab === 'hold' ? holdCards : doneCards;
+
   const selectableCards = useMemo(
-    () => cards.filter((card) => isActiveHandoverCard(card) || isBulkArchivableCard(card)),
-    [cards],
+    () => activeCards.filter((card) => isActiveHandoverCard(card) || isBulkArchivableCard(card)),
+    [activeCards],
   );
   const selectedCards = useMemo(
     () => cards.filter((card) => selectedIds.includes(card.id)),
@@ -84,19 +129,11 @@ export function HandoverListProject({
   );
   const selectedArchivableCount = selectedCards.filter(isBulkArchivableCard).length;
   const selectedHoldCount = selectedCards.filter((card) => card.column_id === 'hold').length;
-  const remainingTotal = useMemo(
-    () =>
-      sections
-        .filter((section) => section.id === 'unacked' || section.id === 'progress')
-        .reduce((sum, section) => sum + section.cards.length, 0),
-    [sections],
-  );
+  const remainingTotal = progressCards.length;
   let remainingIndex = 0;
 
   useEffect(() => {
-    if (quickFilter === 'hold-long') {
-      setExpandedSections((prev) => ({ ...prev, hold: true }));
-    }
+    if (quickFilter === 'hold-long') setStatusTab('hold');
   }, [quickFilter]);
 
   useEffect(() => {
@@ -105,12 +142,11 @@ export function HandoverListProject({
       if (!cardId) return;
       const target = cards.find((card) => card.id === cardId);
       if (!target) return;
-      if (target.column_id === 'hold') {
-        setExpandedSections((prev) => ({ ...prev, hold: true }));
-      }
-      if (target.column_id === 'done') {
-        setExpandedSections((prev) => ({ ...prev, done: true }));
-      }
+      if (target.column_id === 'hold') setStatusTab('hold');
+      else if (target.column_id === 'done') {
+        setStatusTab('done');
+        if (!isDoneToday(target)) setDoneShowAll(true);
+      } else setStatusTab('progress');
     }
     window.addEventListener('handover-reveal-card', handleReveal);
     return () => window.removeEventListener('handover-reveal-card', handleReveal);
@@ -125,45 +161,9 @@ export function HandoverListProject({
   }, [selectableCards]);
 
   useEffect(() => {
-    if (!expandedSections.done || !scrollDoneOnExpandRef.current) return;
-    scrollDoneOnExpandRef.current = false;
-
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const section = doneSectionRef.current;
-        if (!section) return;
-
-        const scrollParent = section.closest('.project-handover__main-body') as HTMLElement | null;
-        if (!scrollParent) {
-          section.scrollIntoView({ behavior: 'smooth', block: 'end' });
-          return;
-        }
-
-        const sectionRect = section.getBoundingClientRect();
-        const parentRect = scrollParent.getBoundingClientRect();
-        const bottomOverflow = sectionRect.bottom - parentRect.bottom;
-        const topOverflow = sectionRect.top - parentRect.top;
-
-        if (bottomOverflow > 0) {
-          scrollParent.scrollBy({ top: bottomOverflow + 16, behavior: 'smooth' });
-        } else if (topOverflow < 0) {
-          scrollParent.scrollBy({ top: topOverflow - 8, behavior: 'smooth' });
-        }
-      });
-    });
-  }, [expandedSections.done]);
-
-  function toggleSection(sectionId: CollapsibleSectionId) {
-    setExpandedSections((prev) => {
-      const nextOpen = !prev[sectionId];
-      if (sectionId === 'done' && nextOpen) scrollDoneOnExpandRef.current = true;
-      return { ...prev, [sectionId]: nextOpen };
-    });
-  }
-
-  function isCollapsibleSection(sectionId: string): sectionId is CollapsibleSectionId {
-    return sectionId === 'done' || sectionId === 'hold';
-  }
+    setSelectedIds([]);
+    setBulkMode(false);
+  }, [statusTab]);
 
   function toggleCardSelection(cardId: string) {
     setSelectedIds((prev) =>
@@ -274,27 +274,73 @@ export function HandoverListProject({
   }
 
   if (!cards.length) {
-    return <p className="project-list__empty">표시할 인수인계가 없습니다.</p>;
+    return (
+      <div className="project-list">
+        <HandoverStatusTabs
+          active={statusTab}
+          counts={tabCounts}
+          onChange={(tab) => {
+            if (tab === 'archive') {
+              onOpenArchive?.();
+              return;
+            }
+            setStatusTab(tab);
+          }}
+        />
+        <p className="project-list__empty">표시할 인수인계가 없습니다.</p>
+      </div>
+    );
   }
+
+  const emptyMessage =
+    statusTab === 'progress'
+      ? '진행 중인 인수인계가 없습니다.'
+      : statusTab === 'hold'
+        ? '보류 중인 인수인계가 없습니다.'
+        : doneShowAll || searchQuery?.trim()
+          ? '완료된 인수인계가 없습니다.'
+          : '오늘 완료한 항목이 없습니다.';
 
   return (
     <div className="project-list">
-      <div className="project-list__bulk-head">
-        <button
-          type="button"
-          className={`project-list__bulk-toggle${bulkMode ? ' is-active' : ''}`}
-          onClick={() => setBulkMode((prev) => !prev)}
-        >
-          {bulkMode ? '선택 취소' : '선택'}
-        </button>
-        {bulkMode ? (
-          <button type="button" className="project-list__bulk-toggle" onClick={toggleSelectAll}>
-            {selectedIds.length === selectableCards.length && selectableCards.length > 0
-              ? '전체 해제'
-              : '전체 선택'}
-          </button>
-        ) : null}
-      </div>
+      <HandoverStatusTabs
+        active={statusTab}
+        counts={tabCounts}
+        onChange={(tab) => {
+          if (tab === 'archive') {
+            onOpenArchive?.();
+            return;
+          }
+          setStatusTab(tab);
+        }}
+        actions={
+          <>
+            {statusTab === 'done' && !searchQuery?.trim() ? (
+              <button
+                type="button"
+                className={`project-list__done-range${doneShowAll ? ' is-active' : ''}`}
+                onClick={() => setDoneShowAll((prev) => !prev)}
+              >
+                {doneShowAll ? '오늘만 보기' : `전체 완료 (${doneAllCards.length})`}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className={`project-list__bulk-toggle${bulkMode ? ' is-active' : ''}`}
+              onClick={() => setBulkMode((prev) => !prev)}
+            >
+              {bulkMode ? '선택 취소' : '선택'}
+            </button>
+            {bulkMode ? (
+              <button type="button" className="project-list__bulk-toggle" onClick={toggleSelectAll}>
+                {selectedIds.length === selectableCards.length && selectableCards.length > 0
+                  ? '전체 해제'
+                  : '전체 선택'}
+              </button>
+            ) : null}
+          </>
+        }
+      />
 
       {bulkMode && selectedIds.length ? (
         <div className="project-list__bulk-bar" role="toolbar" aria-label="일괄 작업">
@@ -346,100 +392,50 @@ export function HandoverListProject({
         </div>
       ) : null}
 
-      {sections.map((section) => {
-        if (
-          section.cards.length === 0 &&
-          (section.id === 'done' || section.id === 'progress')
-        ) {
-          return null;
-        }
+      <section
+        className={`project-list__section project-list__section--${statusTab} project-list__section--tabbed`}
+        role="tabpanel"
+      >
+        {activeCards.length ? (
+          <div className="project-list__rows">
+            {activeCards.map((card) => {
+              const showPosition = statusTab === 'progress' && remainingTotal > 0;
+              const position = showPosition
+                ? { index: ++remainingIndex, total: remainingTotal }
+                : undefined;
+              const selectable = isActiveHandoverCard(card) || isBulkArchivableCard(card);
 
-        const isDoneSection = section.id === 'done';
-        const collapsibleId =
-          isCollapsibleSection(section.id) && section.cards.length > 0 ? section.id : null;
-        const isExpanded = collapsibleId === null || expandedSections[collapsibleId];
-
-        const head = collapsibleId ? (
-          <button
-            type="button"
-            className="project-list__head project-list__head--toggle"
-            aria-expanded={expandedSections[collapsibleId]}
-            onClick={() => toggleSection(collapsibleId)}
-          >
-            <span className="project-list__head-main">
-              <h3>{section.title}</h3>
-              <span className="project-list__count">{section.cards.length}</span>
-            </span>
-            <span className="project-list__toggle-label">
-              {expandedSections[collapsibleId] ? '접기' : '펼치기'}
-            </span>
-          </button>
+              return (
+                <HandoverListRowProject
+                  key={card.id}
+                  card={card}
+                  position={position}
+                  searchQuery={searchQuery}
+                  staffNames={staffNames}
+                  bulkMode={bulkMode && selectable}
+                  selected={selectedIds.includes(card.id)}
+                  onToggleSelect={() => toggleCardSelection(card.id)}
+                  onOpen={() => onOpenCard(card)}
+                  onOpenComments={() => onOpenCardComments(card)}
+                  onAddComment={(content) => onAddComment(card.id, content)}
+                  staffName={staffName}
+                  commentDisabled={commentDisabled}
+                  onAcknowledge={() => onAcknowledge(card.id)}
+                  onMarkDone={() => onMarkDone(card.id)}
+                  onHold={() => onHold(card.id)}
+                  onResume={() => onResume(card.id)}
+                  onAssignChange={(assigneeName) => onAssignChange(card.id, assigneeName)}
+                  onSnooze={() => onSnooze(card.id)}
+                  onUnsnooze={() => onUnsnooze(card.id)}
+                  onRecordFirstResponse={() => onRecordFirstResponse(card.id)}
+                />
+              );
+            })}
+          </div>
         ) : (
-          <header className="project-list__head">
-            <h3>{section.title}</h3>
-            <span className="project-list__count">{section.cards.length}</span>
-          </header>
-        );
-
-        return (
-          <section
-            key={section.id}
-            ref={isDoneSection ? doneSectionRef : undefined}
-            className={[
-              'project-list__section',
-              `project-list__section--${section.id}`,
-              collapsibleId && !expandedSections[collapsibleId] ? 'is-collapsed' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-          >
-            {head}
-            {isExpanded ? (
-              section.cards.length ? (
-                <div className="project-list__rows">
-                  {section.cards.map((card) => {
-                    const showPosition =
-                      remainingTotal > 0 &&
-                      (section.id === 'unacked' || section.id === 'progress');
-                    const position = showPosition
-                      ? { index: ++remainingIndex, total: remainingTotal }
-                      : undefined;
-                    const selectable = isActiveHandoverCard(card) || isBulkArchivableCard(card);
-
-                    return (
-                      <HandoverListRowProject
-                        key={card.id}
-                        card={card}
-                        position={position}
-                        searchQuery={searchQuery}
-                        staffNames={staffNames}
-                        bulkMode={bulkMode && selectable}
-                        selected={selectedIds.includes(card.id)}
-                        onToggleSelect={() => toggleCardSelection(card.id)}
-                        onOpen={() => onOpenCard(card)}
-                        onOpenComments={() => onOpenCardComments(card)}
-                        onAddComment={(content) => onAddComment(card.id, content)}
-                        staffName={staffName}
-                        commentDisabled={commentDisabled}
-                        onAcknowledge={() => onAcknowledge(card.id)}
-                        onMarkDone={() => onMarkDone(card.id)}
-                        onHold={() => onHold(card.id)}
-                        onResume={() => onResume(card.id)}
-                        onAssignChange={(assigneeName) => onAssignChange(card.id, assigneeName)}
-                        onSnooze={() => onSnooze(card.id)}
-                        onUnsnooze={() => onUnsnooze(card.id)}
-                        onRecordFirstResponse={() => onRecordFirstResponse(card.id)}
-                      />
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="project-list__section-empty">항목 없음</p>
-              )
-            ) : null}
-          </section>
-        );
-      })}
+          <p className="project-list__section-empty">{emptyMessage}</p>
+        )}
+      </section>
     </div>
   );
 }

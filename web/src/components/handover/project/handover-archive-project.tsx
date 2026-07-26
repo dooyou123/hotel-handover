@@ -11,6 +11,7 @@ import {
 import type { Card, WorkSession } from '@/lib/handover/types';
 import { SearchHighlight } from '@/components/handover/search-highlight';
 import { HandoverCardBodyPreview } from './handover-card-body-preview';
+import { HandoverStatusTabs, type HandoverStatusTab } from './handover-status-tabs';
 
 type HandoverArchiveProjectProps = {
   cards: Card[];
@@ -20,6 +21,8 @@ type HandoverArchiveProjectProps = {
   searchDateFrom: string;
   searchDateTo: string;
   session: WorkSession;
+  statusCounts: Record<HandoverStatusTab, number>;
+  onStatusTabChange: (tab: HandoverStatusTab) => void;
   onOpenCard: (card: Card) => void;
   onRestore?: (cardId: string) => Promise<void>;
 };
@@ -77,6 +80,8 @@ export function HandoverArchiveProject({
   searchDateFrom,
   searchDateTo,
   session,
+  statusCounts,
+  onStatusTabChange,
   onOpenCard,
   onRestore,
 }: HandoverArchiveProjectProps) {
@@ -95,37 +100,53 @@ export function HandoverArchiveProject({
 
   const groups = useMemo(() => groupArchivedCards(filtered), [filtered]);
 
+  const statusTabs = (
+    <HandoverStatusTabs active="archive" counts={statusCounts} onChange={onStatusTabChange} />
+  );
+
   if (isLoading) {
-    return <p className="project-archive__status">보관함을 불러오는 중…</p>;
+    return (
+      <div className="project-archive">
+        {statusTabs}
+        <p className="project-archive__status">보관함을 불러오는 중…</p>
+      </div>
+    );
   }
 
   if (!cards.length) {
     return (
-      <div className="project-archive__empty">
-        <p className="project-archive__empty-title">보관된 완료 인수인계가 없습니다</p>
-        <p className="project-archive__empty-lead">
-          「완료 비우기」로 옮긴 카드가 여기에 남습니다. 삭제되지 않으며 검색·복원할 수 있습니다.
-        </p>
+      <div className="project-archive">
+        {statusTabs}
+        <div className="project-archive__empty">
+          <p className="project-archive__empty-title">보관된 완료 인수인계가 없습니다</p>
+          <p className="project-archive__empty-lead">
+            「완료 비우기」로 옮긴 카드가 여기에 남습니다. 삭제되지 않으며 검색·복원할 수 있습니다.
+          </p>
+        </div>
       </div>
     );
   }
 
   if (!filtered.length) {
     return (
-      <div className="project-archive__empty">
-        <p className="project-archive__empty-title">검색 결과가 없습니다</p>
-        <p className="project-archive__empty-lead">검색어나 기간 필터를 바꿔 보세요.</p>
+      <div className="project-archive">
+        {statusTabs}
+        <div className="project-archive__empty">
+          <p className="project-archive__empty-title">검색 결과가 없습니다</p>
+          <p className="project-archive__empty-lead">검색어나 기간 필터를 바꿔 보세요.</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="project-archive">
+      {statusTabs}
       <header className="project-archive__head">
         <div>
           <h3 className="project-archive__title">완료 보관함</h3>
           <p className="project-archive__lead">
-            완료 비우기로 보관된 인수인계 {cards.length}건
+            완료 후 약 24시간이 지나면 자동으로 보관됩니다. 현재 {cards.length}건.
             {searchQuery.trim() || searchDateFrom || searchDateTo
               ? ` · 표시 ${filtered.length}건`
               : ''}

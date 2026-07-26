@@ -10,12 +10,20 @@ export const PARTY_VENUE_CATEGORIES = [
 
 export type PartyVenueCategory = (typeof PARTY_VENUE_CATEGORIES)[number];
 
-export const PARTY_PREFERENCES = {
-  love: { label: '적극 추천해요', emoji: '❤️', score: 2 },
-  ok: { label: '무난해요', emoji: '👍', score: 1 },
+/** 1순위=3점, 2순위=2점, 3순위=1점 */
+export const PARTY_RANKS = {
+  1: { label: '1순위', emoji: '🥇', score: 3 },
+  2: { label: '2순위', emoji: '🥈', score: 2 },
+  3: { label: '3순위', emoji: '🥉', score: 1 },
 } as const;
 
-export type PartyPreference = keyof typeof PARTY_PREFERENCES;
+export type PartyRank = keyof typeof PARTY_RANKS;
+
+/** 절대 가기 싫은 곳 (1인 1곳, 감점) */
+export const PARTY_VETO_RANK = -1;
+export const PARTY_VETO_META = { label: '절대 가기 싫어요', emoji: '🚫', score: -2 } as const;
+
+export type PartyVoteRank = PartyRank | typeof PARTY_VETO_RANK;
 
 export const PARTY_AVAILABILITY = {
   yes: { label: '가능', emoji: '⭕', score: 2 },
@@ -82,7 +90,7 @@ export type PartyVenueVote = {
   hotel_id: string;
   venue_id: string;
   voter_name: string;
-  preference: PartyPreference;
+  rank: PartyVoteRank;
   comment: string;
   created_at: string;
 };
@@ -123,8 +131,19 @@ export type PartySettings = {
   confirmed_venue_id: string | null;
   confirmed_slot_id: string | null;
   invitation_draft: string;
+  vote_opens_at: string | null;
   vote_deadline_at: string | null;
+  /** 설정되면 장소·일정 상세 결과 공개. null이면 비밀 투표(진행 현황만). */
+  results_published_at: string | null;
   updated_at: string;
 };
 
 export type EmployeeSortMode = 'manual' | 'name' | 'department' | 'attending';
+
+export type PartyBallotRanks = {
+  1: string;
+  2: string;
+  3: string;
+  /** 절대 가기 싫은 장소 (선택) */
+  veto: string;
+};

@@ -10,7 +10,8 @@ import type {
   PartyDietary,
   PartyEmployee,
   PartyEmployeeInput,
-  PartyPreference,
+  PartyRank,
+  PartyBallotRanks,
   PartyAvailability,
   PartySettings,
   PartyVenue,
@@ -56,7 +57,7 @@ function usePartyRealtime(tables: string[], queryKeys: ReadonlyArray<readonly st
 }
 
 const SETTINGS_SELECT =
-  'hotel_id, subsidy_per_person, headcount_override, confirmed_venue_id, confirmed_slot_id, invitation_draft, vote_deadline_at, updated_at';
+  'hotel_id, subsidy_per_person, headcount_override, confirmed_venue_id, confirmed_slot_id, invitation_draft, vote_opens_at, vote_deadline_at, results_published_at, updated_at';
 
 export function usePartySettings() {
   const queryClient = useQueryClient();
@@ -319,8 +320,8 @@ export function usePartyVenues() {
     mutationFn: async (input: {
       venue_id: string;
       voter_name: string;
-      preference: PartyPreference;
-      comment: string;
+      rank: PartyRank;
+      comment?: string;
     }) => {
       const supabase = createClient();
       const { data, error } = await supabase
@@ -330,10 +331,10 @@ export function usePartyVenues() {
             hotel_id: DEFAULT_HOTEL_ID,
             venue_id: input.venue_id,
             voter_name: input.voter_name.trim(),
-            preference: input.preference,
-            comment: input.comment.trim(),
+            rank: input.rank,
+            comment: input.comment?.trim() ?? '',
           },
-          { onConflict: 'hotel_id,venue_id,voter_name' },
+          { onConflict: 'hotel_id,voter_name,venue_id' },
         )
         .select('*')
         .single();
@@ -341,6 +342,59 @@ export function usePartyVenues() {
       return data as PartyVenueVote;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY.venueVotes }),
+  });
+
+  const saveBallot = useMutation({
+    mutationFn: async (input: {
+      voter_name: string;
+      ranks: PartyBallotRanks;
+      dateVotes: Array<{ slot_id: string; availability: PartyAvailability }>;
+      pin: string;
+      pin_confirm?: string;
+      new_pin?: string;
+    }) => {
+      const res = await fetch('/api/year-end-party/ballot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'save', ...input }),
+      });
+      const json = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) throw new Error(json?.error || '투표 저장에 실패했습니다.');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: KEY.venueVotes });
+      queryClient.invalidateQueries({ queryKey: KEY.dateVotes });
+    },
+  });
+
+  const unlockBallot = useMutation({
+    mutationFn: async (input: { voter_name: string; pin: string }) => {
+      const res = await fetch('/api/year-end-party/ballot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'unlock', ...input }),
+      });
+      const json = (await res.json().catch(() => null)) as {
+        error?: string;
+        unlocked?: boolean;
+        legacy?: boolean;
+        message?: string;
+        ranks?: PartyBallotRanks;
+        dateVotes?: Record<string, PartyAvailability | ''>;
+      } | null;
+      if (!res.ok || !json?.unlocked) {
+        throw new Error(json?.error || '잠금 해제에 실패했습니다.');
+      }
+      return json as {
+        unlocked: true;
+        legacy: boolean;
+        message?: string;
+        ranks: PartyBallotRanks;
+        dateVotes: Record<string, PartyAvailability | ''>;
+      };
+    },
   });
 
   const deleteVote = useMutation({
@@ -357,6 +411,23 @@ export function usePartyVenues() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY.venueVotes }),
   });
 
+  const clearBallot = useMutation({
+    mutationFn: async (input: { voter_name: string; pin: string }) => {
+      const res = await fetch('/api/year-end-party/ballot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'clear', ...input }),
+      });
+      const json = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) throw new Error(json?.error || '투표 철회에 실패했습니다.');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: KEY.venueVotes });
+      queryClient.invalidateQueries({ queryKey: KEY.dateVotes });
+    },
+  });
+
   return {
     venues: venuesQuery.data ?? [],
     votes: votesQuery.data ?? [],
@@ -364,7 +435,10 @@ export function usePartyVenues() {
     saveVenue,
     deleteVenue,
     upsertVote,
+    saveBallot,
+    unlockBallot,
     deleteVote,
+    clearBallot,
   };
 }
 

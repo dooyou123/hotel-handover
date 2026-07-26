@@ -3,7 +3,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { SHIFTS } from '@/lib/constants';
 import { formatTime } from '@/lib/handover/card-utils';
-import { noticeListTitle, noticeTypeLabel } from '@/lib/handover/notice-utils';
+import {
+  noticeBodyWithoutTitle,
+  noticeListTitle,
+  noticeTypeLabel,
+} from '@/lib/handover/notice-utils';
 import { formatExpiryLabel } from '@/lib/handover/shift-summary';
 import type { Notice, NoticeInput, NoticeType } from '@/lib/handover/types';
 import { NoticeReadStatus } from '@/components/notices/notice-read-status';
@@ -58,17 +62,25 @@ export function NoticeDrawer({
   const [createAsCompleted, setCreateAsCompleted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
   const overlayPointerDownRef = useRef(false);
+  const moreRef = useRef<HTMLDivElement>(null);
   const { confirm } = useConfirmDialog();
 
   useEffect(() => {
     if (!open) return;
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') {
+        if (moreOpen) {
+          setMoreOpen(false);
+          return;
+        }
+        onClose();
+      }
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open, onClose]);
+  }, [open, onClose, moreOpen]);
 
   useEffect(() => {
     if (!open) return;
@@ -78,6 +90,21 @@ export function NoticeDrawer({
       document.body.style.overflow = previousOverflow;
     };
   }, [open]);
+
+  useEffect(() => {
+    if (!open) setMoreOpen(false);
+  }, [open, mode, notice?.id]);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    function onPointerDown(event: PointerEvent) {
+      if (moreRef.current && !moreRef.current.contains(event.target as Node)) {
+        setMoreOpen(false);
+      }
+    }
+    window.addEventListener('pointerdown', onPointerDown);
+    return () => window.removeEventListener('pointerdown', onPointerDown);
+  }, [moreOpen]);
 
   useEffect(() => {
     if (!open) return;
@@ -111,6 +138,7 @@ export function NoticeDrawer({
   const isForm = mode === 'edit' || mode === 'create';
   const title =
     mode === 'create' ? '글쓰기' : mode === 'edit' ? '글 수정' : noticeListTitle(notice?.content ?? '');
+  const bodyWithoutTitle = notice ? noticeBodyWithoutTitle(notice.content) : '';
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -149,6 +177,7 @@ export function NoticeDrawer({
 
   async function handleDelete() {
     if (!notice || !isManager) return;
+    setMoreOpen(false);
     const ok = await confirm({
       title: notice.type === 'change' ? '업무 변경 삭제' : '업무 공지 삭제',
       message: '이 글을 삭제합니다.',
@@ -171,7 +200,7 @@ export function NoticeDrawer({
     <>
       <div className="drawer-panel__chips">
         <span className={`drawer-chip drawer-chip--notice-${notice.type}`}>{noticeTypeLabel(notice.type)}</span>
-        {notice.is_pinned ? <span className="drawer-chip">📌 고정</span> : null}
+        {notice.is_pinned ? <span className="drawer-chip drawer-chip--pin">고정</span> : null}
         {notice.completed_at ? <span className="drawer-chip drawer-chip--done">완료</span> : null}
         {formatExpiryLabel(notice.expires_at) ? (
           <span
@@ -190,7 +219,11 @@ export function NoticeDrawer({
         </time>
       </div>
       <div className="notice-drawer__body">
-        <LinkifiedText text={notice.content} />
+        {bodyWithoutTitle ? (
+          <LinkifiedText text={bodyWithoutTitle} />
+        ) : (
+          <p className="notice-drawer__body-empty">제목만 있는 글입니다.</p>
+        )}
       </div>
       <NoticeReadStatus
         notice={notice}
@@ -277,38 +310,6 @@ export function NoticeDrawer({
           인수인계로 등록
         </button>
       ) : null}
-
-      <div className="notice-drawer__toolbar" role="group" aria-label="게시글 작업">
-        {notice ? (
-          <button type="button" className="notice-drawer__tool" onClick={() => onModeChange('edit')}>
-            수정
-          </button>
-        ) : null}
-        {notice && onToggleComplete ? (
-          <button type="button" className="notice-drawer__tool" onClick={() => void onToggleComplete(notice)}>
-            {notice.completed_at ? '완료 취소' : '완료 처리'}
-          </button>
-        ) : null}
-        {notice && onTogglePin ? (
-          <button type="button" className="notice-drawer__tool" onClick={() => void onTogglePin(notice)}>
-            {notice.is_pinned ? '고정 해제' : '고정'}
-          </button>
-        ) : null}
-        <button type="button" className="notice-drawer__tool" onClick={onClose}>
-          닫기
-        </button>
-      </div>
-
-      {notice && isManager ? (
-        <button
-          type="button"
-          className="notice-drawer__danger"
-          onClick={handleDelete}
-          disabled={saving}
-        >
-          삭제
-        </button>
-      ) : null}
     </footer>
   );
 
@@ -338,6 +339,74 @@ export function NoticeDrawer({
       </div>
     </div>
   );
+
+  const moreMenu =
+    mode === 'read' && notice ? (
+      <div className="notice-drawer__more" ref={moreRef}>
+        <button
+          type="button"
+          className="icon-btn notice-drawer__more-trigger"
+          aria-label="더보기"
+          aria-haspopup="menu"
+          aria-expanded={moreOpen}
+          onClick={() => setMoreOpen((prev) => !prev)}
+        >
+          ⋯
+        </button>
+        {moreOpen ? (
+          <div className="notice-drawer__more-menu" role="menu">
+            <button
+              type="button"
+              role="menuitem"
+              className="notice-drawer__more-item"
+              onClick={() => {
+                setMoreOpen(false);
+                onModeChange('edit');
+              }}
+            >
+              수정
+            </button>
+            {onToggleComplete ? (
+              <button
+                type="button"
+                role="menuitem"
+                className="notice-drawer__more-item"
+                onClick={() => {
+                  setMoreOpen(false);
+                  void onToggleComplete(notice);
+                }}
+              >
+                {notice.completed_at ? '완료 취소' : '완료 처리'}
+              </button>
+            ) : null}
+            {onTogglePin ? (
+              <button
+                type="button"
+                role="menuitem"
+                className="notice-drawer__more-item"
+                onClick={() => {
+                  setMoreOpen(false);
+                  void onTogglePin(notice);
+                }}
+              >
+                {notice.is_pinned ? '고정 해제' : '고정'}
+              </button>
+            ) : null}
+            {isManager ? (
+              <button
+                type="button"
+                role="menuitem"
+                className="notice-drawer__more-item notice-drawer__more-item--danger"
+                onClick={() => void handleDelete()}
+                disabled={saving}
+              >
+                삭제
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    ) : null;
 
   return (
     <div
@@ -385,9 +454,12 @@ export function NoticeDrawer({
                 </h2>
                 <p className="drawer-panel__mode">게시글 상세</p>
               </div>
-              <button type="button" className="icon-btn" onClick={onClose} aria-label="닫기">
-                ✕
-              </button>
+              <div className="notice-drawer__header-actions">
+                {moreMenu}
+                <button type="button" className="icon-btn" onClick={onClose} aria-label="닫기">
+                  ✕
+                </button>
+              </div>
             </div>
             <div className="drawer-panel__body">{readBody}</div>
             {readFooter}

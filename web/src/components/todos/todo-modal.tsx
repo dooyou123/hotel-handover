@@ -23,6 +23,7 @@ type TodoModalProps = {
   authorLabel: string;
   defaultShift: string;
   defaultName: string;
+  defaultDueDate?: string;
   staffNames: string[];
   onClose: () => void;
   onSave: (input: TodoInput, id?: string, scope?: TodoSeriesScope) => Promise<void>;
@@ -37,6 +38,7 @@ export function TodoModal({
   authorLabel,
   defaultShift,
   defaultName,
+  defaultDueDate = '',
   staffNames,
   onClose,
   onSave,
@@ -81,7 +83,7 @@ export function TodoModal({
       setForm({
         title: '',
         description: '',
-        due_date: '',
+        due_date: defaultDueDate,
         priority: 'normal',
         assignee_shift: defaultShift,
         assignee_name: defaultName,
@@ -93,7 +95,7 @@ export function TodoModal({
       setSaveScope('one');
     }
     setError(null);
-  }, [open, todo, authorLabel, defaultShift, defaultName]);
+  }, [open, todo, authorLabel, defaultShift, defaultName, defaultDueDate]);
 
   if (!open) return null;
 

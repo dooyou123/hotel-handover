@@ -29,6 +29,16 @@ function isOverdue(task: PersonalTask): boolean {
   return new Date(`${task.due_date}T23:59:59`).getTime() < Date.now();
 }
 
+function localTodayString(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+function isDueTodayOrOverdue(task: PersonalTask): boolean {
+  if (task.status === 'done') return false;
+  return task.due_date === localTodayString() || isOverdue(task);
+}
+
 export function PersonalTasksPanel({ variant = 'page', onToast }: PersonalTasksPanelProps) {
   const queryClient = useQueryClient();
   const { session, requireSession, authorLabel } = useWorkSession();
@@ -37,6 +47,7 @@ export function PersonalTasksPanel({ variant = 'page', onToast }: PersonalTasksP
   const [draft, setDraft] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [showDone, setShowDone] = useState(false);
+  const [asideExpanded, setAsideExpanded] = useState(false);
   const [promoteTask, setPromoteTask] = useState<PersonalTask | null>(null);
   const [promoteBusy, setPromoteBusy] = useState(false);
   const [staffNames, setStaffNames] = useState<string[]>([]);
@@ -53,8 +64,10 @@ export function PersonalTasksPanel({ variant = 'page', onToast }: PersonalTasksP
 
   const openTasks = tasks.filter((task) => task.status === 'open');
   const doneTasks = tasks.filter((task) => task.status === 'done');
-  const visible = showDone ? tasks : openTasks;
+  const urgentTasks = openTasks.filter(isDueTodayOrOverdue);
   const compact = variant === 'aside';
+  const collapsed = compact && !asideExpanded;
+  const visible = collapsed ? urgentTasks : showDone ? tasks : openTasks;
 
   async function handleAdd(event: React.FormEvent) {
     event.preventDefault();
@@ -80,16 +93,35 @@ export function PersonalTasksPanel({ variant = 'page', onToast }: PersonalTasksP
   }
 
   return (
-    <section className={`personal-tasks personal-tasks--${variant}`}>
+    <section
+      className={`personal-tasks personal-tasks--${variant}${collapsed && urgentTasks.length ? ' personal-tasks--today' : ''}`}
+    >
       <div className={compact ? 'aside-card__head' : 'schedule-panel__header'}>
         <div>
-          <h3 className={compact ? 'aside-card__title' : undefined}>내 할 일</h3>
+          <h3 className={compact ? 'aside-card__title' : undefined}>
+            내 할 일
+            {compact && urgentTasks.length ? (
+              <span className="aside-card__title-badge aside-card__title-badge--warn">
+                오늘 {urgentTasks.length}
+              </span>
+            ) : null}
+          </h3>
           {!compact ? <p>{staffName}님만 보는 개인 체크리스트입니다.</p> : null}
         </div>
         {compact ? (
-          <Link href={buildWorkHubHref('personal')} className="aside-card__link">
-            전체
-          </Link>
+          <div className="personal-tasks__head-actions">
+            <button
+              type="button"
+              className="aside-card__collapse"
+              aria-expanded={asideExpanded}
+              onClick={() => setAsideExpanded((prev) => !prev)}
+            >
+              {asideExpanded ? '접기' : `전체 (${openTasks.length})`}
+            </button>
+            <Link href={buildWorkHubHref('personal')} className="aside-card__link">
+              전체
+            </Link>
+          </div>
         ) : null}
       </div>
 
@@ -97,31 +129,39 @@ export function PersonalTasksPanel({ variant = 'page', onToast }: PersonalTasksP
         <p className="personal-tasks__hint">DB 마이그레이션 <code>034_personal_tasks.sql</code> 적용이 필요합니다.</p>
       ) : null}
 
-      <form className="personal-tasks__composer" onSubmit={handleAdd}>
-        <input
-          type="text"
-          className="personal-tasks__input"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder="할 일 입력…"
-          disabled={createTask.isPending}
-        />
-        <input
-          type="date"
-          className="personal-tasks__date"
-          value={dueDate}
-          onChange={(event) => setDueDate(event.target.value)}
-          aria-label="마감일"
-        />
-        <button type="submit" className="btn btn--primary btn--small" disabled={createTask.isPending || !draft.trim()}>
-          추가
-        </button>
-      </form>
+      {!collapsed ? (
+        <form className="personal-tasks__composer" onSubmit={handleAdd}>
+          <input
+            type="text"
+            className="personal-tasks__input"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="할 일 입력…"
+            disabled={createTask.isPending}
+          />
+          <input
+            type="date"
+            className="personal-tasks__date"
+            value={dueDate}
+            onChange={(event) => setDueDate(event.target.value)}
+            aria-label="마감일"
+          />
+          <button type="submit" className="btn btn--primary btn--small" disabled={createTask.isPending || !draft.trim()}>
+            추가
+          </button>
+        </form>
+      ) : null}
 
       {isLoading ? (
         <p className="personal-tasks__hint">불러오는 중…</p>
       ) : !visible.length ? (
-        <p className="personal-tasks__hint">{showDone ? '할 일이 없습니다.' : '미완료 할 일이 없습니다.'}</p>
+        <p className="personal-tasks__hint">
+          {collapsed
+            ? '오늘 마감인 할 일이 없습니다.'
+            : showDone
+              ? '할 일이 없습니다.'
+              : '미완료 할 일이 없습니다.'}
+        </p>
       ) : (
         <ul className="personal-tasks__list">
           {visible.map((task) => (
@@ -169,7 +209,7 @@ export function PersonalTasksPanel({ variant = 'page', onToast }: PersonalTasksP
         </ul>
       )}
 
-      {doneTasks.length && compact ? (
+      {doneTasks.length && compact && asideExpanded ? (
         <button type="button" className="personal-tasks__toggle-done" onClick={() => setShowDone((v) => !v)}>
           {showDone ? '미완료만 보기' : `완료 ${doneTasks.length}건 보기`}
         </button>

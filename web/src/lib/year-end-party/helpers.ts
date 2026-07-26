@@ -6,15 +6,53 @@ import type {
   PartyVenue,
   PartyVenueVote,
   PartySettings,
+  PartyRank,
+  PartyBallotRanks,
+  PartyAvailability,
 } from '@/lib/year-end-party/types';
-import { PARTY_PREFERENCES, PARTY_AVAILABILITY } from '@/lib/year-end-party/types';
+import {
+  PARTY_RANKS,
+  PARTY_AVAILABILITY,
+  PARTY_VETO_RANK,
+  PARTY_VETO_META,
+} from '@/lib/year-end-party/types';
+
+export function rankMeta(rank: number | string) {
+  const key = Number(rank);
+  if (key === 1 || key === 2 || key === 3) return PARTY_RANKS[key as PartyRank];
+  if (key === PARTY_VETO_RANK) return PARTY_VETO_META;
+  return { label: `${rank}순위`, emoji: '·', score: 0 };
+}
+
+export function normalizeRank(value: unknown): PartyRank | null {
+  const n = Number(value);
+  if (n === 1 || n === 2 || n === 3) return n;
+  return null;
+}
+
+export function isVetoVote(vote: PartyVenueVote): boolean {
+  return Number(vote.rank) === PARTY_VETO_RANK;
+}
 
 export function venueScore(votes: PartyVenueVote[]): number {
-  return votes.reduce((sum, vote) => sum + PARTY_PREFERENCES[vote.preference].score, 0);
+  return votes.reduce((sum, vote) => sum + rankMeta(vote.rank).score, 0);
 }
 
 export function venueVoteCount(votes: PartyVenueVote[]): number {
-  return votes.length;
+  return votes.filter((vote) => !isVetoVote(vote)).length;
+}
+
+export function venueVetoCount(votes: PartyVenueVote[]): number {
+  return votes.filter(isVetoVote).length;
+}
+
+export function venueRankBreakdown(votes: PartyVenueVote[]) {
+  return {
+    1: votes.filter((v) => Number(v.rank) === 1).map((v) => v.voter_name),
+    2: votes.filter((v) => Number(v.rank) === 2).map((v) => v.voter_name),
+    3: votes.filter((v) => Number(v.rank) === 3).map((v) => v.voter_name),
+    veto: votes.filter(isVetoVote).map((v) => v.voter_name),
+  };
 }
 
 export function topVenueId(venues: PartyVenue[], votes: PartyVenueVote[]): string | null {
@@ -40,6 +78,129 @@ export function slotCounts(votes: PartyDateVote[]) {
   };
 }
 
+export type VoterBallotSummary = {
+  voter_name: string;
+  ranks: Partial<Record<PartyRank, string>>;
+  venueNames: Partial<Record<PartyRank, string>>;
+  vetoVenueName: string | null;
+  dateVoteCount: number;
+  hasVenueBallot: boolean;
+};
+
+export function buildVoterBallotSummaries(input: {
+  employees: PartyEmployee[];
+  venues: PartyVenue[];
+  venueVotes: PartyVenueVote[];
+  dateVotes: PartyDateVote[];
+}): {
+  voted: VoterBallotSummary[];
+  pending: PartyEmployee[];
+  venueNeverPicked: PartyVenue[];
+} {
+  const venueName = new Map(input.venues.map((v) => [v.id, v.name]));
+  const byVoter = new Map<string, PartyVenueVote[]>();
+  for (const vote of input.venueVotes) {
+    const list = byVoter.get(vote.voter_name) ?? [];
+    list.push(vote);
+    byVoter.set(vote.voter_name, list);
+  }
+
+  const dateCount = new Map<string, number>();
+  for (const vote of input.dateVotes) {
+    dateCount.set(vote.voter_name, (dateCount.get(vote.voter_name) ?? 0) + 1);
+  }
+
+  const attending = input.employees.filter((e) => e.attending);
+  const voted: VoterBallotSummary[] = [];
+  const pending: PartyEmployee[] = [];
+
+  function summarize(name: string, votes: PartyVenueVote[]): VoterBallotSummary {
+    const ranks: Partial<Record<PartyRank, string>> = {};
+    const venueNames: Partial<Record<PartyRank, string>> = {};
+    let vetoVenueName: string | null = null;
+    for (const vote of votes) {
+      if (isVetoVote(vote)) {
+        vetoVenueName = venueName.get(vote.venue_id) ?? vote.venue_id;
+        continue;
+      }
+      const rank = normalizeRank(vote.rank);
+      if (!rank) continue;
+      ranks[rank] = vote.venue_id;
+      venueNames[rank] = venueName.get(vote.venue_id) ?? vote.venue_id;
+    }
+    return {
+      voter_name: name,
+      ranks,
+      venueNames,
+      vetoVenueName,
+      dateVoteCount: dateCount.get(name) ?? 0,
+      hasVenueBallot: true,
+    };
+  }
+
+  for (const employee of attending) {
+    const votes = byVoter.get(employee.name) ?? [];
+    if (!votes.length) {
+      pending.push(employee);
+      continue;
+    }
+    voted.push(summarize(employee.name, votes));
+  }
+
+  // 명단에 없지만 투표한 사람
+  for (const [name, votes] of byVoter) {
+    if (attending.some((e) => e.name === name)) continue;
+    voted.push(summarize(name, votes));
+  }
+
+  voted.sort((a, b) => a.voter_name.localeCompare(b.voter_name, 'ko'));
+  pending.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+
+  const picked = new Set(input.venueVotes.filter((v) => !isVetoVote(v)).map((v) => v.venue_id));
+  const venueNeverPicked = input.venues.filter((v) => !picked.has(v.id));
+
+  return { voted, pending, venueNeverPicked };
+}
+
+export function emptyBallotRanks(): PartyBallotRanks {
+  return { 1: '', 2: '', 3: '', veto: '' };
+}
+
+export function ballotRanksFromVotes(votes: PartyVenueVote[]): PartyBallotRanks {
+  const ranks = emptyBallotRanks();
+  for (const vote of votes) {
+    if (isVetoVote(vote)) {
+      ranks.veto = vote.venue_id;
+      continue;
+    }
+    const rank = normalizeRank(vote.rank);
+    if (rank) ranks[rank] = vote.venue_id;
+  }
+  return ranks;
+}
+
+export function validateBallotRanks(ranks: PartyBallotRanks): string | null {
+  if (!ranks[1].trim()) return '1순위 장소를 선택해 주세요.';
+  const picked = [ranks[1], ranks[2], ranks[3]].map((id) => id.trim()).filter(Boolean);
+  if (new Set(picked).size !== picked.length) return '같은 장소를 여러 순위에 넣을 수 없습니다.';
+  const veto = ranks.veto.trim();
+  if (veto && picked.includes(veto)) {
+    return '순위에 넣은 장소를 「절대 가기 싫어요」로 선택할 수 없습니다.';
+  }
+  return null;
+}
+
+export function dateAvailabilityMap(
+  votes: PartyDateVote[],
+  voterName: string,
+): Record<string, PartyAvailability | ''> {
+  const map: Record<string, PartyAvailability | ''> = {};
+  for (const vote of votes) {
+    if (vote.voter_name === voterName) map[vote.slot_id] = vote.availability;
+  }
+  return map;
+}
+
 export type VoteDeadlineParts = {
   days: number;
   hours: number;
@@ -48,30 +209,83 @@ export type VoteDeadlineParts = {
   totalMs: number;
 };
 
-export type VoteDeadlineState =
+export type VoteWindowState =
   | { status: 'unset' }
-  | { status: 'closed'; endedAt: Date }
-  | ({ status: 'open'; endedAt: Date } & VoteDeadlineParts);
+  | ({ status: 'scheduled'; opensAt: Date } & VoteDeadlineParts)
+  | ({ status: 'open'; opensAt: Date | null; endedAt: Date | null } & VoteDeadlineParts)
+  | ({ status: 'open-indefinite'; opensAt: Date | null })
+  | { status: 'closed'; endedAt: Date };
 
-export function getVoteDeadlineState(
-  deadlineAt: string | null | undefined,
-  nowMs = Date.now(),
-): VoteDeadlineState {
-  if (!deadlineAt) return { status: 'unset' };
-  const endedAt = new Date(deadlineAt);
-  if (Number.isNaN(endedAt.getTime())) return { status: 'unset' };
-  const totalMs = endedAt.getTime() - nowMs;
-  if (totalMs <= 0) return { status: 'closed', endedAt };
-  const totalSec = Math.floor(totalMs / 1000);
+function countdownParts(totalMs: number): VoteDeadlineParts {
+  const clamped = Math.max(0, totalMs);
+  const totalSec = Math.floor(clamped / 1000);
   return {
-    status: 'open',
-    endedAt,
-    totalMs,
+    totalMs: clamped,
     days: Math.floor(totalSec / 86400),
     hours: Math.floor((totalSec % 86400) / 3600),
     minutes: Math.floor((totalSec % 3600) / 60),
     seconds: totalSec % 60,
   };
+}
+
+function parseInstant(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/** 투표 시작·마감 창. unset이면 상시 투표 가능. */
+export function getVoteWindowState(
+  opensAt: string | null | undefined,
+  deadlineAt: string | null | undefined,
+  nowMs = Date.now(),
+): VoteWindowState {
+  const opens = parseInstant(opensAt);
+  const ends = parseInstant(deadlineAt);
+
+  if (ends && ends.getTime() <= nowMs) {
+    return { status: 'closed', endedAt: ends };
+  }
+  if (opens && opens.getTime() > nowMs) {
+    return { status: 'scheduled', opensAt: opens, ...countdownParts(opens.getTime() - nowMs) };
+  }
+  if (ends) {
+    return {
+      status: 'open',
+      opensAt: opens,
+      endedAt: ends,
+      ...countdownParts(ends.getTime() - nowMs),
+    };
+  }
+  if (opens) {
+    return { status: 'open-indefinite', opensAt: opens };
+  }
+  return { status: 'unset' };
+}
+
+/** @deprecated use getVoteWindowState */
+export function getVoteDeadlineState(
+  deadlineAt: string | null | undefined,
+  nowMs = Date.now(),
+): VoteWindowState {
+  return getVoteWindowState(null, deadlineAt, nowMs);
+}
+
+export function canVoteNow(state: VoteWindowState): boolean {
+  return state.status === 'unset' || state.status === 'open' || state.status === 'open-indefinite';
+}
+
+export function voteLockMessage(state: VoteWindowState): string {
+  if (state.status === 'scheduled') return '투표 시작 전입니다.';
+  if (state.status === 'closed') return '투표 기한이 마감되었습니다.';
+  return '';
+}
+
+/** 관리자가 결과 공개를 눌렀을 때만 true. null/미설정이면 비밀 투표. */
+export function arePartyResultsPublished(
+  resultsPublishedAt: string | null | undefined,
+): boolean {
+  return Boolean(resultsPublishedAt);
 }
 
 export function toDatetimeLocalValue(iso: string | null | undefined): string {
@@ -256,7 +470,11 @@ export async function downloadPartyWorkbook(bundle: ExportBundle) {
           주차: venue.has_parking ? 'Y' : 'N',
           별점: venue.rating,
           득점: venueScore(votes),
-          표수: votes.length,
+          표수: venueVoteCount(votes),
+          '1순위': votes.filter((v) => Number(v.rank) === 1).length,
+          '2순위': votes.filter((v) => Number(v.rank) === 2).length,
+          '3순위': votes.filter((v) => Number(v.rank) === 3).length,
+          싫어요: venueVetoCount(votes),
         };
       }),
     ),
@@ -269,7 +487,7 @@ export async function downloadPartyWorkbook(bundle: ExportBundle) {
       bundle.venueVotes.map((vote) => ({
         장소ID: vote.venue_id,
         투표자: vote.voter_name,
-        선호도: vote.preference,
+        순위: rankMeta(vote.rank).label,
         한줄평: vote.comment,
       })),
     ),

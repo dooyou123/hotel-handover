@@ -1,13 +1,11 @@
 'use client';
 
-import { AppTicker } from '@/components/layout/app-ticker';
 import { TodayTaxiBar } from '@/components/transport/today-taxi-bar';
 
-/** 티커·택시 알림 — 한 줄 캐러셀 */
+/** 상단 보조 알림 — 택시만 (공지는 primary topbar) */
 export function TopbarAlertsStrip() {
   return (
-    <div className="nova-topbar-alerts nova-topbar-alerts--compact" aria-label="긴급 알림">
-      <AppTicker />
+    <div className="nova-topbar-alerts nova-topbar-alerts--compact" aria-label="알림">
       <TodayTaxiBar compact />
     </div>
   );

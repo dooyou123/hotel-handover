@@ -86,6 +86,8 @@ export const APP_NAV = [
   { href: '/handover', label: '인수인계', description: '지금 처리·넘겨야 하는 업무를 카드로 공유합니다.', category: 'core' as const },
   { href: '/work', label: '팀 소식·일정', description: '공지·할일·호텔 일정을 한곳에서 확인합니다.', category: 'core' as const },
   { href: '/schedule', label: '근무표', description: '월 달력에서 조별 근무를 직접 추가·수정·삭제하고 엑셀로 등록합니다.', category: 'core' as const },
+  { href: '/schedules', label: '스케줄', description: '월별 스케줄 사진을 올려 한눈에 확인합니다.', category: 'core' as const },
+  { href: '/day-off-manage', label: '휴무 신청', description: '다음 달 휴무 신청 기간·정원·차단일을 관리하고 예외 신청을 승인합니다.', category: 'core' as const },
   { href: '/contacts', label: '연락처', description: '내선·휴대폰 등 빠른 연락처를 모아 둡니다.', category: 'ops' as const },
   { href: '/checklist', label: '체크리스트', description: '교대·조별 확인 항목을 체크합니다.', category: 'ops' as const },
   { href: '/training', label: '프런트 교육', description: '긴급 대응·컴플레인 롤플레이 교육 모듈입니다.', category: 'ops' as const },

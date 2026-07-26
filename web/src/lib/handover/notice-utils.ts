@@ -17,3 +17,18 @@ export function noticeListTitle(content: string): string {
   if (!line) return '(내용 없음)';
   return line.length > 72 ? `${line.slice(0, 72)}…` : line;
 }
+
+/** 상세 본문 — 헤더 제목으로 쓴 첫 줄을 제외 */
+export function noticeBodyWithoutTitle(content: string): string {
+  const lines = content.split('\n');
+  let skippedTitle = false;
+  const rest: string[] = [];
+  for (const line of lines) {
+    if (!skippedTitle && line.trim()) {
+      skippedTitle = true;
+      continue;
+    }
+    rest.push(line);
+  }
+  return rest.join('\n').replace(/^\n+/, '').replace(/\n+$/, '');
+}

@@ -298,6 +298,14 @@ html[data-ui='project'] .nova-topbar__end {
   margin-left: auto;
 }
 
+html[data-ui='project'] .nova-topbar__date {
+  flex-shrink: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
 html[data-ui='project'] .nova-topbar-alerts {
   display: flex;
   flex-direction: column;
@@ -778,6 +786,42 @@ html[data-ui='project'] .session-schedule-mismatch__action:hover {
   background: #fef3c7;
 }
 
+html[data-ui='project'] .schedule-confirm-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 1.35rem;
+  border-bottom: 1px solid color-mix(in srgb, #dc2626 22%, var(--border));
+  background: color-mix(in srgb, #dc2626 10%, #fff);
+  color: #991b1b;
+  font-size: 0.82rem;
+}
+
+html[data-ui='project'] .schedule-confirm-banner__text {
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+html[data-ui='project'] .schedule-confirm-banner__action {
+  flex-shrink: 0;
+  padding: 0.32rem 0.7rem;
+  border: 1px solid #dc2626;
+  border-radius: var(--radius-sm);
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+html[data-ui='project'] .schedule-confirm-banner__action:hover {
+  background: #b91c1c;
+}
+
 html[data-ui='project'] .nova-topbar-alerts--compact {
   flex-direction: row;
   align-items: center;
@@ -785,64 +829,65 @@ html[data-ui='project'] .nova-topbar-alerts--compact {
   background: transparent;
 }
 
-html[data-ui='project'] .nova-topbar-alerts--compact .app-ticker--carousel {
-  flex: 1;
-  min-width: 0;
-  align-self: stretch;
-}
-
-html[data-ui='project'] .nova-topbar-alerts--compact .app-ticker--carousel:has(.app-ticker__carousel-controls) .app-ticker__carousel-action {
+html[data-ui='project'] .nova-topbar-alerts--compact:has(> :only-child:empty),
+html[data-ui='project'] .nova-topbar-alerts--compact:empty {
   display: none;
 }
 
 html[data-ui='project'] .nova-topbar-alerts--compact .today-taxi-bar,
 html[data-ui='project'] .nova-topbar-alerts--compact .today-taxi-bar--compact-summary {
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 0;
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: center;
-  align-self: center;
+  align-self: stretch;
   gap: 0.35rem;
   margin: 0;
-  padding: 0.35rem 0.85rem 0.35rem 0.75rem;
-  border-left: 1px solid var(--border);
+  padding: 0.35rem 1rem;
+  border-left: 0;
   background: var(--surface);
 }
 
-/* 업무 알림 캐러셀 — 한 줄, 우선순위 1건씩 */
-html[data-ui='project'] .app-ticker--carousel {
-  display: flex;
-  align-items: center;
-  min-height: 2.35rem;
-  border-bottom: none;
+html[data-ui='project'] .nova-topbar--primary .app-ticker--headline {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
 }
 
-html[data-ui='project'] .app-ticker--carousel--urgent {
-  background: #fef2f2;
-  color: #991b1b;
+/* 상단 공지 — 움직임 없이 우선 1건 + 외 N건 */
+html[data-ui='project'] .app-ticker--headline {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.35rem;
+  padding: 0.15rem 0.2rem 0.15rem 0;
+  border-radius: 0.55rem;
+}
+
+html[data-ui='project'] .app-ticker--headline--urgent {
+  background: color-mix(in srgb, #fef2f2 88%, transparent);
   box-shadow: inset 3px 0 0 #dc2626;
 }
 
-html[data-ui='project'] .app-ticker--carousel--warn {
-  background: #fffbeb;
-  color: #92400e;
+html[data-ui='project'] .app-ticker--headline--warn {
+  background: color-mix(in srgb, #fffbeb 88%, transparent);
   box-shadow: inset 3px 0 0 #d97706;
 }
 
-html[data-ui='project'] .app-ticker--carousel--info {
-  background: #eff6ff;
-  color: #1e40af;
+html[data-ui='project'] .app-ticker--headline--info {
+  background: color-mix(in srgb, #eff6ff 88%, transparent);
   box-shadow: inset 3px 0 0 #2563eb;
 }
 
-html[data-ui='project'] .app-ticker__carousel-main {
+html[data-ui='project'] .app-ticker__headline-main {
   flex: 1;
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.4rem 0.85rem 0.4rem 1rem;
-  border: none;
+  gap: 0.45rem;
+  padding: 0.4rem 0.65rem 0.4rem 0.85rem;
+  border: 0;
   background: transparent;
   color: inherit;
   font: inherit;
@@ -850,144 +895,143 @@ html[data-ui='project'] .app-ticker__carousel-main {
   cursor: pointer;
 }
 
-html[data-ui='project'] .app-ticker__carousel-main:hover {
-  filter: brightness(0.98);
+html[data-ui='project'] .app-ticker--headline--urgent .app-ticker__headline-main {
+  color: #991b1b;
 }
 
-html[data-ui='project'] .app-ticker__carousel-label {
+html[data-ui='project'] .app-ticker--headline--warn .app-ticker__headline-main {
+  color: #92400e;
+}
+
+html[data-ui='project'] .app-ticker--headline--info .app-ticker__headline-main {
+  color: #1e40af;
+}
+
+html[data-ui='project'] .app-ticker__headline-main:hover .app-ticker__headline-body {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+html[data-ui='project'] .app-ticker__headline-label {
   flex-shrink: 0;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 800;
 }
 
-html[data-ui='project'] .app-ticker__carousel-sep {
-  flex-shrink: 0;
-  opacity: 0.55;
-}
-
-html[data-ui='project'] .app-ticker__carousel-body {
-  flex: 1;
+html[data-ui='project'] .app-ticker__headline-body {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.84rem;
+  font-size: 0.88rem;
   font-weight: 600;
 }
 
-html[data-ui='project'] .app-ticker__carousel-action {
+html[data-ui='project'] .app-ticker__headline-action {
   flex-shrink: 0;
-  margin-left: 0.35rem;
-  padding: 0.22rem 0.6rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid currentColor;
-  background: rgba(255, 255, 255, 0.55);
-  font-size: 0.74rem;
-  font-weight: 800;
+  margin-left: auto;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
-html[data-ui='project'] .app-ticker__carousel-controls {
+html[data-ui='project'] .app-ticker__headline-more {
+  position: relative;
   flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.15rem;
-  padding: 0 0.55rem 0 0.15rem;
-  border-left: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  margin-right: 0.35rem;
 }
 
-html[data-ui='project'] .app-ticker__carousel-step {
-  width: 1.65rem;
-  height: 1.65rem;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: inherit;
-  font-size: 1rem;
-  line-height: 1;
-  cursor: pointer;
-}
-
-html[data-ui='project'] .app-ticker__carousel-step:hover {
-  background: rgba(255, 255, 255, 0.45);
-}
-
-html[data-ui='project'] .app-ticker__carousel-count {
-  min-width: 2.4rem;
+html[data-ui='project'] .app-ticker__headline-more-toggle {
+  padding: 0.28rem 0.55rem;
+  border: 1px solid color-mix(in srgb, currentColor 20%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, #fff 70%, transparent);
+  color: var(--text-secondary);
   font-size: 0.74rem;
   font-weight: 700;
-  text-align: center;
-  opacity: 0.85;
-}
-
-html[data-ui='project'] .app-ticker__carousel-list {
-  position: relative;
-}
-
-html[data-ui='project'] .app-ticker__carousel-list-toggle {
-  list-style: none;
-  padding: 0.22rem 0.5rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
-  background: rgba(255, 255, 255, 0.45);
-  font-size: 0.72rem;
-  font-weight: 800;
   cursor: pointer;
-  user-select: none;
+  list-style: none;
+  white-space: nowrap;
 }
 
-html[data-ui='project'] .app-ticker__carousel-list-toggle::-webkit-details-marker {
+html[data-ui='project'] .app-ticker--headline--urgent .app-ticker__headline-more-toggle {
+  color: #991b1b;
+}
+
+html[data-ui='project'] .app-ticker--headline--warn .app-ticker__headline-more-toggle {
+  color: #92400e;
+}
+
+html[data-ui='project'] .app-ticker--headline--info .app-ticker__headline-more-toggle {
+  color: #1e40af;
+}
+
+html[data-ui='project'] .app-ticker__headline-more-toggle::-webkit-details-marker {
   display: none;
 }
 
-html[data-ui='project'] .app-ticker__carousel-list-panel {
+html[data-ui='project'] .app-ticker__headline-more-panel {
   position: absolute;
   top: calc(100% + 0.35rem);
   right: 0;
-  z-index: 30;
-  width: min(22rem, calc(100vw - 2rem));
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 16rem;
+  max-width: min(26rem, 80vw);
   max-height: min(18rem, 50vh);
   overflow: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.45rem;
+  padding: 0.35rem;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 0.65rem;
   background: var(--surface);
-  box-shadow: var(--shadow-strong);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16);
+  color: var(--text);
 }
 
-html[data-ui='project'] .app-ticker__carousel-list-item {
+html[data-ui='project'] .app-ticker__headline-more-item {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
   gap: 0.15rem;
-  width: 100%;
-  padding: 0.5rem 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  color: var(--text);
-  font: inherit;
+  padding: 0.5rem 0.55rem;
+  border: 0;
+  border-radius: 0.45rem;
+  background: transparent;
+  color: inherit;
   text-align: left;
   cursor: pointer;
 }
 
-html[data-ui='project'] .app-ticker__carousel-list-item.is-active {
-  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
-  background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+html[data-ui='project'] .app-ticker__headline-more-item:hover,
+html[data-ui='project'] .app-ticker__headline-more-item.is-current {
+  background: var(--surface-2);
 }
 
-html[data-ui='project'] .app-ticker__carousel-list-label {
-  font-size: 0.72rem;
+html[data-ui='project'] .app-ticker__headline-more-label {
+  font-size: 0.74rem;
   font-weight: 800;
-  color: var(--text-muted);
 }
 
-html[data-ui='project'] .app-ticker__carousel-list-body {
-  font-size: 0.82rem;
-  font-weight: 600;
-  line-height: 1.4;
+html[data-ui='project'] .app-ticker__headline-more-item--urgent .app-ticker__headline-more-label {
+  color: #b91c1c;
+}
+
+html[data-ui='project'] .app-ticker__headline-more-item--warn .app-ticker__headline-more-label {
+  color: #b45309;
+}
+
+html[data-ui='project'] .app-ticker__headline-more-item--info .app-ticker__headline-more-label {
+  color: #1d4ed8;
+}
+
+html[data-ui='project'] .app-ticker__headline-more-body {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
 }
 
 /* 업무 알림 리본 (레거시) */
@@ -1227,17 +1271,51 @@ html[data-ui='project'] .notice-read-banner {
 }
 
 html[data-ui='project'] .notice-read-status {
-  margin-top: 1rem;
-  padding: 0.75rem 0.85rem;
-  border-radius: 8px;
+  margin-top: 1.25rem;
+  padding: 0;
+  border-radius: 0.65rem;
   border: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface) 94%, var(--primary) 6%);
   font-size: 0.84rem;
+  overflow: hidden;
+}
+
+html[data-ui='project'] .notice-read-status__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+html[data-ui='project'] .notice-read-status__summary::-webkit-details-marker {
+  display: none;
+}
+
+html[data-ui='project'] .notice-read-status__summary::after {
+  content: '▾';
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  transition: transform 0.15s ease;
+}
+
+html[data-ui='project'] .notice-read-status[open] .notice-read-status__summary::after {
+  transform: rotate(180deg);
 }
 
 html[data-ui='project'] .notice-read-status__title {
-  margin: 0 0 0.35rem;
+  margin: 0;
   font-weight: 700;
+}
+
+html[data-ui='project'] .notice-read-status__hint {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
 html[data-ui='project'] .notice-read-status__mine {
@@ -1245,12 +1323,16 @@ html[data-ui='project'] .notice-read-status__mine {
   color: var(--primary);
 }
 
-html[data-ui='project'] .notice-read-status__unread {
+html[data-ui='project'] .notice-read-status__unread,
+html[data-ui='project'] .notice-read-status__done {
   margin: 0;
+  padding: 0 0.85rem 0.75rem;
+}
+
+html[data-ui='project'] .notice-read-status__unread {
   color: #b91c1c;
 }
 
 html[data-ui='project'] .notice-read-status__done {
-  margin: 0;
   color: var(--primary);
 }

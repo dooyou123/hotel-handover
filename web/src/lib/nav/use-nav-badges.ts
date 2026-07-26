@@ -7,6 +7,7 @@ import { todayDateString } from '@/lib/handover/shift-summary';
 import { useCards } from '@/lib/handover/use-cards';
 import { useNotices } from '@/lib/handover/use-notices';
 import { computeNavBadges, type NavBadgeMap } from '@/lib/nav/nav-badges';
+import { useScheduleConfirmAlerts } from '@/lib/schedules/use-schedule-alerts';
 import { useTodos } from '@/lib/todos/use-todos';
 import { useTodayPendingTransport } from '@/lib/transport/use-transport';
 
@@ -18,6 +19,7 @@ export function useNavBadges(): NavBadgeMap {
   const { events } = useMonthEvents(month);
   const { data: pinnedContacts = [] } = usePinnedContacts();
   const { data: transportBookings = [] } = useTodayPendingTransport();
+  const { alerts: scheduleAlerts } = useScheduleConfirmAlerts();
 
   return useMemo(
     () =>
@@ -28,7 +30,8 @@ export function useNavBadges(): NavBadgeMap {
         events,
         transportBookings,
         pinnedContactsCount: pinnedContacts.length,
+        scheduleConfirmCount: scheduleAlerts.length,
       }),
-    [cards, notices, todos, events, transportBookings, pinnedContacts.length],
+    [cards, notices, todos, events, transportBookings, pinnedContacts.length, scheduleAlerts.length],
   );
 }

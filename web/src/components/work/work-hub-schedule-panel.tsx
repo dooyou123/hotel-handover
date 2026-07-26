@@ -16,7 +16,7 @@ import {
   WorkHubToolbar,
   WorkHubToolbarGroup,
 } from '@/components/work/work-hub-list';
-import { WorkHubMonthCalendar } from '@/components/work/work-hub-month-calendar';
+import { WorkHubMonthCalendar, type WorkHubDayMarks } from '@/components/work/work-hub-month-calendar';
 import { createClient } from '@/lib/supabase/client';
 import { useMonthEvents } from '@/lib/events/use-events';
 import type { HotelEvent, HotelEventInput } from '@/lib/events/types';
@@ -73,6 +73,21 @@ function matchesScheduleText(
   const q = query.trim().toLowerCase();
   if (!q) return true;
   return fields.some((field) => (field ?? '').toLowerCase().includes(q));
+}
+
+function addDays(isoDate: string, delta: number): string {
+  const date = new Date(`${isoDate}T12:00:00`);
+  date.setDate(date.getDate() + delta);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function shortDateLabel(isoDate: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
+  if (!match) return isoDate;
+  return `${Number(match[2])}/${Number(match[3])}`;
 }
 
 export function WorkHubSchedulePanel() {
@@ -202,18 +217,29 @@ export function WorkHubSchedulePanel() {
     [filteredTodos, filter],
   );
 
-  const dayCounts = useMemo(() => {
-    const counts = new Map<string, number>();
+  const dayMarks = useMemo(() => {
+    const marks = new Map<string, WorkHubDayMarks>();
+    function ensure(date: string): WorkHubDayMarks {
+      let row = marks.get(date);
+      if (!row) {
+        row = { todo: false, event: false, urgent: false };
+        marks.set(date, row);
+      }
+      return row;
+    }
     filteredEvents.forEach((event) => {
       eachEventDateInMonth(event, month).forEach((date) => {
-        counts.set(date, (counts.get(date) ?? 0) + 1);
+        const row = ensure(date);
+        row.event = true;
       });
     });
     filteredTodos.forEach((todo) => {
       if (!todo.due_date || !todo.due_date.startsWith(month)) return;
-      counts.set(todo.due_date, (counts.get(todo.due_date) ?? 0) + 1);
+      const row = ensure(todo.due_date);
+      row.todo = true;
+      if (todo.priority === 'urgent' && todo.status !== 'done') row.urgent = true;
     });
-    return counts;
+    return marks;
   }, [filteredEvents, filteredTodos, month]);
 
   const selectedEvents = useMemo(
@@ -233,6 +259,44 @@ export function WorkHubSchedulePanel() {
       ),
     [filteredTodos, selectedDate],
   );
+
+  const upcomingRange = useMemo(() => {
+    const start = selectedDate < today ? today : addDays(selectedDate, 1);
+    const end = addDays(start, 13);
+    return { start, end };
+  }, [selectedDate, today]);
+
+  const upcomingEvents = useMemo(() => {
+    const items: Array<{ date: string; event: HotelEvent }> = [];
+    for (const event of filteredEvents) {
+      if (event.completed_at) continue;
+      let cursor = upcomingRange.start;
+      while (cursor <= upcomingRange.end) {
+        if (isDateInEventRange(cursor, event)) {
+          items.push({ date: cursor, event });
+          break;
+        }
+        cursor = addDays(cursor, 1);
+      }
+    }
+    return items.sort((a, b) => a.date.localeCompare(b.date) || a.event.title.localeCompare(b.event.title));
+  }, [filteredEvents, upcomingRange]);
+
+  const upcomingTodos = useMemo(
+    () =>
+      filteredTodos
+        .filter(
+          (todo) =>
+            todo.status !== 'done' &&
+            todo.due_date &&
+            todo.due_date >= upcomingRange.start &&
+            todo.due_date <= upcomingRange.end,
+        )
+        .sort((a, b) => (a.due_date ?? '').localeCompare(b.due_date ?? '')),
+    [filteredTodos, upcomingRange],
+  );
+
+  const upcomingCount = upcomingEvents.length + upcomingTodos.length;
 
   const openCount = todos.filter((t) => t.status === 'open').length;
   const linkedCard = editingTodo?.linked_card_id
@@ -380,14 +444,6 @@ export function WorkHubSchedulePanel() {
               ariaLabel="할일·일정 내용 검색"
             />
           </WorkHubToolbarGroup>
-          <WorkHubToolbarGroup>
-            <button type="button" className="btn btn--primary btn--small" onClick={openNewEvent}>
-              + 일정
-            </button>
-            <button type="button" className="btn btn--outline btn--small" onClick={openNewTodo}>
-              + 할일
-            </button>
-          </WorkHubToolbarGroup>
         </WorkHubToolbar>
 
         {isLoading ? (
@@ -401,7 +457,7 @@ export function WorkHubSchedulePanel() {
                 <WorkHubMonthCalendar
                   month={month}
                   selectedDate={selectedDate}
-                  dayCounts={dayCounts}
+                  dayMarks={dayMarks}
                   onMonthChange={setMonth}
                   onSelectDate={setSelectedDate}
                 />
@@ -411,74 +467,148 @@ export function WorkHubSchedulePanel() {
                 <WorkHubSection
                   id="work-hub-schedule-day"
                   title={formatCalendarDateLabel(selectedDate)}
-                  aside={selectedCount ? <span className="work-hub__count">{selectedCount}건</span> : undefined}
+                  aside={
+                    <div className="work-hub-schedule__day-actions">
+                      {selectedCount ? (
+                        <span className="work-hub__count">{selectedCount}건</span>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="btn btn--outline btn--small"
+                        onClick={openNewEvent}
+                      >
+                        + 일정
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn--primary btn--small"
+                        onClick={openNewTodo}
+                      >
+                        + 할일
+                      </button>
+                    </div>
+                  }
                 >
                   {selectedCount ? (
                     <WorkHubList>
                       {selectedEvents.map((event) => {
-                    const isDone = Boolean(event.completed_at);
-                    return (
-                      <WorkHubRow
-                        key={`event-${event.id}`}
-                        kind={event.category || '일정'}
-                        title={event.title}
-                        meta={formatEventTimeRange(event.start_time, event.end_time) || '종일'}
-                        rowClassName={isDone ? 'is-done' : undefined}
-                        leading={
-                          <WorkHubCheckButton
-                            checked={isDone}
-                            label={isDone ? '완료 취소' : '완료'}
-                            onClick={() => void handleToggleEvent(event)}
+                        const isDone = Boolean(event.completed_at);
+                        return (
+                          <WorkHubRow
+                            key={`event-${event.id}`}
+                            tone="event"
+                            kind={event.category || '일정'}
+                            title={event.title}
+                            meta={formatEventTimeRange(event.start_time, event.end_time) || '종일'}
+                            rowClassName={isDone ? 'is-done' : undefined}
+                            leading={
+                              <WorkHubCheckButton
+                                checked={isDone}
+                                label={isDone ? '완료 취소' : '완료'}
+                                onClick={() => void handleToggleEvent(event)}
+                              />
+                            }
+                            onClick={() => {
+                              setEditingEvent(event);
+                              setEventModalOpen(true);
+                            }}
                           />
-                        }
-                        onClick={() => {
-                          setEditingEvent(event);
-                          setEventModalOpen(true);
-                        }}
-                      />
-                    );
-                  })}
-                  {selectedTodos.map((todo) => {
-                    const card = todo.linked_card_id
-                      ? cards.find((linked) => linked.id === todo.linked_card_id)
-                      : null;
-                    return (
-                      <WorkHubRow
-                        key={`todo-${todo.id}`}
-                        liClassName={
-                          [isOverdue(todo) ? 'is-overdue' : '', todo.priority === 'urgent' ? 'is-urgent' : '']
-                            .filter(Boolean)
-                            .join(' ') || undefined
-                        }
-                        kind="할일"
-                        title={todo.title}
-                        meta={
-                          <>
-                            {TODO_PRIORITY_LABELS[todo.priority]}
-                            {describeRecurrence(todo) ? ` · ${describeRecurrence(todo)}` : ''}
-                            {todo.assignee_name ? ` · ${todo.assignee_name}` : ''}
-                            {card ? ' · 인수인계 연동' : ''}
-                          </>
-                        }
-                        rowClassName={todo.status === 'done' ? 'is-done' : undefined}
-                        leading={
-                          <WorkHubCheckButton
-                            checked={todo.status === 'done'}
-                            label={todo.status === 'done' ? '완료 취소' : '완료'}
-                            onClick={() => void handleToggle(todo)}
+                        );
+                      })}
+                      {selectedTodos.map((todo) => {
+                        const card = todo.linked_card_id
+                          ? cards.find((linked) => linked.id === todo.linked_card_id)
+                          : null;
+                        return (
+                          <WorkHubRow
+                            key={`todo-${todo.id}`}
+                            tone={todo.priority === 'urgent' ? 'urgent' : 'todo'}
+                            liClassName={isOverdue(todo) ? 'is-overdue' : undefined}
+                            kind="할일"
+                            title={todo.title}
+                            meta={
+                              <>
+                                {TODO_PRIORITY_LABELS[todo.priority]}
+                                {describeRecurrence(todo) ? ` · ${describeRecurrence(todo)}` : ''}
+                                {todo.assignee_name ? ` · ${todo.assignee_name}` : ''}
+                                {card ? ' · 인수인계 연동' : ''}
+                              </>
+                            }
+                            rowClassName={todo.status === 'done' ? 'is-done' : undefined}
+                            leading={
+                              <WorkHubCheckButton
+                                checked={todo.status === 'done'}
+                                label={todo.status === 'done' ? '완료 취소' : '완료'}
+                                onClick={() => void handleToggle(todo)}
+                              />
+                            }
+                            onClick={() => {
+                              setEditingTodo(todo);
+                              setModalOpen(true);
+                            }}
                           />
-                        }
-                        onClick={() => {
-                          setEditingTodo(todo);
-                          setModalOpen(true);
-                        }}
-                      />
-                    );
-                  })}
-                </WorkHubList>
-              ) : (
-                <WorkHubEmpty>선택한 날짜에 등록된 할일·일정이 없습니다.</WorkHubEmpty>
-              )}
+                        );
+                      })}
+                    </WorkHubList>
+                  ) : upcomingCount ? (
+                    <div className="work-hub-schedule__upcoming">
+                      <p className="work-hub-schedule__upcoming-hint">
+                        이 날에는 항목이 없습니다. 다가오는 {upcomingCount}건을 보여줍니다.
+                      </p>
+                      <WorkHubList>
+                        {upcomingEvents.map(({ date, event }) => (
+                          <WorkHubRow
+                            key={`up-event-${event.id}-${date}`}
+                            tone="event"
+                            kind={event.category || '일정'}
+                            title={event.title}
+                            meta={
+                              <>
+                                {shortDateLabel(date)}
+                                {' · '}
+                                {formatEventTimeRange(event.start_time, event.end_time) || '종일'}
+                              </>
+                            }
+                            onClick={() => {
+                              setSelectedDate(date);
+                              setMonth(date.slice(0, 7));
+                              setEditingEvent(event);
+                              setEventModalOpen(true);
+                            }}
+                          />
+                        ))}
+                        {upcomingTodos.map((todo) => (
+                          <WorkHubRow
+                            key={`up-todo-${todo.id}`}
+                            tone={todo.priority === 'urgent' ? 'urgent' : 'todo'}
+                            kind="할일"
+                            title={todo.title}
+                            meta={
+                              <>
+                                {todo.due_date ? shortDateLabel(todo.due_date) : ''}
+                                {' · '}
+                                {TODO_PRIORITY_LABELS[todo.priority]}
+                                {todo.assignee_name ? ` · ${todo.assignee_name}` : ''}
+                              </>
+                            }
+                            onClick={() => {
+                              if (todo.due_date) {
+                                setSelectedDate(todo.due_date);
+                                setMonth(todo.due_date.slice(0, 7));
+                              }
+                              setEditingTodo(todo);
+                              setModalOpen(true);
+                            }}
+                          />
+                        ))}
+                      </WorkHubList>
+                    </div>
+                  ) : (
+                    <WorkHubEmpty>
+                      선택한 날짜와 앞으로 2주간 등록된 할일·일정이 없습니다. 오른쪽 위 버튼으로
+                      추가해 보세요.
+                    </WorkHubEmpty>
+                  )}
                 </WorkHubSection>
               </div>
             </div>
@@ -489,7 +619,7 @@ export function WorkHubSchedulePanel() {
                   {undatedTodos.map((todo) => (
                     <WorkHubRow
                       key={`undated-${todo.id}`}
-                      liClassName={todo.priority === 'urgent' ? 'is-urgent' : undefined}
+                      tone={todo.priority === 'urgent' ? 'urgent' : 'todo'}
                       kind="할일"
                       title={todo.title}
                       meta={
@@ -526,6 +656,7 @@ export function WorkHubSchedulePanel() {
         authorLabel={authorLabel}
         defaultShift={session.shift}
         defaultName={session.name}
+        defaultDueDate={selectedDate}
         staffNames={staffNames}
         onClose={() => setModalOpen(false)}
         onSave={handleSave}

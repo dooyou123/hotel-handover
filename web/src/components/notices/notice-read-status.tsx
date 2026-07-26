@@ -19,11 +19,14 @@ export function NoticeReadStatus({ notice, activeStaffNames, currentStaffName }:
   const mineRead = read.includes(currentStaffName.trim());
 
   return (
-    <div className="notice-read-status">
-      <p className="notice-read-status__title">
-        📌 필독 확인 · {read.length}/{activeStaffNames.length}명
-        {mineRead ? <span className="notice-read-status__mine"> · 내 확인 완료</span> : null}
-      </p>
+    <details className="notice-read-status">
+      <summary className="notice-read-status__summary">
+        <span className="notice-read-status__title">
+          필독 확인 · {read.length}/{activeStaffNames.length}명
+          {mineRead ? <span className="notice-read-status__mine"> · 내 확인 완료</span> : null}
+        </span>
+        <span className="notice-read-status__hint">{unread.length ? `미확인 ${unread.length}명` : '전원 확인'}</span>
+      </summary>
       {unread.length ? (
         <p className="notice-read-status__unread">
           미확인: <strong>{unread.join(', ')}</strong>
@@ -31,6 +34,6 @@ export function NoticeReadStatus({ notice, activeStaffNames, currentStaffName }:
       ) : (
         <p className="notice-read-status__done">전원 확인했습니다.</p>
       )}
-    </div>
+    </details>
   );
 }

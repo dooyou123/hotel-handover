@@ -119,6 +119,52 @@ export function NoticesPageClient({ embedded = false }: NoticesPageClientProps) 
     [filtered],
   );
 
+  const unpinnedNotices = useMemo(
+    () => filtered.filter((notice) => !notice.is_pinned),
+    [filtered],
+  );
+
+  function renderWorkHubNoticeRow(notice: Notice, options?: { showPinChip?: boolean }) {
+    const isDone = isNoticeCompleted(notice);
+    const expiry = formatExpiryLabel(notice.expires_at);
+    const showPinChip = options?.showPinChip ?? notice.is_pinned;
+    return (
+      <WorkHubRow
+        key={notice.id}
+        tone={notice.type === 'change' ? 'change' : 'announcement'}
+        kind={noticeTypeShort(notice.type)}
+        title={<LinkifiedText text={noticeListTitle(notice.content)} />}
+        meta={
+          <>
+            {showPinChip ? (
+              <span className="work-hub-today__chip work-hub-today__chip--pin">고정</span>
+            ) : null}
+            {isDone ? (
+              <span className="work-hub-today__chip work-hub-today__chip--done">완료</span>
+            ) : null}
+            {expiry?.soon ? (
+              <span className="work-hub-today__chip work-hub-today__chip--warn">{expiry.text}</span>
+            ) : null}
+            <span>
+              {notice.author || '—'}
+              {' · '}
+              {formatTime(notice.updated_at || notice.created_at)}
+              {expiry && !expiry.soon ? ` · ${expiry.text}` : ''}
+            </span>
+          </>
+        }
+        rowClassName={[
+          notice.is_pinned ? 'is-pinned' : '',
+          activeNotice?.id === notice.id ? 'is-reading' : '',
+          isDone ? 'is-done' : '',
+        ]
+          .filter(Boolean)
+          .join(' ') || undefined}
+        onClick={() => openRead(notice)}
+      />
+    );
+  }
+
   function showToast(message: string) {
     setToast(message);
     window.setTimeout(() => setToast(null), 2500);
@@ -325,39 +371,56 @@ export function NoticesPageClient({ embedded = false }: NoticesPageClientProps) 
           </WorkHubToolbar>
 
           {filtered.length ? (
-            <WorkHubSection id="work-hub-notices-list" title={NOTICE_BOARD_TABS.find((t) => t.id === boardTab)?.label ?? '공지'}>
-              <WorkHubList>
-                {filtered.map((notice) => {
-                  const isDone = isNoticeCompleted(notice);
-                  const expiry = formatExpiryLabel(notice.expires_at);
-                  return (
-                    <WorkHubRow
-                      key={notice.id}
-                      kind={noticeTypeShort(notice.type)}
-                      title={<LinkifiedText text={noticeListTitle(notice.content)} />}
-                      meta={
-                        <>
-                          {notice.is_pinned ? '📌 ' : ''}
-                          {isDone ? '완료 · ' : ''}
-                          {notice.author || '—'}
-                          {' · '}
-                          {formatTime(notice.updated_at || notice.created_at)}
-                          {expiry ? ` · ${expiry.text}` : ''}
-                        </>
-                      }
-                      rowClassName={[
-                        notice.is_pinned ? 'is-pinned' : '',
-                        activeNotice?.id === notice.id ? 'is-reading' : '',
-                        isDone ? 'is-done' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ') || undefined}
-                      onClick={() => openRead(notice)}
-                    />
-                  );
-                })}
-              </WorkHubList>
-            </WorkHubSection>
+            <>
+              <ul className="work-hub-board-legend" aria-label="표시 안내">
+                <li>
+                  <i className="is-announcement" aria-hidden />
+                  공지
+                </li>
+                <li>
+                  <i className="is-change" aria-hidden />
+                  변경
+                </li>
+                <li>
+                  <i className="is-pin" aria-hidden />
+                  고정
+                </li>
+                <li>
+                  <i className="is-warn" aria-hidden />
+                  만료 임박
+                </li>
+              </ul>
+
+              {pinnedNotices.length ? (
+                <WorkHubSection
+                  id="work-hub-notices-pinned"
+                  title="고정"
+                  aside={<span className="work-hub__count">{pinnedNotices.length}건</span>}
+                >
+                  <div className="work-hub-notices-pinned">
+                    <WorkHubList>
+                      {pinnedNotices.map((notice) =>
+                        renderWorkHubNoticeRow(notice, { showPinChip: false }),
+                      )}
+                    </WorkHubList>
+                  </div>
+                </WorkHubSection>
+              ) : null}
+
+              {unpinnedNotices.length ? (
+                <WorkHubSection
+                  id="work-hub-notices-list"
+                  title={NOTICE_BOARD_TABS.find((t) => t.id === boardTab)?.label ?? '공지'}
+                  aside={<span className="work-hub__count">{unpinnedNotices.length}건</span>}
+                >
+                  <WorkHubList>
+                    {unpinnedNotices.map((notice) => renderWorkHubNoticeRow(notice))}
+                  </WorkHubList>
+                </WorkHubSection>
+              ) : pinnedNotices.length ? (
+                <WorkHubEmpty>고정 글 외에 표시할 항목이 없습니다.</WorkHubEmpty>
+              ) : null}
+            </>
           ) : (
             <WorkHubEmpty>
               {searchQuery

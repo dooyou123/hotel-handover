@@ -117,6 +117,10 @@ export function CardModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draftRestored, setDraftRestored] = useState(false);
+  const [draftExists, setDraftExists] = useState(false);
+  const [draftJustSaved, setDraftJustSaved] = useState(false);
+  const [createOptionsOpen, setCreateOptionsOpen] = useState(false);
+  const [createStep, setCreateStep] = useState<'chooser' | 'template' | 'form'>('chooser');
   const initialSnapshotRef = useRef<CardFormSnapshot | null>(null);
   const overlayPointerDownRef = useRef(false);
   const { data: templates = [] } = useCardTemplates();
@@ -150,6 +154,55 @@ export function CardModal({
     onClose();
   }, [isDirty, confirm, onClose, card, form, dueDate, dueTime]);
 
+  function handleSaveDraft() {
+    if (card) return;
+    saveCardCreateDraft({
+      form,
+      dueDate,
+      dueTime,
+      updatedAt: new Date().toISOString(),
+    });
+    initialSnapshotRef.current = {
+      form: normalizeCardInput(form),
+      dueDate,
+      dueTime,
+    };
+    setDraftExists(true);
+    setDraftJustSaved(true);
+    window.setTimeout(() => setDraftJustSaved(false), 1800);
+  }
+
+  async function handleClearDraft() {
+    const ok = await confirm({
+      title: '임시 저장본 지우기',
+      message: '저장된 임시 글과 지금 입력한 내용을 모두 비웁니다.',
+      tone: 'warning',
+      confirmLabel: '비우기',
+      cancelLabel: '취소',
+    });
+    if (!ok) return;
+    clearCardCreateDraft();
+    const base = emptyForm();
+    const nextForm: CardInput = {
+      ...base,
+      author: authorLabel,
+      assignee_shift: defaultShift,
+      assignee_name: defaultName,
+    };
+    setForm(nextForm);
+    setDueDate('');
+    setDueTime('');
+    setCreateOptionsOpen(false);
+    setDraftRestored(false);
+    setDraftExists(false);
+    setError(null);
+    initialSnapshotRef.current = {
+      form: normalizeCardInput(nextForm),
+      dueDate: '',
+      dueTime: '',
+    };
+  }
+
   function applyTemplate(template: CardTemplate) {
     setForm((prev) => {
       const category = template.category;
@@ -164,6 +217,15 @@ export function CardModal({
         ...(category === '컴플레인' ? {} : { ...EMPTY_COMPLAINT_REMEDIES }),
       };
     });
+    if (
+      template.priority !== 'today' ||
+      template.column_id !== 'progress' ||
+      template.category !== '기타' ||
+      Boolean(template.next_action?.trim())
+    ) {
+      setCreateOptionsOpen(true);
+    }
+    setCreateStep('form');
   }
 
   function applySimilarHistory(hit: SimilarHistoryHit) {
@@ -247,6 +309,7 @@ export function CardModal({
         nextDueDate = stored.dueDate;
         nextDueTime = stored.dueTime;
         setDraftRestored(true);
+        setDraftExists(true);
       } else {
         const base = emptyForm();
         nextForm = {
@@ -255,6 +318,7 @@ export function CardModal({
           assignee_shift: defaultShift,
           assignee_name: defaultName,
         };
+        setDraftExists(false);
       }
     }
 
@@ -272,6 +336,24 @@ export function CardModal({
       urls.forEach((url) => URL.revokeObjectURL(url));
       return [];
     });
+    if (!card) {
+      const advanced =
+        nextForm.priority !== 'today' ||
+        nextForm.column_id !== 'progress' ||
+        nextForm.category !== '기타' ||
+        Boolean(nextForm.next_action?.trim()) ||
+        Boolean(nextDueDate) ||
+        (nextForm.complaint_remedies?.length ?? 0) > 0;
+      setCreateOptionsOpen(advanced);
+      const skipChooser =
+        Boolean(createDraft) ||
+        hasCardDraftContent(nextForm) ||
+        Boolean(nextDueDate) ||
+        Boolean(nextForm.title?.trim());
+      setCreateStep(skipChooser ? 'form' : 'chooser');
+    } else {
+      setCreateStep('form');
+    }
   }, [open, card, createDraft, authorLabel, defaultShift, defaultName]);
 
   useEffect(() => {
@@ -377,6 +459,7 @@ export function CardModal({
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (!card && createStep !== 'form') return;
     if (!form.title.trim()) {
       setError('제목을 입력해 주세요.');
       return;
@@ -545,7 +628,24 @@ export function CardModal({
     addPendingFile(file);
   }
 
-  const panelTitle = commentsOnly ? '댓글' : card ? '인수인계 수정' : '새 인수인계';
+  const panelTitle = commentsOnly
+    ? '댓글'
+    : card
+      ? '인수인계 수정'
+      : createStep === 'template'
+        ? '템플릿 선택'
+        : createStep === 'chooser'
+          ? '새 인수인계'
+          : '새 인수인계';
+  const createModeLabel =
+    createDraft
+      ? '게시판 글에서 불러왔습니다'
+      : createStep === 'chooser'
+        ? '작성 방식을 선택하세요'
+        : createStep === 'template'
+          ? '항목을 고르면 내용이 채워집니다'
+          : '인수인계 항목을 등록합니다';
+  const showCreateFormChrome = Boolean(card) || createStep === 'form';
 
   const statusFields = (
     <div className="form-grid form-grid--compact">
@@ -907,30 +1007,250 @@ export function CardModal({
     </>
   );
 
+  const createChooser = (
+    <section className="handover-create-chooser" aria-label="작성 방식 선택">
+      <div className="handover-create-chooser__intro">
+        <span className="handover-create-chooser__badge" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        </span>
+        <p className="handover-create-chooser__lead">어떻게 시작할까요?</p>
+        <p className="handover-create-chooser__sub">작성 방식을 하나 고르면 바로 이어집니다</p>
+      </div>
+      <div className="handover-create-chooser__actions">
+        <button
+          type="button"
+          className="handover-create-chooser__btn handover-create-chooser__btn--primary"
+          onClick={() => setCreateStep('form')}
+        >
+          <span className="handover-create-chooser__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+            </svg>
+          </span>
+          <span className="handover-create-chooser__copy">
+            <strong>직접 작성</strong>
+            <span>제목·상세만 빠르게 적습니다</span>
+          </span>
+          <span className="handover-create-chooser__arrow" aria-hidden="true">→</span>
+        </button>
+        <button
+          type="button"
+          className="handover-create-chooser__btn"
+          onClick={() => setCreateStep('template')}
+        >
+          <span className="handover-create-chooser__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+              <path d="M14 2v6h6" />
+              <path d="M8 13h8M8 17h6" />
+            </svg>
+          </span>
+          <span className="handover-create-chooser__copy">
+            <strong>템플릿으로 시작</strong>
+            <span>자주 쓰는 항목을 골라 채웁니다</span>
+          </span>
+          <span className="handover-create-chooser__arrow" aria-hidden="true">→</span>
+        </button>
+      </div>
+      <button type="button" className="handover-create-chooser__cancel" onClick={() => void requestClose()}>
+        취소
+      </button>
+    </section>
+  );
+
+  const createTemplateStep = (
+    <section className="drawer-section drawer-section--flush handover-create-step">
+      <div className="handover-create-step__bar">
+        <button type="button" className="handover-create-step__back" onClick={() => setCreateStep('chooser')}>
+          ← 뒤로
+        </button>
+        <button type="button" className="handover-create-step__skip" onClick={() => setCreateStep('form')}>
+          건너뛰고 직접 작성
+        </button>
+      </div>
+      <HandoverCreateTemplates
+        workGroup={defaultShift}
+        templates={templates}
+        activeCategory={form.category}
+        onApply={applyTemplate}
+      />
+    </section>
+  );
+
   const createDrawerFields = (
     <>
-      <section className="drawer-section drawer-section--flush">
-        <HandoverCreateTemplates
-          workGroup={defaultShift}
-          templates={templates}
-          activeCategory={form.category}
-          onApply={applyTemplate}
-        />
-      </section>
-      <section className="drawer-section">
-        <h3 className="drawer-section__title">상태</h3>
-        {statusFields}
-        <CardSimilarHistory room={form.room} onApply={applySimilarHistory} />
-      </section>
+      <div className="handover-create-step__bar handover-create-step__bar--form">
+        <button type="button" className="handover-create-step__back" onClick={() => setCreateStep('chooser')}>
+          ← 방식 다시 고르기
+        </button>
+      </div>
+
       <section className="drawer-section drawer-section--primary">
         <h3 className="drawer-section__title">내용</h3>
-        {contentFields}
+        <label className="field field--prominent">
+          <span>제목 *</span>
+          <input
+            required
+            className="field-input--title"
+            value={form.title}
+            onChange={(event) => setForm({ ...form, title: event.target.value })}
+            placeholder="한눈에 보이는 제목"
+            autoFocus
+          />
+        </label>
+        <CardDuplicateWarning duplicates={duplicateCards} />
+        <label className="field">
+          <span>상세</span>
+          <textarea
+            rows={6}
+            className="field-textarea--body"
+            value={form.details}
+            onChange={(event) => setForm({ ...form, details: event.target.value })}
+            placeholder="상황·배경을 적어 주세요"
+          />
+        </label>
+        <label className="field">
+          <span>객실 또는 위치</span>
+          <input
+            value={form.room}
+            onChange={(event) => setForm({ ...form, room: event.target.value })}
+            placeholder="예: 1205, 로비, 키오스크"
+          />
+        </label>
+        <CardSimilarHistory room={form.room} onApply={applySimilarHistory} />
       </section>
-      <section className="drawer-section">
-        <h3 className="drawer-section__title">담당 · 마감</h3>
-        {assigneeFields}
+
+      <section className="drawer-section drawer-section--options">
+        <button
+          type="button"
+          className={`drawer-options-toggle${createOptionsOpen ? ' is-open' : ''}`}
+          aria-expanded={createOptionsOpen}
+          onClick={() => setCreateOptionsOpen((prev) => !prev)}
+        >
+          <span>추가 옵션</span>
+          <span className="drawer-options-toggle__meta">
+            {[
+              form.priority !== 'today' ? PRIORITY_LABELS[form.priority] : null,
+              form.category !== '기타' ? form.category : null,
+              form.next_action.trim() ? '다음 조치' : null,
+              dueDate ? '마감' : null,
+              pendingFiles.length ? `사진 ${pendingFiles.length}` : null,
+            ]
+              .filter(Boolean)
+              .join(' · ') || '긴급 · 담당 · 사진 등'}
+          </span>
+          <span className="drawer-options-toggle__chevron" aria-hidden>
+            {createOptionsOpen ? '▴' : '▾'}
+          </span>
+        </button>
+
+        {createOptionsOpen ? (
+          <div className="drawer-options-panel">
+            <div className="form-grid form-grid--compact">
+              <label className="field">
+                <span>우선순위</span>
+                <select
+                  className="field__select"
+                  value={form.priority}
+                  onChange={(event) => setForm({ ...form, priority: event.target.value as Priority })}
+                >
+                  {Object.entries(PRIORITY_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>카테고리</span>
+                <select
+                  className="field__select"
+                  value={form.category}
+                  onChange={(event) => {
+                    const category = event.target.value;
+                    setForm({
+                      ...form,
+                      category,
+                      ...(category === '컴플레인' ? {} : { ...EMPTY_COMPLAINT_REMEDIES }),
+                    });
+                  }}
+                >
+                  {CATEGORY_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {form.category === '컴플레인' ? (
+              <ComplaintRemedyPicker
+                remedies={form.complaint_remedies}
+                other={form.complaint_remedy_other}
+                onChange={(complaint_remedies, complaint_remedy_other) =>
+                  setForm((prev) => normalizeCardInput({ ...prev, complaint_remedies, complaint_remedy_other }))
+                }
+              />
+            ) : null}
+            <label className="field">
+              <span>다음 조치</span>
+              <input
+                value={form.next_action}
+                onChange={(event) => setForm({ ...form, next_action: event.target.value })}
+                placeholder="다음 교대가 할 일 (선택)"
+              />
+            </label>
+            <div className="form-grid form-grid--compact">
+              <label className="field">
+                <span>담당 조</span>
+                <select
+                  value={form.assignee_shift}
+                  onChange={(event) => setForm({ ...form, assignee_shift: event.target.value })}
+                >
+                  <option value="">선택</option>
+                  {WORK_GROUPS.map((group) => (
+                    <option key={group} value={group}>
+                      {formatWorkGroupLabel(group)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>담당자</span>
+                <select
+                  value={form.assignee_name}
+                  onChange={(event) => setForm({ ...form, assignee_name: event.target.value })}
+                >
+                  <option value="">선택</option>
+                  {staffNames.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field field--full">
+                <span>마감 (선택)</span>
+                <input
+                  type="datetime-local"
+                  className="field-input--datetime"
+                  value={joinDatetimeLocalValue(dueDate, dueTime)}
+                  onChange={(event) => {
+                    const { date, time } = splitDatetimeLocalValue(event.target.value);
+                    setDueDate(date);
+                    setDueTime(time);
+                  }}
+                />
+              </label>
+            </div>
+            {attachmentBlock}
+          </div>
+        ) : null}
       </section>
-      {attachmentBlock}
+
       {error ? <p className="amenity-alert drawer-section__error">{error}</p> : null}
     </>
   );
@@ -947,6 +1267,28 @@ export function CardModal({
           <button type="button" onClick={() => void onRecordFirstResponse()} className="btn btn--ghost">
             첫 응대 완료
           </button>
+        ) : null}
+        {!card && createStep === 'form' ? (
+          <>
+            <button
+              type="button"
+              onClick={handleSaveDraft}
+              disabled={saving || !hasCardDraftContent(form)}
+              className="btn btn--ghost"
+            >
+              {draftJustSaved ? '임시 저장됨' : '임시 저장'}
+            </button>
+            {draftExists || hasCardDraftContent(form) ? (
+              <button
+                type="button"
+                onClick={() => void handleClearDraft()}
+                disabled={saving}
+                className="btn btn--ghost btn--danger-ghost"
+              >
+                지우기
+              </button>
+            ) : null}
+          </>
         ) : null}
       </div>
       <div className="modal__footer-right">
@@ -984,6 +1326,10 @@ export function CardModal({
     </>
   ) : card ? (
     drawerFormFields
+  ) : createStep === 'chooser' ? (
+    createChooser
+  ) : createStep === 'template' ? (
+    createTemplateStep
   ) : (
     createDrawerFields
   );
@@ -1018,7 +1364,7 @@ export function CardModal({
               {panelTitle}
             </h2>
             <p className="drawer-panel__mode">
-              {createDraft ? '게시판 글에서 불러왔습니다' : '인수인계 항목을 등록합니다'}
+              {createModeLabel}
             </p>
           </>
         )}
@@ -1073,18 +1419,18 @@ export function CardModal({
         ) : (
           <form noValidate onSubmit={handleSubmit} className="drawer-panel__form">
             {panelHeader}
-            {draftRestored ? (
+            {draftRestored && showCreateFormChrome ? (
               <p className="card-draft-notice" role="status">
                 이전에 작성하던 내용을 불러왔습니다. 저장하면 임시 저장본이 지워집니다.
               </p>
             ) : null}
-            {!card ? (
+            {!card && createStep === 'form' ? (
               <p className="card-create-hint">
                 긴 공지·이벤트 안내는 <Link href={buildWorkHubHref('notices')}>게시판</Link>에, 카드에는 지금 넘겨야 할 업무만 적어 주세요.
               </p>
             ) : null}
             <div className="drawer-panel__body">{panelBody}</div>
-            {formFooter}
+            {showCreateFormChrome || commentsOnly ? formFooter : null}
           </form>
         )}
       </aside>

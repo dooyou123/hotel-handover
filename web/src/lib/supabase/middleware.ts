@@ -36,7 +36,9 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith('/api/parcels/sign') ||
     pathname === '/rate-confirm/guest' ||
     pathname.startsWith('/rate-confirm/guest/') ||
-    pathname.startsWith('/api/rate-confirm/guest');
+    pathname.startsWith('/api/rate-confirm/guest') ||
+    pathname === '/day-off' ||
+    pathname.startsWith('/api/day-off/');
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
