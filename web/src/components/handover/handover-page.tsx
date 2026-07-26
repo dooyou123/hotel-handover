@@ -32,7 +32,7 @@ import type { Todo, TodoInput, TodoPriority } from '@/lib/todos/types';
 import { useTodos } from '@/lib/todos/use-todos';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { buildWorkHubHref } from '@/lib/work/work-hub';
-import { EventModal } from '@/components/schedule/event-modal';
+import { EventModal } from '@/components/events/event-modal';
 import { TodoModal } from '@/components/todos/todo-modal';
 import { HandoverRecordsModal } from './handover-records-modal';
 import type { HandoverRecordsTab } from '@/lib/handover/records';

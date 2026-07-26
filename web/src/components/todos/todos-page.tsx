@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { PersonalTasksPanel } from '@/components/personal-tasks/personal-tasks-panel';
-import { EventModal } from '@/components/schedule/event-modal';
+import { EventModal } from '@/components/events/event-modal';
 import { createClient } from '@/lib/supabase/client';
 import { useMonthEvents } from '@/lib/events/use-events';
 import type { HotelEvent, HotelEventInput } from '@/lib/events/types';

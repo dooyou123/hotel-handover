@@ -6088,10 +6088,9 @@ html[data-ui='project'] .project-list-row__more-item:focus-visible {
   box-shadow: inset 0 0 0 2px var(--primary);
 }
 
-/* 설정 · 연락처 · 근무표 — project 모듈 */
+/* 설정 · 연락처 등 project 모듈 */
 html[data-ui='project'] .nova-content:has(.settings-page),
 html[data-ui='project'] .nova-content:has(.contacts-page),
-html[data-ui='project'] .nova-content:has(.schedule-page),
 html[data-ui='project'] .nova-content:has(.checklist-page),
 html[data-ui='project'] .nova-content:has(.housekeeping-page),
 html[data-ui='project'] .nova-content:has(.amenity-page),

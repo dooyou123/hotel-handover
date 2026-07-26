@@ -8,7 +8,6 @@ import { OpsBootstrap } from '@/components/layout/ops-bootstrap';
 import { TopbarAlertsStrip } from '@/components/layout/topbar-alerts-strip';
 import { AppTicker } from '@/components/layout/app-ticker';
 import { SessionBar } from '@/components/layout/session-bar';
-import { SessionScheduleMismatchBanner } from '@/components/schedule/session-schedule-mismatch-banner';
 import { ScheduleConfirmBanner } from '@/components/schedules/schedule-confirm-banner';
 import { StaffOnboardingModal } from '@/components/onboarding/staff-onboarding-modal';
 import { MobileNavBackdrop, MobileNavProvider, MobileNavTrigger, useMobileNav } from '@/components/layout/mobile-nav';
@@ -60,7 +59,6 @@ function AppShellNovaInner({ email, children }: AppShellNovaProps) {
             </div>
           </header>
           <div className="nova-topbar-stack__secondary">
-            <SessionScheduleMismatchBanner />
             <ScheduleConfirmBanner />
             <TopbarAlertsStrip />
           </div>

@@ -1,4 +1,4 @@
-import { monthDateRange } from '@/lib/schedule/month-range';
+import { monthDateRange } from '@/lib/events/month-range';
 import type { HotelEvent } from '@/lib/events/types';
 
 export function getEventEndDate(event: Pick<HotelEvent, 'event_date' | 'end_date'>): string {

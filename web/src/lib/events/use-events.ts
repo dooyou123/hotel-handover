@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
 import { subscribeHotelEventsRealtime } from '@/lib/events/events-realtime';
-import { monthDateRange } from '@/lib/schedule/month-range';
+import { monthDateRange } from '@/lib/events/month-range';
 import { eventOverlapsMonth } from '@/lib/events/event-dates';
 import type { HotelEvent, HotelEventInput, HotelEventPatch } from '@/lib/events/types';
 

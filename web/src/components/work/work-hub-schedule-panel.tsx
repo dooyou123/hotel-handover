@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { EventModal } from '@/components/schedule/event-modal';
+import { EventModal } from '@/components/events/event-modal';
 import { TodoModal } from '@/components/todos/todo-modal';
 import {
   WorkHubCheckButton,

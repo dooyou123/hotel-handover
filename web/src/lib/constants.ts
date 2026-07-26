@@ -85,7 +85,6 @@ export const NAV_CATEGORY_LABELS: Record<NavCategory, string> = {
 export const APP_NAV = [
   { href: '/handover', label: '인수인계', description: '지금 처리·넘겨야 하는 업무를 카드로 공유합니다.', category: 'core' as const },
   { href: '/work', label: '팀 소식·일정', description: '공지·할일·호텔 일정을 한곳에서 확인합니다.', category: 'core' as const },
-  { href: '/schedule', label: '근무표', description: '월 달력에서 조별 근무를 직접 추가·수정·삭제하고 엑셀로 등록합니다.', category: 'core' as const },
   { href: '/schedules', label: '스케줄', description: '월별 스케줄 사진을 올려 한눈에 확인합니다.', category: 'core' as const },
   { href: '/day-off-manage', label: '휴무 신청', description: '다음 달 휴무 신청 기간·정원·차단일을 관리하고 예외 신청을 승인합니다.', category: 'core' as const },
   { href: '/contacts', label: '연락처', description: '내선·휴대폰 등 빠른 연락처를 모아 둡니다.', category: 'ops' as const },
@@ -99,6 +98,7 @@ export const APP_NAV = [
   { href: '/reviews', label: '리뷰', description: 'OTA 리뷰 관리, 다국어 답변 템플릿, 객실 조치·후속 카드.', category: 'ops' as const },
   { href: '/ota-accounts', label: 'OTA 계정', description: '구글 시트에 등록된 OTA 사이트 로그인 정보를 조회합니다.', category: 'ops' as const },
   { href: '/guest-notices', label: '고객 안내', description: '투숙객 안내문 작성·출력, 로고·상용구 관리.', category: 'ops' as const },
+  { href: '/local-guides', label: '퀵가이드', description: '지하철·편의점·맛집 등 손님 질문에 바로 보여주거나 인쇄합니다.', category: 'ops' as const },
   { href: '/transport', label: '택시 예약', description: '픽업 예약과 기사님 확인증을 관리합니다.', category: 'ops' as const },
   { href: '/parcels', label: '물건 픽업 장부', description: '보관 물품의 인도·서명을 기록합니다.', category: 'ops' as const },
   { href: '/facility', label: '시설 현황', description: '시설 이슈와 루틴 점검을 카드로 추적합니다.', category: 'ops' as const },

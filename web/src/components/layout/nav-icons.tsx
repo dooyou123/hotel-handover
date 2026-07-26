@@ -42,7 +42,7 @@ export function NavIcon({ href, className }: NavIconProps) {
           <path d="M9 11l2 2 4-4M7 4h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
         </IconShell>
       );
-    case '/schedule':
+    case '/schedules':
       return (
         <IconShell className={className}>
           <rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" strokeWidth="1.75" />
@@ -92,6 +92,13 @@ export function NavIcon({ href, className }: NavIconProps) {
         <IconShell className={className}>
           <path d="M6 5h12v14H6V5Z" stroke="currentColor" strokeWidth="1.75" />
           <path d="M9 9h6M9 13h4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+        </IconShell>
+      );
+    case '/local-guides':
+      return (
+        <IconShell className={className}>
+          <path d="M12 21s-6-4.5-6-10a6 6 0 1 1 12 0c0 5.5-6 10-6 10Z" stroke="currentColor" strokeWidth="1.75" strokeLinejoin="round" />
+          <circle cx="12" cy="11" r="2.25" stroke="currentColor" strokeWidth="1.75" />
         </IconShell>
       );
     case '/transport':

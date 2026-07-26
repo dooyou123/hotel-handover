@@ -13,17 +13,13 @@ import {
   getTickerItemHref,
   isTickerItemClickable,
 } from '@/lib/handover/ticker-nav';
-import {
-  findScheduledGroupForStaff,
-  getSessionScheduleMismatch,
-} from '@/lib/schedule/session-schedule-match';
 import { pinnedNotices, unreadPinnedCount } from '@/lib/notices/reads';
 import { buildTodayAlerts } from '@/lib/today/alerts';
 import type { CardComment } from '@/lib/handover/types';
 import { buildAmenityOrderLines, buildAmenityOrderText } from '@/lib/amenity/order-sheet';
 import { buildAmenityTransactionsCsv, getAmenityTransactionsExportFilename } from '@/lib/amenity/export';
 import { getKoreanHoliday, getKoreanHolidaysInMonth } from '@/lib/calendar/korean-holidays';
-import { monthDateRange } from '@/lib/schedule/month-range';
+import { monthDateRange } from '@/lib/events/month-range';
 import { buildPrintDocumentHtml, buildSummaryText, getExportFilename, hasSummaryContent } from '@/lib/handover/daily-summary';
 import { buildShiftSummaryData } from '@/lib/handover/shift-summary';
 import { cardAckSummary, hasStaffAckedCard, isUnackedUrgentCard } from '@/lib/handover/card-acks';
@@ -1317,52 +1313,6 @@ test('buildTodayAlerts includes card due alerts', () => {
   };
   const alerts = buildTodayAlerts({ unackedUrgent: [], cards: [card], todos: [], events: [] });
   assert.ok(alerts.some((a) => a.id === 'due-overdue-cards'));
-});
-
-test('parseSchedulePaste reads excel-style monthly matrix', () => {
-  const { parseSchedulePaste } = require('@/lib/schedule/parse-csv') as typeof import('@/lib/schedule/parse-csv');
-  const text = [
-    '날짜\tA조\tB조\tC조',
-    '1\t김프런\t이데스크\t최야간',
-    '2\t박체크, 김프런\t이데스크\t-',
-    '3\t최야간\t박체크\t김프런',
-  ].join('\n');
-
-  const parsed = parseSchedulePaste(text, '2026-06');
-  assert.ok(!('error' in parsed));
-  assert.equal(parsed.format, 'matrix');
-  assert.equal(parsed.entries.length, 9);
-  assert.deepEqual(
-    parsed.entries.filter((entry) => entry.work_date === '2026-06-02' && entry.shift === 'A').map((entry) => entry.staff_name),
-    ['박체크', '김프런'],
-  );
-});
-
-test('parseSchedulePaste still supports long csv rows', () => {
-  const { parseSchedulePaste } = require('@/lib/schedule/parse-csv') as typeof import('@/lib/schedule/parse-csv');
-  const text = [
-    '날짜,조,이름',
-    '2026-06-01,A조,김프런',
-    '2026-06-01,B조,이데스크',
-  ].join('\n');
-
-  const parsed = parseSchedulePaste(text, '2026-06');
-  assert.ok(!('error' in parsed));
-  assert.equal(parsed.format, 'long');
-  assert.equal(parsed.entries.length, 2);
-});
-
-test('session schedule mismatch detection', () => {
-  const schedule = {
-    work_date: '2026-06-12',
-    groups: { A: ['Kim'], B: [], C: [], D: [], E: [] },
-  };
-  assert.equal(findScheduledGroupForStaff(schedule as never, 'Kim'), 'A');
-  assert.equal(
-    getSessionScheduleMismatch({ shift: 'B', group: 'B', name: 'Kim' }, schedule as never)?.scheduledGroup,
-    'A',
-  );
-  assert.equal(getSessionScheduleMismatch({ shift: 'A', group: 'A', name: 'Kim' }, schedule as never), null);
 });
 
 test('canDeleteCard allows manager, author account, and legacy author label', () => {

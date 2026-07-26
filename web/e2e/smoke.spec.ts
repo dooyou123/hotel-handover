@@ -60,8 +60,8 @@ test.describe('스테이징 UAT smoke (로그인 계정 필요)', () => {
     await expect(page).toHaveURL(/\/contacts/);
     await page.getByRole('link', { name: '체크리스트' }).click();
     await expect(page).toHaveURL(/\/checklist/);
-    await page.getByRole('link', { name: '일정' }).click();
-    await expect(page).toHaveURL(/\/schedule/);
+    await page.getByRole('link', { name: '스케줄' }).click();
+    await expect(page).toHaveURL(/\/schedules/);
   });
 
   test('객실료 컨펌 페이지', async ({ page }) => {
