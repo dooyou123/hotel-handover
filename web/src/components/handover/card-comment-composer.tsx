@@ -31,6 +31,20 @@ function CommentBubbleIcon() {
   );
 }
 
+function SendIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path
+        d="M2 8h9M7.5 3.5 12 8l-4.5 4.5"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function CardCommentComposer({
   staffName,
   placeholder = '댓글을 입력하세요…',
@@ -40,7 +54,9 @@ export function CardCommentComposer({
 }: CardCommentComposerProps) {
   const [value, setValue] = useState('');
   const [loading, setLoading] = useState(false);
+  const [focused, setFocused] = useState(false);
   const author = staffName.trim();
+  const ready = value.trim().length > 0;
 
   async function handleSubmit() {
     const content = value.trim();
@@ -56,12 +72,18 @@ export function CardCommentComposer({
 
   return (
     <div
-      className={`card-comment-composer${compact ? ' card-comment-composer--compact' : ''}`}
+      className={[
+        'card-comment-composer',
+        compact ? 'card-comment-composer--compact' : '',
+        focused || ready ? 'is-active' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       role="group"
       aria-label={author ? `${author} 댓글 입력` : '댓글 입력'}
     >
       <span className="card-comment-composer__icon" title={author || undefined} aria-hidden>
-        <CommentBubbleIcon />
+        {author ? author.slice(0, 1) : <CommentBubbleIcon />}
       </span>
       <input
         type="text"
@@ -70,6 +92,8 @@ export function CardCommentComposer({
         onChange={(event) => setValue(event.target.value)}
         placeholder={placeholder}
         disabled={disabled || loading}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         onKeyDown={(event) => {
           if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();
@@ -77,6 +101,18 @@ export function CardCommentComposer({
           }
         }}
       />
+      {ready ? (
+        <button
+          type="button"
+          className="card-comment-composer__send"
+          aria-label="댓글 등록"
+          disabled={disabled || loading}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => void handleSubmit()}
+        >
+          <SendIcon />
+        </button>
+      ) : null}
     </div>
   );
 }

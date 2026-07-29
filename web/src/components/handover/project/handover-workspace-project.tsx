@@ -281,6 +281,7 @@ export function HandoverWorkspaceProject({
                 />
                 <HandoverListProject
                 cards={visibleCards}
+                allCards={cards}
                 searchQuery={searchQuery}
                 quickFilter={quickFilter}
                 staffNames={staffNames}

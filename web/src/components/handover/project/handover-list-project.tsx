@@ -10,6 +10,7 @@ import { HandoverStatusTabs, type HandoverStatusTab } from './handover-status-ta
 
 type HandoverListProjectProps = {
   cards: Card[];
+  allCards?: Card[];
   searchQuery?: string;
   quickFilter?: QuickFilter;
   staffNames: string[];
@@ -41,6 +42,32 @@ type HandoverListProjectProps = {
 };
 
 type ListStatusTab = Exclude<HandoverStatusTab, 'archive'>;
+type HandoverSort = 'activity-desc' | 'activity-asc' | 'created-desc' | 'created-asc';
+
+const HANDOVER_SORT_OPTIONS: { value: HandoverSort; label: string }[] = [
+  { value: 'activity-desc', label: '최근 활동순' },
+  { value: 'activity-asc', label: '오래된 활동순' },
+  { value: 'created-desc', label: '등록 최신순' },
+  { value: 'created-asc', label: '등록 오래된순' },
+];
+
+function cardTime(value: string): number {
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? 0 : time;
+}
+
+function sortHandoverCards(cards: Card[], sort: HandoverSort): Card[] {
+  return [...cards].sort((a, b) => {
+    if (sort === 'activity-desc') {
+      return cardTime(b.updated_at || b.created_at) - cardTime(a.updated_at || a.created_at);
+    }
+    if (sort === 'activity-asc') {
+      return cardTime(a.updated_at || a.created_at) - cardTime(b.updated_at || b.created_at);
+    }
+    if (sort === 'created-desc') return cardTime(b.created_at) - cardTime(a.created_at);
+    return cardTime(a.created_at) - cardTime(b.created_at);
+  });
+}
 
 function isDoneToday(card: Card): boolean {
   return isToday(card.updated_at || card.created_at);
@@ -48,6 +75,7 @@ function isDoneToday(card: Card): boolean {
 
 export function HandoverListProject({
   cards,
+  allCards = cards,
   searchQuery,
   quickFilter = 'all',
   staffNames,
@@ -85,29 +113,53 @@ export function HandoverListProject({
   const statusTab = statusTabProp ?? statusTabState;
   const setStatusTab = onStatusTabChange ?? setStatusTabState;
   const [doneShowAll, setDoneShowAll] = useState(false);
+  const [sort, setSort] = useState<HandoverSort>('activity-desc');
 
   const sections = useMemo(() => buildProjectListSections(cards, staffNames), [cards, staffNames]);
   const sectionMap = useMemo(() => {
     const map = new Map(sections.map((section) => [section.id, section]));
     return map;
   }, [sections]);
+  const allSections = useMemo(
+    () => buildProjectListSections(allCards, staffNames),
+    [allCards, staffNames],
+  );
+  const allSectionMap = useMemo(
+    () => new Map(allSections.map((section) => [section.id, section])),
+    [allSections],
+  );
 
   const progressCards = useMemo(() => {
     const unacked = sectionMap.get('unacked')?.cards ?? [];
     const progress = sectionMap.get('progress')?.cards ?? [];
-    return [...unacked, ...progress];
-  }, [sectionMap]);
+    return [...sortHandoverCards(unacked, sort), ...sortHandoverCards(progress, sort)];
+  }, [sectionMap, sort]);
 
-  const holdCards = sectionMap.get('hold')?.cards ?? [];
+  const holdCards = useMemo(
+    () => sortHandoverCards(sectionMap.get('hold')?.cards ?? [], sort),
+    [sectionMap, sort],
+  );
   const doneAllCards = useMemo(() => {
     const done = sectionMap.get('done')?.cards ?? [];
     const archived = sectionMap.get('archived')?.cards ?? [];
-    return [...done, ...archived];
-  }, [sectionMap]);
+    return sortHandoverCards([...done, ...archived], sort);
+  }, [sectionMap, sort]);
 
   const doneTodayCards = useMemo(() => doneAllCards.filter(isDoneToday), [doneAllCards]);
   const doneCards =
     doneShowAll || Boolean(searchQuery?.trim()) ? doneAllCards : doneTodayCards;
+  const allProgressCount =
+    (allSectionMap.get('unacked')?.cards.length ?? 0) +
+    (allSectionMap.get('progress')?.cards.length ?? 0);
+  const allHoldCount = allSectionMap.get('hold')?.cards.length ?? 0;
+  const allDoneCards = [
+    ...(allSectionMap.get('done')?.cards ?? []),
+    ...(allSectionMap.get('archived')?.cards ?? []),
+  ];
+  const allDoneCount =
+    doneShowAll || Boolean(searchQuery?.trim())
+      ? allDoneCards.length
+      : allDoneCards.filter(isDoneToday).length;
 
   const tabCounts: Record<HandoverStatusTab, number> = {
     progress: progressCards.length,
@@ -118,6 +170,8 @@ export function HandoverListProject({
 
   const activeCards =
     statusTab === 'progress' ? progressCards : statusTab === 'hold' ? holdCards : doneCards;
+  const activeTotal =
+    statusTab === 'progress' ? allProgressCount : statusTab === 'hold' ? allHoldCount : allDoneCount;
 
   const selectableCards = useMemo(
     () => activeCards.filter((card) => isActiveHandoverCard(card) || isBulkArchivableCard(card)),
@@ -129,9 +183,6 @@ export function HandoverListProject({
   );
   const selectedArchivableCount = selectedCards.filter(isBulkArchivableCard).length;
   const selectedHoldCount = selectedCards.filter((card) => card.column_id === 'hold').length;
-  const remainingTotal = progressCards.length;
-  let remainingIndex = 0;
-
   useEffect(() => {
     if (quickFilter === 'hold-long') setStatusTab('hold');
   }, [quickFilter]);
@@ -273,7 +324,7 @@ export function HandoverListProject({
     setBulkMode(false);
   }
 
-  if (!cards.length) {
+  if (!allCards.length) {
     return (
       <div className="project-list">
         <HandoverStatusTabs
@@ -315,6 +366,25 @@ export function HandoverListProject({
         }}
         actions={
           <>
+            <span className="project-list__total" aria-live="polite">
+              {activeCards.length === activeTotal
+                ? `총 ${activeTotal}건`
+                : `전체 ${activeTotal}건 중 ${activeCards.length}건`}
+            </span>
+            <label className="project-list__sort">
+              <span>정렬</span>
+              <select
+                value={sort}
+                aria-label="인수인계 정렬"
+                onChange={(event) => setSort(event.target.value as HandoverSort)}
+              >
+                {HANDOVER_SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             {statusTab === 'done' && !searchQuery?.trim() ? (
               <button
                 type="button"
@@ -399,17 +469,12 @@ export function HandoverListProject({
         {activeCards.length ? (
           <div className="project-list__rows">
             {activeCards.map((card) => {
-              const showPosition = statusTab === 'progress' && remainingTotal > 0;
-              const position = showPosition
-                ? { index: ++remainingIndex, total: remainingTotal }
-                : undefined;
               const selectable = isActiveHandoverCard(card) || isBulkArchivableCard(card);
 
               return (
                 <HandoverListRowProject
                   key={card.id}
                   card={card}
-                  position={position}
                   searchQuery={searchQuery}
                   staffNames={staffNames}
                   bulkMode={bulkMode && selectable}

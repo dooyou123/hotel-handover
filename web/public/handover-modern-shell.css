@@ -542,7 +542,7 @@ html[data-ui='project'] .nova-content:has(.handover-page) {
   position: relative;
   z-index: 1;
   padding-top: 0.65rem;
-  padding-bottom: 0;
+  padding-bottom: 0.75rem;
   display: flex;
   flex-direction: column;
   overflow: hidden;

@@ -363,6 +363,13 @@ export function formatAssigneeLabel(card: Card): string {
   return '';
 }
 
+/** "B조 · 강두훈" 같은 조 표기를 떼고 이름만 남긴다 */
+export function stripShiftLabel(value: string): string {
+  const label = value.trim();
+  const separator = label.lastIndexOf(' · ');
+  return separator >= 0 ? label.slice(separator + 3).trim() : label;
+}
+
 export function isActiveHandoverCard(card: Card): boolean {
   return card.column_id !== 'done' && !card.archived_at;
 }
@@ -466,8 +473,10 @@ export function formatElapsed(value: string): string {
   return `${days}일`;
 }
 
-/** 목록·카드용 최종 수정 시각 (최근: N분 전, 오래됨: 날짜·시각) */
-export function formatUpdatedAt(value: string): { label: string; title: string; iso: string } {
+export type RelativeTime = { label: string; title: string; iso: string };
+
+/** 목록·카드용 상대 시각 (최근: N분 전, 일주일 넘으면 날짜·시각). title은 정확한 시각 */
+export function formatRelativeTime(value: string): RelativeTime {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return { label: '', title: '', iso: '' };
 
@@ -482,23 +491,16 @@ export function formatUpdatedAt(value: string): { label: string; title: string; 
   const iso = date.toISOString();
 
   const minutes = Math.floor((Date.now() - date.getTime()) / 60_000);
-  if (minutes < 60) {
-    return { label: `수정 ${Math.max(minutes, 1)}분 전`, title, iso };
-  }
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) {
-    return { label: `수정 ${hours}시간 전`, title, iso };
-  }
-  const days = Math.floor(hours / 24);
-  if (days < 7) {
-    return { label: `수정 ${days}일 전`, title, iso };
-  }
+  if (minutes < 1) return { label: '방금', title, iso };
+  if (minutes < 60) return { label: `${minutes}분 전`, title, iso };
 
-  return {
-    label: `수정 ${formatTime(value)}`,
-    title,
-    iso,
-  };
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return { label: `${hours}시간 전`, title, iso };
+
+  const days = Math.floor(hours / 24);
+  if (days < 7) return { label: `${days}일 전`, title, iso };
+
+  return { label: formatTime(value), title, iso };
 }
 
 export function formatDueLabel(dueAt: string | null, overdue: boolean): string {

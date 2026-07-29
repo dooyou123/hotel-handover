@@ -56,7 +56,8 @@ html[data-ui='project'] .project-handover__main-body {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 0.35rem 0.5rem 0.75rem;
+  padding: 0.35rem 0.6rem 0.9rem;
+  background: var(--surface-2);
 }
 
 html[data-ui='project'] .project-handover__aside {
@@ -1323,17 +1324,20 @@ html[data-ui='project'] .project-handover-toolbar--main {
   padding: 0.15rem 0 0.25rem;
 }
 
+/* 한 줄 유지: 폭이 모자라면 줄바꿈 대신 검색창만 줄어든다 */
 html[data-ui='project'] .project-handover-toolbar__top {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.65rem 1rem;
+  gap: 0.65rem 0.85rem;
+  min-width: 0;
 }
 
 html[data-ui='project'] .project-handover-toolbar__brand {
   display: inline-flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
   align-items: center;
   gap: 0.65rem 0.85rem;
   min-width: 0;
@@ -1346,13 +1350,15 @@ html[data-ui='project'] .project-handover-toolbar__title {
   letter-spacing: -0.02em;
   line-height: 1.2;
   color: var(--text);
+  white-space: nowrap;
 }
 
 html[data-ui='project'] .project-handover-toolbar__tools {
   display: inline-flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 0.45rem;
+  flex: 1 1 auto;
   min-width: 0;
   margin-left: auto;
 }
@@ -1831,17 +1837,21 @@ html[data-ui='project'] .project-handover-toolbar__actions {
 
 html[data-ui='project'] .handover-search-bar {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.35rem;
   width: 100%;
-  min-width: 0;
+  flex: 1 1 auto;
+  min-width: 7rem;
   max-width: 22rem;
   justify-self: end;
+  margin-left: auto;
 }
 
 html[data-ui='project'] .handover-search-bar__row {
   display: flex;
   align-items: stretch;
   gap: 0.35rem;
+  min-width: 0;
 }
 
 html[data-ui='project'] .handover-search-bar__input {
@@ -1941,6 +1951,7 @@ html[data-ui='project'] .handover-search-bar__hint {
 
 html[data-ui='project'] .project-handover-toolbar__view {
   display: inline-flex;
+  flex-shrink: 0;
   padding: 3px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -1966,6 +1977,7 @@ html[data-ui='project'] .project-handover-toolbar__view button.is-active {
 }
 
 html[data-ui='project'] .project-handover-toolbar__btn {
+  flex: 0 0 auto;
   min-height: 2.2rem;
   padding: 0 0.8rem;
   border: 1px solid var(--border);
@@ -1975,6 +1987,7 @@ html[data-ui='project'] .project-handover-toolbar__btn {
   font-size: 0.84rem;
   font-weight: 650;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 html[data-ui='project'] .project-handover-toolbar__btn--primary {
@@ -1987,6 +2000,13 @@ html[data-ui='project'] .project-handover-toolbar__btn--primary {
 html[data-ui='project'] .project-handover-toolbar__btn--primary:hover {
   background: color-mix(in srgb, var(--primary) 16%, #fff);
   border-color: color-mix(in srgb, var(--primary) 48%, var(--border));
+}
+
+/* 사이드바와 우측 패널이 함께 있어 툴바가 가장 좁아지는 구간 */
+@media (min-width: 961px) and (max-width: 1240px) {
+  html[data-ui='project'] .project-handover-toolbar__title {
+    display: none;
+  }
 }
 
 /* List */
@@ -2005,7 +2025,7 @@ html[data-ui='project'] .project-list__status-bar {
   justify-content: space-between;
   gap: 0.55rem 0.75rem;
   padding: 0.35rem 0 0.55rem;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  background: color-mix(in srgb, var(--surface-2) 92%, transparent);
   backdrop-filter: blur(8px);
 }
 
@@ -2088,6 +2108,43 @@ html[data-ui='project'] .project-list__status-actions {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem;
+}
+
+html[data-ui='project'] .project-list__total {
+  padding-right: 0.25rem;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+html[data-ui='project'] .project-list__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2rem;
+  padding: 0.2rem 0.35rem 0.2rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+html[data-ui='project'] .project-list__sort select {
+  min-height: 1.55rem;
+  padding: 0 1.4rem 0 0.2rem;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+html[data-ui='project'] .project-list__sort select:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary) 60%, transparent);
+  outline-offset: 2px;
 }
 
 html[data-ui='project'] .project-list__done-range {
@@ -2306,10 +2363,10 @@ html[data-ui='project'] .project-list-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 0;
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--border) 85%, var(--surface));
   border-radius: 0.9rem;
   background: var(--surface);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 20px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 6px 16px rgba(15, 23, 42, 0.05);
   overflow: hidden;
   transition:
     border-color 0.15s ease,
@@ -2318,14 +2375,50 @@ html[data-ui='project'] .project-list-row {
 }
 
 html[data-ui='project'] .project-list-row--ticket {
+  --row-accent: #2563eb;
+  position: relative;
   border-left: 0;
   min-height: 5.5rem;
+}
+
+/* 왼쪽 끝 상태 색 바 — 상태 탭 색과 같은 계열 */
+html[data-ui='project'] .project-list-row--ticket::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 0.2rem;
+  background: color-mix(in srgb, var(--row-accent) 55%, #ffffff);
+  z-index: 1;
+  pointer-events: none;
+}
+
+html[data-ui='project'] .project-list-row--ticket.is-hold {
+  --row-accent: #ea580c;
+}
+
+html[data-ui='project'] .project-list-row--ticket.is-done {
+  --row-accent: #059669;
+}
+
+html[data-ui='project'] .project-list-row--ticket.is-archived {
+  --row-accent: #94a3b8;
+}
+
+html[data-ui='project'] .project-list-row--ticket.is-urgent-priority:not(.is-done):not(.is-hold):not(.is-archived) {
+  --row-accent: #f59e0b;
+}
+
+html[data-ui='project'] .project-list-row--ticket.is-unacked {
+  --row-accent: #dc2626;
 }
 
 html[data-ui='project'] .project-list-row--ticket.is-bulk-mode {
   grid-template-columns: auto minmax(0, 1fr);
 }
 
+/* 스텁 | 천공 | 제목·내용·댓글 | 완료 */
 html[data-ui='project'] .project-list-row__ticket {
   display: grid;
   grid-template-columns: 6.5rem 0.85rem minmax(0, 1fr) auto;
@@ -2339,38 +2432,25 @@ html[data-ui='project'] .project-list-row__stub {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
   margin: 0;
   padding: 0.95rem 0.55rem;
   border: 0;
-  background: color-mix(in srgb, var(--card-accent, #2563eb) 12%, var(--surface));
+  background: color-mix(in srgb, var(--row-accent, #2563eb) 9%, var(--surface));
   color: inherit;
   font: inherit;
   cursor: pointer;
   text-align: center;
 }
 
-html[data-ui='project'] .project-list-row.is-hold .project-list-row__stub {
-  background: color-mix(in srgb, var(--card-accent-hold, #d97706) 14%, var(--surface));
-}
-
-html[data-ui='project'] .project-list-row.is-done .project-list-row__stub,
-html[data-ui='project'] .project-list-row.is-archived .project-list-row__stub {
-  background: color-mix(in srgb, var(--card-accent-done, #3f8f6b) 14%, var(--surface));
-}
-
-html[data-ui='project'] .project-list-row.is-unacked .project-list-row__stub {
-  background: color-mix(in srgb, var(--card-accent-urgent, #dc2626) 12%, var(--surface));
-}
-
 html[data-ui='project'] .project-list-row__stub-status {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 2.9rem;
+  min-width: 3rem;
   padding: 0.18rem 0.45rem;
   border-radius: 999px;
-  font-size: 0.74rem;
+  font-size: 0.81rem;
   font-weight: 800;
   letter-spacing: -0.01em;
 }
@@ -2400,25 +2480,58 @@ html[data-ui='project'] .project-list-row__stub-status--archive {
   color: #4b5563;
 }
 
-html[data-ui='project'] .project-list-row__stub-room {
-  font-size: 1.2rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
-  color: var(--text);
+/* 스텁의 각 칸은 라벨을 달아 의미를 고정한다 (보딩패스의 SEAT/GATE) */
+html[data-ui='project'] .project-list-row__stub-field {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  max-width: 100%;
+  min-width: 0;
 }
 
-html[data-ui='project'] .project-list-row__stub-pos {
-  font-size: 0.74rem;
+html[data-ui='project'] .project-list-row__stub-label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  color: color-mix(in srgb, var(--text-muted) 82%, transparent);
+}
+
+html[data-ui='project'] .project-list-row__stub-room {
+  max-width: 100%;
+  font-size: 1.32rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+html[data-ui='project'] .project-list-row__stub-room--none {
+  font-size: 0.92rem;
   font-weight: 700;
   color: var(--text-muted);
+}
+
+html[data-ui='project'] .project-list-row__stub-category {
+  max-width: 100%;
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text);
+  overflow-wrap: anywhere;
 }
 
 html[data-ui='project'] .project-list-row__perforation {
   position: relative;
   background:
-    radial-gradient(circle at center, transparent 0 0.32rem, color-mix(in srgb, var(--border) 88%, #94a3b8) 0.33rem 0.38rem, transparent 0.39rem)
-      50% -0.15rem / 100% 0.95rem repeat-y;
+    radial-gradient(
+        circle at center,
+        color-mix(in srgb, var(--row-accent, #94a3b8) 30%, var(--border-strong)) 0 1.2px,
+        transparent 1.7px
+      )
+      50% 0.5rem / 100% 0.5rem repeat-y;
 }
 
 html[data-ui='project'] .project-list-row__perforation::before,
@@ -2445,18 +2558,57 @@ html[data-ui='project'] .project-list-row__perforation::after {
 html[data-ui='project'] .project-list-row__pass {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 0.45rem;
+  justify-content: flex-start;
+  gap: 0.4rem;
   min-width: 0;
-  padding: 1rem 1rem 1rem 0.85rem;
-  cursor: pointer;
+  padding: 0.9rem 0.9rem 0.85rem 0.85rem;
 }
 
 html[data-ui='project'] .project-list-row__pass-top {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.45rem 0.55rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 0.2rem 0.65rem;
   min-width: 0;
+}
+
+/* 제목 오른쪽: 작성자 · 담당자 · 최종 수정 시각 */
+html[data-ui='project'] .project-list-row__byline {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: baseline;
+  gap: 0.45rem;
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+html[data-ui='project'] .project-list-row__byline-author {
+  font-weight: 650;
+  color: color-mix(in srgb, var(--text) 65%, var(--text-muted));
+}
+
+html[data-ui='project'] .project-list-row__byline-arrow {
+  color: color-mix(in srgb, var(--text-muted) 65%, transparent);
+  font-weight: 500;
+}
+
+/* 담당자는 실제로 처리할 사람이라 작성자보다 강조 */
+html[data-ui='project'] .project-list-row__byline-assignee {
+  font-weight: 800;
+  color: color-mix(in srgb, var(--text) 88%, var(--text-muted));
+}
+
+html[data-ui='project'] .project-list-row__byline-time {
+  padding-left: 0.4rem;
+  border-left: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
+  cursor: help;
 }
 
 html[data-ui='project'] .project-list-row__pass-heading {
@@ -2471,14 +2623,31 @@ html[data-ui='project'] .project-list-row__pass-heading {
 html[data-ui='project'] .project-list-row__pass .project-list-row__title {
   flex: 1 1 10rem;
   min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 1.08rem;
+  text-align: left;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  font-family: inherit;
+  font-size: 1.19rem;
   font-weight: 750;
   letter-spacing: -0.02em;
   line-height: 1.3;
   color: var(--text);
+  cursor: pointer;
+}
+
+html[data-ui='project'] .project-list-row__pass .project-list-row__title:hover {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
 }
 
 html[data-ui='project'] .project-list-row__pass-flags {
@@ -2489,7 +2658,8 @@ html[data-ui='project'] .project-list-row__pass-flags {
 
 html[data-ui='project'] .project-list-row__pass-more {
   flex-shrink: 0;
-  margin-top: -0.1rem;
+  align-self: start;
+  margin-top: -0.25rem;
   margin-right: -0.15rem;
 }
 
@@ -2508,38 +2678,49 @@ html[data-ui='project'] .project-list-row__pass-more .project-list-row__more-tri
   color: var(--text);
 }
 
-html[data-ui='project'] .project-list-row__pass-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.15rem 0.2rem;
-  color: var(--text-muted);
-  font-size: 0.86rem;
-  font-weight: 600;
-  line-height: 1.35;
-}
-
-html[data-ui='project'] .project-list-row__pass-dot {
-  margin: 0 0.2rem;
-  opacity: 0.45;
-}
-
 html[data-ui='project'] .project-list-row__pass-ack {
   margin-top: 0.15rem;
 }
 
-html[data-ui='project'] .project-list-row__pass .project-list-row__expand-toggle {
-  align-self: flex-start;
-  margin-top: 0.25rem;
+html[data-ui='project'] .project-list-row__pass > * {
+  margin: 0;
+  min-width: 0;
+}
+
+html[data-ui='project'] .project-list-row__pass-empty {
+  color: color-mix(in srgb, var(--text-muted) 80%, transparent);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+html[data-ui='project'] .project-list-row__pass .project-list-row__content-block {
+  background: transparent;
+  border: 0;
+  border-left: 3px solid color-mix(in srgb, var(--row-accent, var(--card-accent)) 30%, var(--border));
+  border-radius: 0;
+  padding: 0.05rem 0 0.05rem 0.65rem;
+  gap: 0.45rem;
+}
+
+html[data-ui='project'] .project-list-row__pass .project-list-row__comments--empty {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+/* 댓글을 모두 펼쳐도 카드가 무한정 길어지지 않게 */
+html[data-ui='project'] .project-list-row__comment-list {
+  max-height: 18rem;
+  overflow-y: auto;
 }
 
 html[data-ui='project'] .project-list-row__gate {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 0.4rem;
-  padding: 0.85rem 0.9rem 0.85rem 0.55rem;
+  padding: 0.95rem 0.9rem 0.85rem 0.6rem;
   border-left: 1px dashed color-mix(in srgb, var(--border) 85%, transparent);
 }
 
@@ -2550,63 +2731,6 @@ html[data-ui='project'] .project-list-row__gate .project-list-row__done {
   font-size: 1rem;
   font-weight: 800;
   letter-spacing: -0.02em;
-}
-
-html[data-ui='project'] .project-list-row__expand-bar {
-  display: flex;
-  justify-content: flex-start;
-  padding: 0 0.85rem 0.55rem;
-}
-
-html[data-ui='project'] .project-list-row__expand-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.3rem;
-  min-height: 2.15rem;
-  padding: 0.4rem 0.85rem;
-  border: 1px solid color-mix(in srgb, var(--border-strong, var(--border)) 55%, var(--border));
-  border-radius: 0.55rem;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 0.88rem;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  line-height: 1.2;
-  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
-  cursor: pointer;
-}
-
-html[data-ui='project'] .project-list-row__expand-toggle.has-comments {
-  border-color: color-mix(in srgb, var(--comment-accent, #64748b) 28%, var(--border));
-  background: color-mix(in srgb, var(--comment-surface, #f8fafc) 70%, var(--surface));
-  color: color-mix(in srgb, var(--comment-text, var(--text)) 88%, #000);
-}
-
-html[data-ui='project'] .project-list-row__expand-toggle:hover {
-  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
-  color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
-}
-
-html[data-ui='project'] .project-list-row__expand-toggle.is-expanded {
-  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
-  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
-  color: var(--primary);
-}
-
-html[data-ui='project'] .project-list-row__details {
-  display: grid;
-  gap: 0.55rem;
-  padding: 0.75rem 0.9rem 0.9rem;
-  border-top: 1px dashed color-mix(in srgb, var(--border) 80%, transparent);
-  background: color-mix(in srgb, var(--surface-2) 55%, var(--surface));
-}
-
-html[data-ui='project'] .project-list-row__details > .project-list-row__preview,
-html[data-ui='project'] .project-list-row__details > .project-list-row__content-block,
-html[data-ui='project'] .project-list-row__details > .project-list-row__comments {
-  margin: 0;
 }
 
 html[data-ui='project'] .project-list-row:hover {
@@ -2622,15 +2746,42 @@ html[data-ui='project'] .project-list-row:hover {
   }
 
   html[data-ui='project'] .project-list-row__ticket {
-    grid-template-columns: 5.4rem 0.7rem minmax(0, 1fr);
+    grid-template-columns: 4.5rem 0.55rem minmax(0, 1fr);
+  }
+
+  html[data-ui='project'] .project-list-row__stub {
+    gap: 0.35rem;
+    padding: 0.7rem 0.35rem;
+  }
+
+  html[data-ui='project'] .project-list-row__stub-label {
+    display: none;
   }
 
   html[data-ui='project'] .project-list-row__stub-room {
-    font-size: 1.1rem;
+    font-size: 1rem;
+  }
+
+  html[data-ui='project'] .project-list-row__stub-room--none {
+    font-size: 0.78rem;
+  }
+
+  html[data-ui='project'] .project-list-row__stub-category {
+    font-size: 0.78rem;
   }
 
   html[data-ui='project'] .project-list-row__pass .project-list-row__title {
-    font-size: 1rem;
+    font-size: 1.05rem;
+  }
+
+  html[data-ui='project'] .project-list-row__pass-top {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  html[data-ui='project'] .project-list-row__byline {
+    grid-column: 1;
+    grid-row: 2;
+    margin-left: 0;
   }
 
   html[data-ui='project'] .project-list-row__gate {
@@ -2779,7 +2930,7 @@ html[data-ui='project'] .project-list-row__title {
 }
 
 html[data-ui='project'] .project-list-row__preview {
-  font-size: 0.94rem;
+  font-size: 1.03rem;
   color: color-mix(in srgb, var(--text) 82%, var(--text-muted));
   line-height: 1.5;
 }
@@ -2809,7 +2960,7 @@ html[data-ui='project'] .project-list-row__content-field + .project-list-row__co
 }
 
 html[data-ui='project'] .project-list-row__content-label {
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -2817,7 +2968,7 @@ html[data-ui='project'] .project-list-row__content-label {
 }
 
 html[data-ui='project'] .project-list-row__content-text {
-  font-size: 0.94rem;
+  font-size: 1.03rem;
   line-height: 1.55;
   color: color-mix(in srgb, var(--text) 84%, var(--text-muted));
   white-space: pre-wrap;
@@ -2846,7 +2997,7 @@ html[data-ui='project'] .project-list-row__content-toggle {
   border-radius: 999px;
   background: var(--surface);
   color: var(--text-secondary);
-  font-size: 0.72rem;
+  font-size: 0.79rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -2985,7 +3136,7 @@ html[data-ui='project'] .project-list-row.has-comments .project-list-row__positi
 }
 
 html[data-ui='project'] .project-list-row.has-comments .project-list-row__content-text {
-  font-size: 0.92rem;
+  font-size: 1.01rem;
   color: color-mix(in srgb, var(--text) 78%, var(--text-muted));
 }
 
@@ -3001,161 +3152,202 @@ html[data-ui='project'] .project-list-row__badge--comments {
 }
 
 html[data-ui='project'] .project-list-row__comments--highlight {
-  margin-top: 0;
-  padding: 0.45rem 0.55rem 0.4rem;
-  border: 1px solid color-mix(in srgb, var(--comment-border) 70%, var(--border));
-  border-left: 2px solid color-mix(in srgb, var(--comment-accent) 55%, var(--border));
-  border-top: none;
-  background: color-mix(in srgb, var(--comment-surface) 55%, var(--surface));
-  border-radius: 0 0 calc(var(--radius) - 1px) calc(var(--radius) - 1px);
-}
-
-html[data-ui='project'] .project-list-row__comment-toggle--highlight {
-  padding: 0.4rem 0.5rem;
-  border: 1px solid var(--comment-border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  box-shadow: none;
-}
-
-html[data-ui='project'] .project-list-row__comment-toggle--highlight:hover {
-  border-color: color-mix(in srgb, var(--comment-accent) 35%, var(--comment-border));
-  background: color-mix(in srgb, var(--comment-surface) 70%, var(--surface));
-}
-
-html[data-ui='project'] .project-list-row__comments--highlight .project-list-row__comment-toggle-label {
-  font-size: 0.72rem;
-  font-weight: 800;
-  color: var(--comment-accent);
-  letter-spacing: -0.01em;
-}
-
-html[data-ui='project'] .project-list-row__comments--highlight .project-list-row__comment-toggle-preview .project-list-row__comment-author {
-  color: var(--comment-muted);
-  font-size: 0.74rem;
-}
-
-html[data-ui='project'] .project-list-row__comments--highlight .project-list-row__comment-toggle-preview .project-list-row__comment-text {
-  font-size: 0.84rem;
-  font-weight: 600;
-  color: var(--comment-text);
-  -webkit-line-clamp: 2;
-  line-height: 1.35;
-}
-
-html[data-ui='project'] .project-list-row__comments--highlight .project-list-row__comment-toggle-preview .project-list-row__comment-time {
-  color: var(--comment-muted);
-  font-size: 0.7rem;
+  border-top-color: color-mix(in srgb, var(--comment-accent) 35%, var(--border));
 }
 
 html[data-ui='project'] .project-list-row__comments .card-comment-composer {
-  gap: 0.35rem;
+  gap: 0.5rem;
+  margin-top: 0;
 }
 
+/* 테두리 없는 채움형 입력 — 포커스할 때만 또렷해진다 */
 html[data-ui='project'] .project-list-row__comments .card-comment-composer__input {
-  min-height: 2rem;
-  padding: 0.35rem 0.55rem;
-  border-color: var(--comment-border);
-  background: var(--surface);
-  font-size: 0.82rem;
+  min-height: 2.1rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--surface-2) 75%, transparent);
+  font-size: 0.9rem;
 }
 
 html[data-ui='project'] .project-list-row__comments .card-comment-composer__input:focus {
-  border-color: var(--comment-accent);
+  border-color: color-mix(in srgb, var(--comment-accent) 45%, var(--border));
+  background: var(--surface);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--comment-accent) 14%, transparent);
 }
 
 html[data-ui='project'] .project-list-row__comments .card-comment-composer__avatar,
 html[data-ui='project'] .project-list-row__comments .card-comment-composer__icon {
-  width: 1.35rem;
-  height: 1.35rem;
-  font-size: 0.7rem;
-  background: var(--comment-surface);
-  border-color: var(--comment-border);
-  color: var(--comment-muted);
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 0;
+  font-size: 0.76rem;
+  font-weight: 800;
+  background: color-mix(in srgb, var(--text-muted) 16%, var(--surface));
+  color: var(--text-secondary);
 }
 
+html[data-ui='project'] .project-list-row__comments .card-comment-composer__send {
+  width: 1.85rem;
+  height: 1.85rem;
+}
+
+/* 상자를 겹치지 않게: 바깥 테두리 없이 얇은 구분선만 */
 html[data-ui='project'] .project-list-row__comments {
   width: 100%;
   display: flex;
   flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+  padding: 0.55rem 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: none;
+}
+
+/* 댓글 피드 — 최신 1건 + 입력창을 한 패널에 */
+html[data-ui='project'] .project-list-row__comment-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+html[data-ui='project'] .project-list-row__comment-feed-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0 0.1rem 0.1rem;
+}
+
+html[data-ui='project'] .project-list-row__comment-feed-title {
+  font-size: 0.79rem;
+  font-weight: 800;
+  color: var(--comment-accent);
+}
+
+html[data-ui='project'] .project-list-row__comment-feed-actions {
+  display: inline-flex;
+  align-items: center;
   gap: 0.3rem;
-  margin-top: 0.1rem;
-  padding: 0.4rem 0.45rem 0.15rem;
-  border-top: 1px solid color-mix(in srgb, var(--comment-border) 65%, var(--border));
-  background: color-mix(in srgb, var(--comment-surface) 45%, var(--surface));
-  border-radius: 0 0 calc(var(--radius-sm) - 2px) calc(var(--radius-sm) - 2px);
 }
 
-html[data-ui='project'] .project-list-row__comment-thread {
+html[data-ui='project'] .project-list-row__comment-list {
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
-}
-
-html[data-ui='project'] .project-list-row__comment-bubble {
-  width: 100%;
+  gap: 0.7rem;
   margin: 0;
-  padding: 0.28rem 0.4rem;
+  padding: 0;
+  list-style: none;
+}
+
+/* 아바타 | 말풍선+메타 */
+html[data-ui='project'] .project-list-row__comment-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: start;
+  min-width: 0;
+}
+
+html[data-ui='project'] .project-list-row__comment-avatar {
+  display: grid;
+  place-items: center;
+  align-self: start;
+  width: 1.65rem;
+  height: 1.65rem;
+  margin-top: 0.1rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--comment-accent) 16%, var(--surface));
+  color: color-mix(in srgb, var(--comment-accent) 88%, var(--text));
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+html[data-ui='project'] .project-list-row__comment-main {
   display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  border: 0;
-  border-radius: 0.35rem;
-  background: transparent;
-  text-align: left;
-  font: inherit;
-  color: inherit;
-  line-height: 1.35;
-  cursor: pointer;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.25rem 0.55rem;
+  min-width: 0;
 }
 
-html[data-ui='project'] .project-list-row__comment-bubble:hover {
-  background: color-mix(in srgb, var(--surface) 80%, transparent);
+/* 본문과 다른 목소리로 읽히도록 말풍선 처리 */
+html[data-ui='project'] .project-list-row__comment-bubble {
+  flex: 1 1 12rem;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--comment-accent) 16%, var(--border));
+  border-radius: 0.2rem 0.75rem 0.75rem 0.75rem;
+  background: color-mix(in srgb, var(--comment-accent) 10%, #f4f7fb);
+  color: color-mix(in srgb, var(--comment-text, var(--text)) 94%, #000);
+  font-size: 0.94rem;
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
-html[data-ui='project'] .project-list-row__comment-bubble--deleted .project-list-row__comment-text {
+html[data-ui='project'] .project-list-row__comment-byline {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: baseline;
+  gap: 0.3rem;
+  padding-bottom: 0.2rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+html[data-ui='project'] .project-list-row__comment-byline > * + *::before {
+  content: '· ';
+}
+
+html[data-ui='project'] .project-list-row__comment-author {
+  font-weight: 800;
+  color: color-mix(in srgb, var(--text) 78%, var(--text-muted));
+}
+
+html[data-ui='project'] .project-list-row__comment-item--deleted .project-list-row__comment-bubble {
+  background: var(--surface-2);
+  border-color: var(--border);
   font-style: italic;
   color: var(--text-muted);
 }
 
-html[data-ui='project'] .project-list-row__comment-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-html[data-ui='project'] .project-list-row__comment-author {
-  display: inline;
-  margin-right: 0;
-  font-size: 0.72rem;
+html[data-ui='project'] .project-list-row__comment-more {
+  align-self: flex-end;
+  padding: 0.1rem 0;
+  border: 0;
+  background: none;
+  color: var(--comment-accent);
+  font-size: 0.82rem;
   font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  cursor: pointer;
+}
+
+html[data-ui='project'] .project-list-row__comment-more:hover {
+  color: color-mix(in srgb, var(--comment-accent) 75%, #000);
+}
+
+html[data-ui='project'] .project-list-row__comment-open {
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.75rem;
+  font-weight: 700;
   color: var(--text-muted);
+  cursor: pointer;
 }
 
-html[data-ui='project'] .project-list-row__comment-bubble .project-list-row__comment-text {
-  display: block;
-  margin-top: 0;
-  font-size: 0.84rem;
-  font-weight: 500;
-  color: var(--text);
-  line-height: 1.4;
-  white-space: pre-wrap;
-  overflow: visible;
-  -webkit-line-clamp: unset;
-}
-
-html[data-ui='project'] .project-list-row__comment-bubble .project-list-row__comment-time,
-html[data-ui='project'] .project-list-row__comment-bubble .project-list-row__comment-meta {
-  display: inline;
-  margin-left: 0;
-  flex-shrink: 0;
-  font-size: 0.68rem;
-  font-weight: 500;
-  color: color-mix(in srgb, var(--text-muted) 80%, transparent);
-  white-space: nowrap;
+html[data-ui='project'] .project-list-row__comment-open:hover {
+  color: var(--text-secondary);
+  border-color: var(--border-strong);
 }
 
 html[data-ui='project'] .project-list-row__extras {
@@ -3215,7 +3407,7 @@ html[data-ui='project'] .project-list-row__comment-label {
 
 html[data-ui='project'] .project-list-row__comment-text {
   grid-column: 2;
-  font-size: 0.96rem;
+  font-size: 1.06rem;
   font-weight: 600;
   color: var(--text);
   line-height: 1.45;
@@ -3227,87 +3419,16 @@ html[data-ui='project'] .project-list-row__comment-text {
 
 html[data-ui='project'] .project-list-row__comment-meta {
   grid-column: 2;
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   color: color-mix(in srgb, var(--text-muted) 80%, transparent);
   font-weight: 500;
 }
 
 html[data-ui='project'] .project-list-row__comment-time {
-  font-size: 0.72rem;
+  font-size: 0.79rem;
   font-weight: 500;
   color: color-mix(in srgb, var(--text-muted) 75%, transparent);
   white-space: nowrap;
-}
-
-html[data-ui='project'] .project-list-row__comment-toggle {
-  width: 100%;
-  margin: 0;
-  padding: 0.4rem 0.5rem;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.25rem;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  text-align: left;
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-}
-
-html[data-ui='project'] .project-list-row__comment-toggle:hover {
-  border-color: var(--border-strong);
-  background: var(--surface-2);
-}
-
-html[data-ui='project'] .project-list-row__comment-toggle-label {
-  font-size: 0.8rem;
-  font-weight: 800;
-  color: var(--comment-accent);
-}
-
-html[data-ui='project'] .project-list-row__comment-toggle-preview {
-  display: -webkit-box;
-  width: 100%;
-  min-width: 0;
-  line-height: 1.45;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-html[data-ui='project'] .project-list-row__comment-toggle-preview .project-list-row__comment-author,
-html[data-ui='project'] .project-list-row__comment-toggle-preview .project-list-row__comment-text,
-html[data-ui='project'] .project-list-row__comment-toggle-preview .project-list-row__comment-time {
-  display: inline;
-}
-
-html[data-ui='project'] .project-list-row__comment-toggle-preview .project-list-row__comment-author {
-  margin-right: 0.35rem;
-}
-
-html[data-ui='project'] .project-list-row__comment-toggle-preview .project-list-row__comment-time {
-  margin-left: 0.35rem;
-  white-space: nowrap;
-}
-
-html[data-ui='project'] .project-list-row__comment-toggle-preview .project-list-row__comment-text {
-  font-size: 0.96rem;
-  font-weight: 600;
-}
-
-html[data-ui='project'] .project-list-row__comment-thread-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-html[data-ui='project'] .project-list-row__comment-thread-title {
-  font-size: 0.72rem;
-  font-weight: 800;
-  color: var(--text-secondary);
 }
 
 html[data-ui='project'] .project-list-row__comment-collapse {
@@ -3316,7 +3437,7 @@ html[data-ui='project'] .project-list-row__comment-collapse {
   border-radius: 999px;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--text-muted);
   cursor: pointer;
@@ -3439,10 +3560,14 @@ html[data-ui='project'] .project-list-row.is-done:not(.is-archived) {
 
 html[data-ui='project'] .project-list-row.is-archived {
   border-left-color: var(--card-accent-archive);
-  border-left-style: dashed;
-  border-style: dashed;
-  background: var(--bg-accent);
-  opacity: 0.92;
+  background: color-mix(in srgb, var(--card-accent-archive) 5%, var(--surface));
+  opacity: 1;
+}
+
+/* 티켓 카드는 테두리 대신 ::before 색 바를 쓴다 */
+html[data-ui='project'] .project-list-row--ticket.is-unacked,
+html[data-ui='project'] .project-list-row--ticket.is-urgent-priority {
+  border-left-width: 0;
 }
 
 html[data-ui='project'] .project-list-row__actions {
@@ -3695,8 +3820,8 @@ html[data-ui='project'] .project-list-row__restore:hover {
 
 html[data-ui='project'] .project-archive {
   display: grid;
-  gap: 0.85rem;
-  padding: 0.85rem;
+  gap: 0.75rem;
+  padding: 0;
 }
 
 html[data-ui='project'] .project-archive__head {
@@ -3718,7 +3843,7 @@ html[data-ui='project'] .project-archive__lead {
 }
 
 html[data-ui='project'] .project-archive__list {
-  gap: 0.85rem;
+  gap: 0.75rem;
 }
 
 html[data-ui='project'] .project-archive__status,
@@ -5489,6 +5614,36 @@ html[data-ui='project'] .handover-mobile {
     display: none;
   }
 
+  /* 데스크톱 nowrap이 폰에서 버튼/검색을 밀어내지 않게 */
+  html[data-ui='project'] .project-handover-toolbar__top {
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  html[data-ui='project'] .project-handover-toolbar__brand {
+    width: 100%;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  html[data-ui='project'] .project-handover-toolbar__view button {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 2.5rem;
+    padding-left: 0.55rem;
+    padding-right: 0.55rem;
+    white-space: nowrap;
+    touch-action: manipulation;
+  }
+
+  html[data-ui='project'] .project-handover-toolbar__tools {
+    width: 100%;
+    margin-left: 0;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
   html[data-ui='project'] .project-handover-toolbar--main {
     gap: 0.35rem;
   }
@@ -5510,14 +5665,6 @@ html[data-ui='project'] .handover-mobile {
     display: none;
   }
 
-  html[data-ui='project'] .project-handover-toolbar__view button {
-    flex: 1 1 auto;
-    min-width: 3.5rem;
-    min-height: 2.5rem;
-    white-space: nowrap;
-    touch-action: manipulation;
-  }
-
   html[data-ui='project'] .project-handover-toolbar__row--primary .project-handover-toolbar__cluster {
     margin-left: 0;
     width: 100%;
@@ -5533,24 +5680,25 @@ html[data-ui='project'] .handover-mobile {
   }
 
   html[data-ui='project'] .project-handover-toolbar__btn {
-    flex: 1 1 0;
+    flex: 1 1 calc(50% - 0.2rem);
     min-height: 2.65rem;
     justify-content: center;
   }
 
   html[data-ui='project'] .project-handover-toolbar__btn--primary {
     flex: 1.35 1 0;
-  }
-
-  html[data-ui='project'] .handover-search-bar {
-    max-width: none;
-    justify-self: stretch;
-  }
-
-  html[data-ui='project'] .project-handover-toolbar__btn--primary {
     padding-left: 0.65rem;
     padding-right: 0.65rem;
     font-size: 0.8rem;
+  }
+
+  html[data-ui='project'] .handover-search-bar {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    margin-left: 0;
+    justify-self: stretch;
   }
 
   html[data-ui='project'] .project-handover-toolbar__row--filters {
@@ -5589,6 +5737,93 @@ html[data-ui='project'] .handover-mobile {
     font-size: 0.78rem;
     padding-left: 0.55rem;
     padding-right: 0.55rem;
+  }
+
+  /* 상태 탭: 2×2로 균등 배치 (보관함만 한 줄 차지하지 않게) */
+  html[data-ui='project'] .project-list__status-bar {
+    gap: 0.4rem;
+    padding: 0.25rem 0 0.4rem;
+  }
+
+  html[data-ui='project'] .project-list__status-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    gap: 0.25rem;
+    padding: 0.15rem;
+  }
+
+  html[data-ui='project'] .project-list__status-tab {
+    justify-content: center;
+    min-height: 2.35rem;
+    padding: 0.3rem 0.45rem;
+    font-size: 0.8rem;
+  }
+
+  html[data-ui='project'] .project-list__status-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  html[data-ui='project'] .project-list__sort {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  html[data-ui='project'] .project-list__sort select {
+    max-width: 100%;
+  }
+
+  /* 카드: 스텁을 상단 칩 줄로 — 본문 폭 확보 */
+  html[data-ui='project'] .project-list-row__ticket {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html[data-ui='project'] .project-list-row__stub {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.3rem 0.5rem;
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+  }
+
+  html[data-ui='project'] .project-list-row__stub-field {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 0.2rem;
+  }
+
+  html[data-ui='project'] .project-list-row__stub-label {
+    display: inline;
+    font-size: 0.62rem;
+  }
+
+  html[data-ui='project'] .project-list-row__stub-room {
+    font-size: 0.95rem;
+  }
+
+  html[data-ui='project'] .project-list-row__stub-category {
+    font-size: 0.82rem;
+  }
+
+  html[data-ui='project'] .project-list-row__perforation {
+    display: none;
+  }
+
+  html[data-ui='project'] .project-list-row__pass {
+    padding: 0.65rem 0.75rem 0.55rem;
+  }
+
+  html[data-ui='project'] .project-list-row__gate {
+    padding: 0.45rem 0.75rem 0.65rem;
+  }
+
+  html[data-ui='project'] .project-list-row__gate .project-list-row__done {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 2.65rem;
   }
 
   html[data-ui='project'] .project-list-row__body {
@@ -5649,7 +5884,7 @@ html[data-ui='project'] .handover-mobile {
   }
 
   html[data-ui='project'] .project-list-row__preview {
-    font-size: 0.88rem;
+    font-size: 0.97rem;
   }
 
   html[data-ui='project'] .project-list-row__head {

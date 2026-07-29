@@ -3,9 +3,7 @@
 import { useState } from 'react';
 import { ImagePreviewModal } from '@/components/ui/image-preview-modal';
 import {
-  formatTime,
-  getLatestActiveCardComment,
-  getLatestCardComment,
+  formatRelativeTime,
   isCommentDeleted,
   isCommentEdited,
   formatDeletedCommentLabel,
@@ -19,10 +17,9 @@ type HandoverCardCommentSectionProps = {
   card: Card;
   staffName: string;
   disabled?: boolean;
-  onAddComment: (content: string) => Promise<void>;
+  /** 없으면 읽기 전용 (보관함처럼 댓글을 더 달 수 없는 곳) */
+  onAddComment?: (content: string) => Promise<void>;
   onOpenComments?: () => void;
-  /** true면 최신 미리보기 없이 댓글 전체·작성란을 바로 표시 */
-  showAll?: boolean;
 };
 
 export function HandoverCardCommentSection({
@@ -31,106 +28,101 @@ export function HandoverCardCommentSection({
   disabled = false,
   onAddComment,
   onOpenComments,
-  showAll = false,
 }: HandoverCardCommentSectionProps) {
   const comments = [...card.card_comments].sort((a, b) => a.created_at.localeCompare(b.created_at));
   const activeCommentCount = countActiveCardComments(card);
   const hasActiveComments = hasActiveCardComments(card);
-  const latestComment = hasActiveComments ? getLatestActiveCardComment(card) : getLatestCardComment(card);
   const attachments = card.card_attachments.filter((item) => item.url);
-  const [expanded, setExpanded] = useState(showAll);
+  const [expanded, setExpanded] = useState(false);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const hasComments = comments.length > 0;
-  const threadOpen = showAll || expanded;
-  const showComposer = !hasComments || threadOpen;
+  const hiddenCount = comments.length - 1;
+  const visibleComments = expanded ? comments : comments.slice(-1);
 
-  function commentPreviewText(comment: (typeof comments)[number]): string {
-    return isCommentDeleted(comment) ? formatDeletedCommentLabel(comment) : comment.content;
-  }
+  if (!hasComments && !attachments.length && !onAddComment) return null;
 
   return (
     <div
       className={[
         'project-list-row__comments',
         hasActiveComments ? 'project-list-row__comments--highlight' : '',
+        hasComments ? '' : 'project-list-row__comments--empty',
       ]
         .filter(Boolean)
         .join(' ')}
       onClick={(event) => event.stopPropagation()}
     >
-      {hasComments && !threadOpen ? (
-        <button
-          type="button"
-          className={[
-            'project-list-row__comment-toggle',
-            hasActiveComments ? 'project-list-row__comment-toggle--highlight' : '',
-          ]
-            .filter(Boolean)
-            .join(' ')}
-          onClick={() => setExpanded(true)}
-        >
-          <span className="project-list-row__comment-toggle-label">
-            {hasActiveComments ? `최신 댓글 · ${activeCommentCount}개` : `댓글 ${comments.length}개`}
-          </span>
-          {latestComment ? (
-            <span className="project-list-row__comment-toggle-preview">
-              <span className="project-list-row__comment-author">
-                {latestComment.staff_name || latestComment.shift}
+      {hasComments ? (
+        <div className="project-list-row__comment-feed">
+          {expanded ? (
+            <div className="project-list-row__comment-feed-head">
+              <span className="project-list-row__comment-feed-title">
+                댓글 {hasActiveComments ? activeCommentCount : comments.length}개
               </span>
-              <span className="project-list-row__comment-text">{commentPreviewText(latestComment)}</span>
-              <time className="project-list-row__comment-time" dateTime={latestComment.created_at}>
-                {formatTime(latestComment.created_at)}
-              </time>
-            </span>
+              <span className="project-list-row__comment-feed-actions">
+                {onOpenComments ? (
+                  <button
+                    type="button"
+                    className="project-list-row__comment-open"
+                    onClick={onOpenComments}
+                  >
+                    댓글 창 열기
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="project-list-row__comment-collapse"
+                  onClick={() => setExpanded(false)}
+                >
+                  접기
+                </button>
+              </span>
+            </div>
+          ) : hiddenCount > 0 ? (
+            <button
+              type="button"
+              className="project-list-row__comment-more"
+              onClick={() => setExpanded(true)}
+            >
+              이전 댓글 {hiddenCount}개 더 보기
+            </button>
           ) : null}
-        </button>
-      ) : null}
 
-      {hasComments && threadOpen ? (
-        <>
-          <div className="project-list-row__comment-thread-head">
-            <span className="project-list-row__comment-thread-title">
-              {hasActiveComments ? `댓글 ${activeCommentCount}개` : `댓글 ${comments.length}개`}
-            </span>
-            {!showAll ? (
-              <button
-                type="button"
-                className="project-list-row__comment-collapse"
-                onClick={() => setExpanded(false)}
-              >
-                접기
-              </button>
-            ) : null}
-          </div>
-          <div className="project-list-row__comment-thread">
-            {comments.map((comment) => (
-              <button
-                key={comment.id}
-                type="button"
-                className={[
-                  'project-list-row__comment-bubble',
-                  isCommentDeleted(comment) ? 'project-list-row__comment-bubble--deleted' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                onClick={onOpenComments}
-              >
-                <span className="project-list-row__comment-head">
-                  <span className="project-list-row__comment-author">
-                    {comment.staff_name || comment.shift}
+          <ul className="project-list-row__comment-list">
+            {visibleComments.map((comment) => {
+              const deleted = isCommentDeleted(comment);
+              const author = comment.staff_name || comment.shift || '?';
+              const time = formatRelativeTime(comment.created_at);
+              return (
+                <li
+                  key={comment.id}
+                  className={[
+                    'project-list-row__comment-item',
+                    deleted ? 'project-list-row__comment-item--deleted' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
+                  <span className="project-list-row__comment-avatar" aria-hidden>
+                    {author.slice(0, 1)}
                   </span>
-                  <span className="project-list-row__comment-meta">
-                    <time dateTime={comment.created_at}>{formatTime(comment.created_at)}</time>
-                    {isCommentEdited(comment) ? ' · 수정됨' : ''}
-                  </span>
-                </span>
-                <span className="project-list-row__comment-text" title={commentPreviewText(comment)}>
-                  {commentPreviewText(comment)}
-                </span>
-              </button>
-            ))}
-          </div>
-        </>
+                  <div className="project-list-row__comment-main">
+                    <p className="project-list-row__comment-bubble">
+                      {deleted ? formatDeletedCommentLabel(comment) : comment.content}
+                    </p>
+                    <span className="project-list-row__comment-byline">
+                      <span className="project-list-row__comment-author">{author}</span>
+                      <time dateTime={time.iso} title={time.title}>
+                        {time.label}
+                      </time>
+                      {isCommentEdited(comment) ? <span>수정됨</span> : null}
+                    </span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       ) : null}
 
       {attachments.length ? (
@@ -153,10 +145,10 @@ export function HandoverCardCommentSection({
         </div>
       ) : null}
 
-      {showComposer ? (
+      {onAddComment ? (
         <CardCommentComposer
           staffName={staffName}
-          placeholder="댓글을 입력하세요…"
+          placeholder={hasComments ? '답글 남기기…' : '댓글 남기기…'}
           disabled={disabled}
           compact
           onSubmit={onAddComment}

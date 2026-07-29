@@ -1,16 +1,9 @@
 'use client';
 
-import { useMemo } from 'react';
-import { PRIORITY_LABELS } from '@/lib/handover/constants';
-import {
-  filterCards,
-  formatArchiveTime,
-  formatAssigneeLabel,
-  formatTime,
-} from '@/lib/handover/card-utils';
+import { useMemo, useState } from 'react';
+import { filterCards } from '@/lib/handover/card-utils';
 import type { Card, WorkSession } from '@/lib/handover/types';
-import { SearchHighlight } from '@/components/handover/search-highlight';
-import { HandoverCardBodyPreview } from './handover-card-body-preview';
+import { HandoverListRowProject } from './handover-list-row-project';
 import { HandoverStatusTabs, type HandoverStatusTab } from './handover-status-tabs';
 
 type HandoverArchiveProjectProps = {
@@ -27,50 +20,31 @@ type HandoverArchiveProjectProps = {
   onRestore?: (cardId: string) => Promise<void>;
 };
 
-type ArchiveGroup = {
-  id: string;
-  label: string;
-  cards: Card[];
-};
+type ArchiveSort = 'archived-desc' | 'archived-asc' | 'created-desc' | 'created-asc';
 
-function groupArchivedCards(cards: Card[]): ArchiveGroup[] {
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startOfYesterday = new Date(startOfToday);
-  startOfYesterday.setDate(startOfYesterday.getDate() - 1);
-  const startOfWeek = new Date(startOfToday);
-  startOfWeek.setDate(startOfWeek.getDate() - 6);
+const ARCHIVE_SORT_OPTIONS: { value: ArchiveSort; label: string }[] = [
+  { value: 'archived-desc', label: '최근 보관순' },
+  { value: 'archived-asc', label: '오래된 보관순' },
+  { value: 'created-desc', label: '등록 최신순' },
+  { value: 'created-asc', label: '등록 오래된순' },
+];
 
-  const buckets: ArchiveGroup[] = [
-    { id: 'today', label: '오늘 보관', cards: [] },
-    { id: 'yesterday', label: '어제 보관', cards: [] },
-    { id: 'week', label: '최근 7일', cards: [] },
-    { id: 'older', label: '이전', cards: [] },
-  ];
-
-  const sorted = [...cards].sort(
-    (a, b) => new Date(b.archived_at ?? 0).getTime() - new Date(a.archived_at ?? 0).getTime(),
-  );
-
-  for (const card of sorted) {
-    const archivedAt = card.archived_at ? new Date(card.archived_at) : null;
-    if (!archivedAt || Number.isNaN(archivedAt.getTime())) {
-      buckets[3]?.cards.push(card);
-      continue;
-    }
-    if (archivedAt >= startOfToday) {
-      buckets[0]?.cards.push(card);
-    } else if (archivedAt >= startOfYesterday) {
-      buckets[1]?.cards.push(card);
-    } else if (archivedAt >= startOfWeek) {
-      buckets[2]?.cards.push(card);
-    } else {
-      buckets[3]?.cards.push(card);
-    }
-  }
-
-  return buckets.filter((group) => group.cards.length > 0);
+function timestamp(value: string | null): number {
+  if (!value) return 0;
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? 0 : time;
 }
+
+function sortArchivedCards(cards: Card[], sort: ArchiveSort): Card[] {
+  return [...cards].sort((a, b) => {
+    if (sort === 'archived-desc') return timestamp(b.archived_at) - timestamp(a.archived_at);
+    if (sort === 'archived-asc') return timestamp(a.archived_at) - timestamp(b.archived_at);
+    if (sort === 'created-desc') return timestamp(b.created_at) - timestamp(a.created_at);
+    return timestamp(a.created_at) - timestamp(b.created_at);
+  });
+}
+
+const noop = () => undefined;
 
 export function HandoverArchiveProject({
   cards,
@@ -85,6 +59,7 @@ export function HandoverArchiveProject({
   onOpenCard,
   onRestore,
 }: HandoverArchiveProjectProps) {
+  const [sort, setSort] = useState<ArchiveSort>('archived-desc');
   const filtered = useMemo(
     () =>
       filterCards(cards, {
@@ -98,10 +73,39 @@ export function HandoverArchiveProject({
     [cards, searchQuery, searchDateFrom, searchDateTo, session],
   );
 
-  const groups = useMemo(() => groupArchivedCards(filtered), [filtered]);
+  const sortedCards = useMemo(() => sortArchivedCards(filtered, sort), [filtered, sort]);
 
   const statusTabs = (
-    <HandoverStatusTabs active="archive" counts={statusCounts} onChange={onStatusTabChange} />
+    <HandoverStatusTabs
+      active="archive"
+      counts={statusCounts}
+      onChange={onStatusTabChange}
+      actions={
+        cards.length ? (
+          <>
+            <span className="project-list__total" aria-live="polite">
+              {filtered.length === cards.length
+                ? `총 ${cards.length}건`
+                : `전체 ${cards.length}건 중 ${filtered.length}건`}
+            </span>
+            <label className="project-list__sort">
+              <span>정렬</span>
+              <select
+                value={sort}
+                aria-label="보관함 정렬"
+                onChange={(event) => setSort(event.target.value as ArchiveSort)}
+              >
+                {ARCHIVE_SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        ) : null
+      }
+    />
   );
 
   if (isLoading) {
@@ -142,126 +146,26 @@ export function HandoverArchiveProject({
   return (
     <div className="project-archive">
       {statusTabs}
-      <header className="project-archive__head">
-        <div>
-          <h3 className="project-archive__title">완료 보관함</h3>
-          <p className="project-archive__lead">
-            완료 후 약 24시간이 지나면 자동으로 보관됩니다. 현재 {cards.length}건.
-            {searchQuery.trim() || searchDateFrom || searchDateTo
-              ? ` · 표시 ${filtered.length}건`
-              : ''}
-          </p>
-        </div>
-      </header>
-
       <div className="project-list project-archive__list">
-        {groups.map((group) => (
-          <section key={group.id} className="project-list__section">
-            <header className="project-list__head">
-              <h3>{group.label}</h3>
-              <span className="project-list__count">{group.cards.length}</span>
-            </header>
-            <div className="project-list__rows">
-              {group.cards.map((card) => {
-                const assignee = formatAssigneeLabel(card);
-                const resolution = card.resolution?.trim() || card.details?.trim() || '';
-                return (
-                  <article key={card.id} className="project-list-row is-archived is-done">
-                    <div className="project-list-row__body">
-                      <div className="project-list-row__head">
-                        <div
-                          className="project-list-row__head-main"
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => onOpenCard(card)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter' || event.key === ' ') {
-                              event.preventDefault();
-                              onOpenCard(card);
-                            }
-                          }}
-                        >
-                          <div className="project-list-row__top">
-                            <span className="project-list-row__status project-list-row__status--archive">
-                              보관
-                            </span>
-                            <span className="project-list-row__meta">
-                              <span className="project-list-row__badge">
-                                {PRIORITY_LABELS[card.priority]}
-                              </span>
-                              <span className="project-list-row__badge">{card.category}</span>
-                            </span>
-                          </div>
-                        </div>
-                        {isManager && onRestore ? (
-                          <div className="project-list-row__actions">
-                            <button
-                              type="button"
-                              className="project-list-row__restore"
-                              onClick={() => onRestore(card.id)}
-                            >
-                              복원
-                            </button>
-                          </div>
-                        ) : null}
-                      </div>
-                      <div
-                        className="project-list-row__main"
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => onOpenCard(card)}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault();
-                            onOpenCard(card);
-                          }
-                        }}
-                      >
-                        <span className="project-list-row__title" title={card.title}>
-                          {card.room ? (
-                            <span className="project-list-row__room card-room-badge" title={`객실 ${card.room}`}>
-                              <SearchHighlight text={card.room} query={searchQuery} />
-                            </span>
-                          ) : null}
-                          <SearchHighlight text={card.title} query={searchQuery} />
-                        </span>
-
-                        {resolution ? (
-                          <HandoverCardBodyPreview searchQuery={searchQuery} resolution={resolution} />
-                        ) : null}
-
-                        <span className="project-list-row__foot">
-                          <span className="project-list-row__people">
-                            <span>{card.author?.trim() || '미입력'}</span>
-                            {assignee ? (
-                              <>
-                                <span className="project-list-row__foot-sep">·</span>
-                                <span>담당 {assignee}</span>
-                              </>
-                            ) : null}
-                          </span>
-                          <span className="project-archive-row__times">
-                            {card.archived_at ? (
-                              <time dateTime={card.archived_at} title="보관 시각">
-                                보관 {formatArchiveTime(card.archived_at)}
-                              </time>
-                            ) : null}
-                            <time
-                              dateTime={card.updated_at || card.created_at}
-                              title="완료 시각"
-                            >
-                              완료 {formatTime(card.updated_at || card.created_at)}
-                            </time>
-                          </span>
-                        </span>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          </section>
-        ))}
+        <div className="project-list__rows">
+          {sortedCards.map((card) => (
+            <HandoverListRowProject
+              key={card.id}
+              card={card}
+              searchQuery={searchQuery}
+              staffNames={[]}
+              onOpen={() => onOpenCard(card)}
+              onOpenComments={() => onOpenCard(card)}
+              staffName={session.name}
+              onAcknowledge={noop}
+              onMarkDone={noop}
+              onHold={noop}
+              onResume={noop}
+              onAssignChange={noop}
+              onRestore={isManager && onRestore ? () => void onRestore(card.id) : undefined}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

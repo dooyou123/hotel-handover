@@ -199,12 +199,12 @@ export function useCards() {
         .select('category, first_response_at')
         .eq('id', cardId)
         .maybeSingle();
-      if (card?.category === '컴플레인' && !card.first_response_at) {
-        await supabase
-          .from('cards')
-          .update({ first_response_at: new Date().toISOString() })
-          .eq('id', cardId);
-      }
+      const now = new Date().toISOString();
+      const patch: { updated_at: string; first_response_at?: string } = { updated_at: now };
+      if (card?.category === '컴플레인' && !card.first_response_at) patch.first_response_at = now;
+
+      const { error: touchError } = await supabase.from('cards').update(patch).eq('id', cardId);
+      if (touchError) throw touchError;
     },
     onSuccess: () => invalidateCardQueriesLocal(queryClient),
   });
@@ -307,13 +307,30 @@ export function useCards() {
   });
 
   const uploadAttachment = useMutation({
-    mutationFn: async ({ cardId, file, existingCount }: { cardId: string; file: File; existingCount: number }) =>
-      uploadCardAttachment(cardId, file, existingCount),
+    mutationFn: async ({ cardId, file, existingCount }: { cardId: string; file: File; existingCount: number }) => {
+      const attachment = await uploadCardAttachment(cardId, file, existingCount);
+      const supabase = createClient();
+      const { error } = await supabase
+        .from('cards')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', cardId);
+      if (error) throw error;
+      return attachment;
+    },
     onSuccess: () => invalidateCardQueriesLocal(queryClient),
   });
 
   const deleteAttachment = useMutation({
-    mutationFn: async (attachment: Card['card_attachments'][number]) => removeAttachment(attachment),
+    mutationFn: async (attachment: Card['card_attachments'][number]) => {
+      const result = await removeAttachment(attachment);
+      const supabase = createClient();
+      const { error } = await supabase
+        .from('cards')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', attachment.card_id);
+      if (error) throw error;
+      return result;
+    },
     onSuccess: () => invalidateCardQueriesLocal(queryClient),
   });
 

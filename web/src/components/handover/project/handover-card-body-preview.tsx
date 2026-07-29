@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SearchHighlight } from '@/components/handover/search-highlight';
 import { CARD_BODY_PREVIEW_MAX_LINES, isLongPreviewText } from '@/lib/handover/card-body-preview';
 
@@ -22,7 +22,22 @@ function PreviewField({
   clampLines,
 }: PreviewFieldProps) {
   const [expanded, setExpanded] = useState(false);
-  const long = collapsible && isLongPreviewText(text, clampLines);
+  const [overflowing, setOverflowing] = useState(() => isLongPreviewText(text, clampLines));
+  const textRef = useRef<HTMLDivElement>(null);
+
+  // 열 폭이 좁으면 글자 수 추정만으로는 잘림 여부를 알 수 없어 실제 높이로 판정한다.
+  useEffect(() => {
+    if (!collapsible || expanded) return;
+    const node = textRef.current;
+    if (!node) return;
+    const measure = () => setOverflowing(node.scrollHeight - node.clientHeight > 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [collapsible, expanded, text, clampLines]);
+
+  const long = collapsible && overflowing;
 
   return (
     <div
@@ -35,14 +50,15 @@ function PreviewField({
     >
       <span className="project-list-row__content-label">{label}</span>
       <div
+        ref={textRef}
         className={[
           'project-list-row__content-text',
-          long && !expanded ? 'is-clamped' : '',
+          collapsible && !expanded ? 'is-clamped' : '',
         ]
           .filter(Boolean)
           .join(' ')}
         style={
-          long && !expanded
+          collapsible && !expanded
             ? ({
                 '--preview-clamp-lines': String(clampLines ?? CARD_BODY_PREVIEW_MAX_LINES),
               } as React.CSSProperties)
@@ -89,7 +105,7 @@ export function HandoverCardBodyPreview({
   const fields: { label: string; text: string; emphasize?: boolean; collapsible?: boolean }[] = [];
 
   if (nextAction) {
-    fields.push({ label: '다음 조치', text: nextAction, emphasize: true, collapsible: false });
+    fields.push({ label: '다음 조치', text: nextAction, emphasize: true, collapsible });
   }
   if (details) {
     fields.push({ label: '상세', text: details, collapsible });
