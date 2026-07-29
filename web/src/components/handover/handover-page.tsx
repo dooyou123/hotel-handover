@@ -37,6 +37,7 @@ import { TodoModal } from '@/components/todos/todo-modal';
 import { HandoverRecordsModal } from './handover-records-modal';
 import type { HandoverRecordsTab } from '@/lib/handover/records';
 import { CardModal } from './card-modal';
+import { HandoverCompleteModal } from './handover-complete-modal';
 import { ShiftHandoverModal } from './shift-handover-modal';
 import { ShiftStartConfirmModal } from './shift-start-confirm-modal';
 import { HandoverWorkspaceProject } from './project/handover-workspace-project';
@@ -114,6 +115,8 @@ export function HandoverPage() {
   const [shiftEndModalOpen, setShiftEndModalOpen] = useState(false);
   const [recordsModalOpen, setRecordsModalOpen] = useState(false);
   const [recordsModalTab, setRecordsModalTab] = useState<HandoverRecordsTab>('shift');
+  const [completionCardIds, setCompletionCardIds] = useState<string[]>([]);
+  const [completionBusy, setCompletionBusy] = useState(false);
   const [staffNames, setStaffNames] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -506,29 +509,47 @@ export function HandoverPage() {
     }
   }
 
-  async function handleMarkDone(cardId: string) {
+  function handleMarkDone(cardId: string) {
+    if (!requireSession('완료 처리')) return;
     const card = cards.find((item) => item.id === cardId);
     if (!card || card.column_id === 'done' || isArchivedCard(card)) return;
+    setCompletionCardIds([cardId]);
+  }
 
-    const resolution = card.next_action?.trim() || card.details?.trim() || '처리 완료';
+  async function handleConfirmCompletion(resolution: string) {
+    const targetCards = completionCardIds
+      .map((cardId) => cards.find((card) => card.id === cardId))
+      .filter((card): card is Card => Boolean(card && card.column_id !== 'done' && !isArchivedCard(card)));
+    if (!targetCards.length) {
+      setCompletionCardIds([]);
+      return;
+    }
+
+    setCompletionBusy(true);
     try {
-      await updateCard.mutateAsync({
-        id: cardId,
-        input: { column_id: 'done', resolution },
-      });
-      await syncLinkedTodoOnCardDone(card);
-      await logActivity({
-        entityType: 'card',
-        entityId: cardId,
-        action: 'move',
-        audit: audit(),
-        summary: `완료: ${cardSummaryLabel(card.room, card.title)}`,
-        details: { from: card.column_id, to: 'done', quick: true },
-      });
-      showToast('완료 처리했습니다.');
+      for (const card of targetCards) {
+        await updateCard.mutateAsync({
+          id: card.id,
+          input: { column_id: 'done', resolution },
+        });
+        await syncLinkedTodoOnCardDone(card);
+        await logActivity({
+          entityType: 'card',
+          entityId: card.id,
+          action: 'move',
+          audit: audit(),
+          summary: `완료: ${cardSummaryLabel(card.room, card.title)}`,
+          details: { from: card.column_id, to: 'done', quick: true, resolution },
+        });
+      }
+      setCompletionCardIds([]);
+      if (editingCard && targetCards.some((card) => card.id === editingCard.id)) closeCardModal();
+      showToast(targetCards.length > 1 ? `${targetCards.length}건을 완료 처리했습니다.` : '완료 처리했습니다.');
       refreshActivityLogs();
     } catch {
       showToast('완료 처리에 실패했습니다.');
+    } finally {
+      setCompletionBusy(false);
     }
   }
 
@@ -625,9 +646,12 @@ export function HandoverPage() {
   }
 
   async function handleBulkMarkDone(cardIds: string[]) {
-    for (const cardId of cardIds) {
-      await handleMarkDone(cardId);
-    }
+    if (!requireSession('일괄 완료 처리')) return;
+    const completableIds = cardIds.filter((cardId) => {
+      const card = cards.find((item) => item.id === cardId);
+      return Boolean(card && card.column_id !== 'done' && !isArchivedCard(card));
+    });
+    if (completableIds.length) setCompletionCardIds(completableIds);
   }
 
   async function handleBulkHold(cardIds: string[]) {
@@ -1121,6 +1145,18 @@ export function HandoverPage() {
         onAcknowledge={handleAcknowledge}
         onMarkDone={handleMarkDone}
         acknowledging={acknowledgeCard.isPending}
+      />
+
+      <HandoverCompleteModal
+        open={completionCardIds.length > 0}
+        cards={completionCardIds
+          .map((cardId) => cards.find((card) => card.id === cardId))
+          .filter((card): card is Card => Boolean(card))}
+        busy={completionBusy}
+        onClose={() => {
+          if (!completionBusy) setCompletionCardIds([]);
+        }}
+        onConfirm={handleConfirmCompletion}
       />
 
       <TodoModal

@@ -232,13 +232,6 @@ export function HandoverListProject({
 
   async function runBulkMarkDone() {
     if (!selectedIds.length) return;
-    const ok = await confirm({
-      title: '일괄 완료',
-      message: `선택한 ${selectedIds.length}건을 완료 처리할까요?`,
-      confirmLabel: '완료',
-      tone: 'warning',
-    });
-    if (!ok) return;
     await onBulkMarkDone(selectedIds);
     setSelectedIds([]);
     setBulkMode(false);

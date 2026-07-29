@@ -971,16 +971,7 @@ export function CardModal({
           }
           onMarkDone={
             onMarkDone && !isTeamAckPending(card, staffNames)
-              ? async () => {
-                  const ok = await confirm({
-                    title: '완료 처리',
-                    message: '전원 확인이 끝났습니다. 이 긴급 건을 완료 처리할까요?',
-                    detail: card.title,
-                    confirmLabel: '완료',
-                    tone: 'warning',
-                  });
-                  if (ok) void onMarkDone(card.id);
-                }
+              ? () => void onMarkDone(card.id)
               : undefined
           }
           acknowledging={acknowledging}

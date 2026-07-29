@@ -19,11 +19,10 @@ import type { HandoverRecordsTab } from '@/lib/handover/records';
 import type { ShiftSummaryData } from '@/lib/handover/shift-summary';
 import {
   fetchChecklistIncomplete,
-  fetchTodayActivityLogs,
   fetchTodayShiftHandovers,
   logShiftHandover,
 } from '@/lib/handover/use-activity-logs';
-import type { ActivityLog, ShiftHandover } from '@/lib/handover/types';
+import type { ShiftHandover } from '@/lib/handover/types';
 import { createFollowUpCardFromReview } from '@/lib/reviews/follow-up-card';
 import { filterPendingFollowUpReviews } from '@/lib/reviews/pending-follow-up';
 import { useReviews } from '@/lib/reviews/use-reviews';
@@ -100,7 +99,6 @@ export function HandoverShiftBriefProject({
   const [reviewActionBusyId, setReviewActionBusyId] = useState<string | null>(null);
   const [briefMemoSaving, setBriefMemoSaving] = useState(false);
   const [savingHandover, setSavingHandover] = useState(false);
-  const [todayLogs, setTodayLogs] = useState<ActivityLog[]>([]);
   const [todayShiftLogs, setTodayShiftLogs] = useState<ShiftHandover[]>([]);
   const [logsLoading, setLogsLoading] = useState(true);
   const [exportingImage, setExportingImage] = useState(false);
@@ -145,13 +143,11 @@ export function HandoverShiftBriefProject({
 
   useEffect(() => {
     setLogsLoading(true);
-    Promise.all([fetchTodayActivityLogs(200), fetchTodayShiftHandovers(50)])
-      .then(([logs, shiftLogs]) => {
-        setTodayLogs(logs);
+    fetchTodayShiftHandovers(50)
+      .then((shiftLogs) => {
         setTodayShiftLogs(shiftLogs);
       })
       .catch(() => {
-        setTodayLogs([]);
         setTodayShiftLogs([]);
       })
       .finally(() => setLogsLoading(false));
@@ -250,12 +246,12 @@ export function HandoverShiftBriefProject({
   const sessionReady = Boolean(session.group && session.name);
 
   function handleExportText() {
-    downloadTextFile(buildSummaryText(summary, todayLogs, authorLabel, briefExtras), getExportFilename('txt'));
+    downloadTextFile(buildSummaryText(summary, authorLabel, briefExtras), getExportFilename('txt'));
     onToast('텍스트 파일을 저장했습니다.');
   }
 
   function handleExportPrint() {
-    const ok = openSummaryPrintWindow(summary, todayLogs, authorLabel, briefExtras);
+    const ok = openSummaryPrintWindow(summary, authorLabel, briefExtras);
     if (!ok) onToast('인쇄 창을 열지 못했습니다. 팝업 차단을 확인해 주세요.');
   }
 
@@ -264,12 +260,13 @@ export function HandoverShiftBriefProject({
     setExportingImage(true);
     try {
       const html2canvas = (await import('html2canvas')).default;
-      sheetRef.current.innerHTML = buildPrintDocumentHtml(summary, todayLogs, authorLabel, briefExtras);
+      sheetRef.current.innerHTML = buildPrintDocumentHtml(summary, authorLabel, briefExtras);
       sheetRef.current.classList.remove('hidden');
       const canvas = await html2canvas(sheetRef.current, {
         backgroundColor: '#ffffff',
         scale: 2,
         useCORS: true,
+        ignoreElements: (element) => element.classList.contains('screen-only'),
       });
       const link = document.createElement('a');
       link.download = getExportFilename('png');
@@ -296,8 +293,6 @@ export function HandoverShiftBriefProject({
       pendingNegativeReviews={pendingNegativeReviews}
       amenityAlerts={amenityAlerts}
       isLoading={reviewsLoading || amenityLoading}
-      todayLogs={todayLogs}
-      logsLoading={logsLoading}
       onExportText={handleExportText}
       onExportPrint={handleExportPrint}
       onExportImage={() => void handleExportImage()}
@@ -324,7 +319,6 @@ export function HandoverShiftBriefProject({
       todayShiftLogs={todayShiftLogs}
       shiftLogsLoading={logsLoading}
       onOpenShiftHistory={onOpenRecords ? () => onOpenRecords('shift') : undefined}
-      onOpenActivityLog={onOpenRecords ? () => onOpenRecords('activity') : undefined}
       showFooter={false}
     />
     <div ref={sheetRef} className="export-sheet hidden" aria-hidden />

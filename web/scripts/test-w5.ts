@@ -20,7 +20,13 @@ import { buildAmenityOrderLines, buildAmenityOrderText } from '@/lib/amenity/ord
 import { buildAmenityTransactionsCsv, getAmenityTransactionsExportFilename } from '@/lib/amenity/export';
 import { getKoreanHoliday, getKoreanHolidaysInMonth } from '@/lib/calendar/korean-holidays';
 import { monthDateRange } from '@/lib/events/month-range';
-import { buildPrintDocumentHtml, buildSummaryText, getExportFilename, hasSummaryContent } from '@/lib/handover/daily-summary';
+import {
+  buildBriefSections,
+  buildPrintDocumentHtml,
+  buildSummaryText,
+  getExportFilename,
+  hasSummaryContent,
+} from '@/lib/handover/daily-summary';
 import { buildShiftSummaryData } from '@/lib/handover/shift-summary';
 import { cardAckSummary, hasStaffAckedCard, isUnackedUrgentCard } from '@/lib/handover/card-acks';
 import { consolidateTlNotificationRows, performReconciliation } from '@/lib/rate-confirm/compare-engine';
@@ -124,7 +130,7 @@ test('getExportFilename includes date prefix', () => {
 
 test('buildSummaryText includes header and empty state', () => {
   const data = buildShiftSummaryData([], []);
-  const text = buildSummaryText(data, [], '주간 · 김프런');
+  const text = buildSummaryText(data, '주간 · 김프런');
   assert.match(text, /^프런트 인수인계 일일 요약/);
   assert.match(text, /주간 · 김프런/);
   assert.match(text, /표시할 업무가 없습니다/);
@@ -138,7 +144,7 @@ test('hasSummaryContent detects urgent cards', () => {
     card_acknowledgments: [],
   } as Card;
   const data = buildShiftSummaryData([card], []);
-  assert.equal(hasSummaryContent(data, []), true);
+  assert.equal(hasSummaryContent(data), true);
 });
 
 test('cardAckSummary tracks per-staff urgent reads', () => {
@@ -158,14 +164,82 @@ test('cardAckSummary tracks per-staff urgent reads', () => {
 });
 
 test('hasSummaryContent detects notices', () => {
-  const notice = { id: '1', type: 'announcement' } as Notice;
+  const now = new Date().toISOString();
+  const notice = { id: '1', type: 'announcement', created_at: now, updated_at: now } as Notice;
   const data = buildShiftSummaryData([], [notice]);
-  assert.equal(hasSummaryContent(data, []), true);
+  assert.equal(hasSummaryContent(data), true);
+});
+
+test('buildBriefSections keeps open work and trims stale notices', () => {
+  const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
+  const makeCard = (id: string, columnId: string, touchedAt: string): Card =>
+    ({
+      id,
+      column_id: columnId,
+      title: `카드 ${id}`,
+      priority: 'normal',
+      card_acknowledgments: [],
+      author: '김프런',
+      created_at: touchedAt,
+      updated_at: touchedAt,
+    }) as Card;
+  const makeNotice = (id: string, touchedAt: string, pinned = false): Notice =>
+    ({
+      id,
+      type: 'announcement',
+      content: `공지 ${id}`,
+      is_pinned: pinned,
+      created_at: touchedAt,
+      updated_at: touchedAt,
+    }) as Notice;
+
+  const data = buildShiftSummaryData(
+    [
+      makeCard('old-progress', 'progress', daysAgo(60)),
+      makeCard('fresh-hold', 'hold', daysAgo(3)),
+      makeCard('old-hold', 'hold', daysAgo(20)),
+    ],
+    [makeNotice('fresh', daysAgo(1)), makeNotice('stale', daysAgo(10)), makeNotice('pinned', daysAgo(30), true)],
+  );
+  const brief = buildBriefSections(data);
+
+  assert.deepEqual(
+    brief.progressActive.map((card) => card.id),
+    ['old-progress'],
+  );
+  assert.deepEqual(
+    brief.holdActive.map((card) => card.id),
+    ['fresh-hold'],
+  );
+  assert.deepEqual(
+    brief.announcements.map((notice) => notice.id).sort(),
+    ['fresh', 'pinned'],
+  );
+});
+
+test('buildPrintDocumentHtml prints every item without truncation', () => {
+  const now = new Date().toISOString();
+  const cards = Array.from({ length: 12 }, (_, index) => ({
+    id: String(index),
+    column_id: 'progress',
+    title: `진행 카드 ${index}`,
+    priority: 'normal',
+    card_acknowledgments: [],
+    author: '김프런',
+    created_at: now,
+    updated_at: now,
+  })) as Card[];
+  const data = buildShiftSummaryData(cards, []);
+  const html = buildPrintDocumentHtml(data, '주간 · 김프런');
+
+  cards.forEach((card) => assert.match(html, new RegExp(card.title)));
+  assert.doesNotMatch(html, /앱에서 전체 확인/);
+  assert.doesNotMatch(html, /변경 기록/);
 });
 
 test('hasSummaryContent false when empty', () => {
   const data = buildShiftSummaryData([], []);
-  assert.equal(hasSummaryContent(data, [] as ActivityLog[]), false);
+  assert.equal(hasSummaryContent(data), false);
 });
 
 test('buildPrintDocumentHtml uses compact A4 layout', () => {
@@ -180,11 +254,34 @@ test('buildPrintDocumentHtml uses compact A4 layout', () => {
     updated_at: '2026-06-08T10:00:00',
   } as Card;
   const data = buildShiftSummaryData([card], []);
-  const html = buildPrintDocumentHtml(data, [], '주간 · 김프런');
+  const html = buildPrintDocumentHtml(data, '주간 · 김프런');
   assert.match(html, /@page \{ size: A4 portrait/);
   assert.match(html, /sections-grid/);
   assert.match(html, /교대 인계 요약/);
   assert.match(html, /현재 진행중/);
+});
+
+test('shift brief shows resolution for cards completed today', () => {
+  const now = new Date().toISOString();
+  const card = {
+    id: 'done-1',
+    column_id: 'done',
+    title: '객실 요청 처리',
+    resolution: '추가 수건 전달 후 고객 확인 완료',
+    priority: 'normal',
+    card_acknowledgments: [],
+    author: '김프런',
+    created_at: now,
+    updated_at: now,
+  } as Card;
+  const data = buildShiftSummaryData([card], []);
+
+  const html = buildPrintDocumentHtml(data, '주간 · 김프런');
+  const text = buildSummaryText(data, '주간 · 김프런');
+
+  assert.match(html, /처리 결과/);
+  assert.match(html, /추가 수건 전달 후 고객 확인 완료/);
+  assert.match(text, /처리 결과: 추가 수건 전달 후 고객 확인 완료/);
 });
 
 test('splitTextBySearchQuery highlights matching segments', () => {

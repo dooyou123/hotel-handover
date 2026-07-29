@@ -48,14 +48,15 @@ export function useMobileNav() {
 }
 
 export function MobileNavTrigger() {
-  const { openNav } = useMobileNav();
+  const { open, openNav, closeNav } = useMobileNav();
   return (
     <button
       type="button"
       className="nova-mobile-nav-trigger"
-      aria-label="메뉴 열기"
+      aria-label={open ? '메뉴 닫기' : '메뉴 열기'}
+      aria-expanded={open}
       aria-haspopup="dialog"
-      onClick={openNav}
+      onClick={open ? closeNav : openNav}
     >
       <span aria-hidden>☰</span>
     </button>

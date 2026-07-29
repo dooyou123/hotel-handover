@@ -3,18 +3,12 @@
 import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { buildWorkHubHref } from '@/lib/work/work-hub';
-import { ACTION_LABELS } from '@/lib/handover/activity';
 import { formatTime } from '@/lib/handover/card-utils';
 import { hasStaffAckedCard } from '@/lib/handover/card-acks';
 import { formatComplaintRemedies, hasComplaintRemedies } from '@/lib/handover/complaint-remedies';
 import { noticeTypeShort } from '@/lib/handover/notice-utils';
-import {
-  cardStatusLabel,
-  formatActivityDetail,
-  getTodayLabel,
-  type ShiftSummaryData,
-} from '@/lib/handover/shift-summary';
-import type { ActivityLog, Card, Notice, ShiftHandover } from '@/lib/handover/types';
+import { cardStatusLabel, getTodayLabel, type ShiftSummaryData } from '@/lib/handover/shift-summary';
+import type { Card, Notice, ShiftHandover } from '@/lib/handover/types';
 import type { GuestReview } from '@/lib/reviews/types';
 import { formatReviewGuestLabel, isReviewAnonymous } from '@/lib/reviews/identity';
 import type { HotelEvent } from '@/lib/events/types';
@@ -62,10 +56,7 @@ export type ShiftBriefContentProps = {
   onOpenEvent?: (event: HotelEvent) => void;
   todayShiftLogs?: ShiftHandover[];
   shiftLogsLoading?: boolean;
-  todayLogs?: ActivityLog[];
-  logsLoading?: boolean;
   onOpenShiftHistory?: () => void;
-  onOpenActivityLog?: () => void;
   onExportText?: () => void;
   onExportPrint?: () => void;
   onExportImage?: () => void;
@@ -271,23 +262,6 @@ function BriefShiftHandoverItem({ record }: { record: ShiftHandover }) {
         </p>
       ) : null}
       <p className="brief-item__meta">{formatTime(record.handover_at)}</p>
-    </article>
-  );
-}
-
-function BriefActivityItem({ log }: { log: ActivityLog }) {
-  const actor = log.shift && log.staff_name ? `${log.shift} · ${log.staff_name}` : '작성자 미입력';
-  const detail = formatActivityDetail(log);
-  return (
-    <article className="brief-item">
-      <div className="brief-item__top">
-        <span className="brief-item__status">{ACTION_LABELS[log.action] || log.action}</span>
-      </div>
-      <p className="brief-item__title">{log.summary}</p>
-      <p className="brief-item__meta">
-        {actor}
-        {detail ? ` · ${detail}` : ''} · {formatTime(log.created_at)}
-      </p>
     </article>
   );
 }
@@ -533,10 +507,7 @@ export function ShiftBriefContent({
   onOpenEvent,
   todayShiftLogs = [],
   shiftLogsLoading = false,
-  todayLogs = [],
-  logsLoading = false,
   onOpenShiftHistory,
-  onOpenActivityLog,
   onExportText,
   onExportPrint,
   onExportImage,
@@ -569,7 +540,6 @@ export function ShiftBriefContent({
     todayWorkItems.length > 0 ||
     pendingTaxi.length > 0 ||
     todayShiftLogs.length > 0 ||
-    todayLogs.length > 0 ||
     Boolean(hkDayNotes);
 
   return (
@@ -653,7 +623,7 @@ export function ShiftBriefContent({
         </span>
       </div>
 
-      {isLoading || logsLoading || shiftLogsLoading || taxiLoading ? (
+      {isLoading || shiftLogsLoading || taxiLoading ? (
         <p className="empty-state">인계 내용을 불러오는 중…</p>
       ) : (
         <div className="shift-brief__sections">
@@ -833,18 +803,6 @@ export function ShiftBriefContent({
           >
             {todayShiftLogs.map((record) => (
               <BriefShiftHandoverItem key={record.id} record={record} />
-            ))}
-          </BriefRecordsSection>
-
-          <BriefRecordsSection
-            title="오늘 변경 기록"
-            lead="카드·공지 추가·수정·이동 등 업무 변경 내역입니다."
-            emptyText="오늘 변경 기록이 없습니다."
-            onOpenAll={onOpenActivityLog}
-            isEmpty={!todayLogs.length}
-          >
-            {todayLogs.map((log) => (
-              <BriefActivityItem key={log.id} log={log} />
             ))}
           </BriefRecordsSection>
 

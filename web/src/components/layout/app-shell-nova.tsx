@@ -23,7 +23,12 @@ function AppShellNovaInner({ email, children }: AppShellNovaProps) {
   return (
     <div className={`nova-shell${open ? ' is-nav-open' : ''}`}>
       <MobileNavBackdrop />
-      <aside className="nova-sidebar" aria-label="주 메뉴">
+      <aside
+        className="nova-sidebar"
+        aria-label="주 메뉴"
+        aria-hidden={!open}
+        inert={!open ? true : undefined}
+      >
         <div className="nova-sidebar__head">
           <Link href="/handover" className="nova-sidebar__brand" onClick={closeNav}>
             <strong>프런트 인수인계</strong>

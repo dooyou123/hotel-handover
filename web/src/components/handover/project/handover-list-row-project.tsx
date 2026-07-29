@@ -1,6 +1,5 @@
 'use client';
 
-import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { PRIORITY_LABELS } from '@/lib/handover/constants';
 import {
   formatAssigneeLabel,
@@ -71,7 +70,6 @@ export function HandoverListRowProject({
   onRecordFirstResponse,
   onRestore,
 }: HandoverListRowProjectProps) {
-  const { confirm } = useConfirmDialog();
   const isUrgent = isUrgentPriorityCard(card);
   const archived = isArchivedCard(card);
   const needsMyAck = !archived && isUnackedUrgentCardForStaff(card, staffName);
@@ -316,16 +314,9 @@ export function HandoverListRowProject({
               <button
                 type="button"
                 className="project-list-row__done project-list-row__done--primary"
-                onClick={async (event) => {
+                onClick={(event) => {
                   event.stopPropagation();
-                  const ok = await confirm({
-                    title: '완료 처리',
-                    message: '이 카드를 완료 처리할까요?',
-                    detail: card.title,
-                    confirmLabel: '완료',
-                    tone: 'warning',
-                  });
-                  if (ok) onMarkDone();
+                  onMarkDone();
                 }}
               >
                 완료

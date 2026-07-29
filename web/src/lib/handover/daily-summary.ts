@@ -1,13 +1,7 @@
-import { ACTION_LABELS } from '@/lib/handover/activity';
 import { formatTime } from '@/lib/handover/card-utils';
 import { COLUMN_LABELS } from '@/lib/handover/constants';
-import {
-  cardStatusLabel,
-  formatActivityDetail,
-  getTodayLabel,
-  type ShiftSummaryData,
-} from '@/lib/handover/shift-summary';
-import type { ActivityLog, Card, Notice, ShiftHandover } from '@/lib/handover/types';
+import { cardStatusLabel, getTodayLabel, type ShiftSummaryData } from '@/lib/handover/shift-summary';
+import type { Card, Notice, ShiftHandover } from '@/lib/handover/types';
 import { TODO_PRIORITY_LABELS, type Todo } from '@/lib/todos/types';
 import { transportStatusLabel, type TransportBooking } from '@/lib/transport/types';
 
@@ -16,6 +10,48 @@ export type BriefHandoverExtras = {
   pendingTaxi?: TransportBooking[];
   todayShiftLogs?: ShiftHandover[];
 };
+
+/** 종이만 보고 인계할 수 있도록: 지금 열린 일은 전부, 나머지는 최근 것만 */
+const NOTICE_RECENT_DAYS = 3;
+const HOLD_RECENT_DAYS = 7;
+
+function isWithinDays(value: string | null | undefined, days: number): boolean {
+  if (!value) return false;
+  const at = new Date(value).getTime();
+  if (Number.isNaN(at)) return false;
+  return Date.now() - at <= days * 86_400_000;
+}
+
+function cardTouchedAt(card: Card): string {
+  return card.updated_at || card.created_at;
+}
+
+export type BriefSections = {
+  unackedUrgent: Card[];
+  urgentActive: Card[];
+  progressActive: Card[];
+  holdActive: Card[];
+  announcements: Notice[];
+  changes: Notice[];
+  doneToday: Card[];
+};
+
+export function buildBriefSections(data: ShiftSummaryData): BriefSections {
+  const recentNotice = (notice: Notice) =>
+    notice.is_pinned || isWithinDays(notice.updated_at || notice.created_at, NOTICE_RECENT_DAYS);
+
+  return {
+    // 긴급은 날짜와 무관하게 전부
+    unackedUrgent: data.unackedUrgent,
+    urgentActive: data.urgentActive,
+    // 지금 열려 있는 업무는 제한 없이 전부
+    progressActive: data.progressActive,
+    holdActive: data.holdActive.filter((card) => isWithinDays(cardTouchedAt(card), HOLD_RECENT_DAYS)),
+    announcements: data.announcements.filter(recentNotice),
+    changes: data.changes.filter(recentNotice),
+    doneToday: data.doneToday,
+  };
+}
 
 function escapeHtml(value: string): string {
   return value
@@ -51,7 +87,10 @@ function renderSummaryCardText(card: Card): string {
   const prefix = card.room ? `[${card.room}] ` : '';
   lines.push(`- ${prefix}${card.title}`);
   lines.push(`  ${cardStatusLabel(card)}`);
-  if (card.details.trim()) lines.push(`  상세: ${card.details.trim()}`);
+  if (card.column_id === 'done' && card.resolution?.trim()) {
+    lines.push(`  처리 결과: ${card.resolution.trim()}`);
+  }
+  if (card.details?.trim()) lines.push(`  상세: ${card.details.trim()}`);
   if (card.next_action) lines.push(`  다음: ${card.next_action}`);
   lines.push(`  ${card.author || '작성자 미입력'} · ${formatTime(card.updated_at || card.created_at)}`);
   return lines.join('\n');
@@ -65,12 +104,6 @@ function renderSummaryNoticeText(notice: Notice): string {
     `- ${notice.content}`,
     `  ${tags || '공지'} · ${notice.author || '작성자 미입력'} · ${formatTime(notice.updated_at || notice.created_at)}`,
   ].join('\n');
-}
-
-function renderSummaryActivityText(log: ActivityLog): string {
-  const detail = formatActivityDetail(log);
-  const actor = log.shift && log.staff_name ? `${log.shift} · ${log.staff_name}` : '작성자 미입력';
-  return `- [${ACTION_LABELS[log.action] || log.action}] ${log.summary}\n  ${actor} · ${formatTime(log.created_at)}${detail ? ` · ${detail}` : ''}`;
 }
 
 function renderSummaryTodoText(todo: Todo): string {
@@ -108,26 +141,25 @@ function renderSummaryTaxiText(booking: TransportBooking): string {
 
 export function buildSummaryText(
   data: ShiftSummaryData,
-  activityLogs: ActivityLog[],
   authorLabel: string,
   extras?: BriefHandoverExtras,
 ): string {
   const todayTodos = extras?.todayTodos ?? [];
   const pendingTaxi = extras?.pendingTaxi ?? [];
   const todayShiftLogs = extras?.todayShiftLogs ?? [];
+  const brief = buildBriefSections(data);
 
   const sections: [string, unknown[], (item: never) => string][] = [
-    ['⚠️ 미확인 긴급', data.unackedUrgent, renderSummaryCardText as (item: never) => string],
-    ['🔴 현재 긴급', data.urgentActive, renderSummaryCardText as (item: never) => string],
-    ['🟡 현재 진행중', data.progressActive, renderSummaryCardText as (item: never) => string],
-    ['⏸ 보류 중', data.holdActive, renderSummaryCardText as (item: never) => string],
+    ['⚠️ 미확인 긴급', brief.unackedUrgent, renderSummaryCardText as (item: never) => string],
+    ['🔴 현재 긴급', brief.urgentActive, renderSummaryCardText as (item: never) => string],
+    ['🟡 현재 진행중', brief.progressActive, renderSummaryCardText as (item: never) => string],
+    ['⏸ 보류 중 (7일 내 업데이트)', brief.holdActive, renderSummaryCardText as (item: never) => string],
     ['📋 오늘 할일 (미완료)', todayTodos, renderSummaryTodoText as (item: never) => string],
     ['🚕 오늘 택시 (미완료)', pendingTaxi, renderSummaryTaxiText as (item: never) => string],
     ['📒 오늘 교대 기록', todayShiftLogs, renderSummaryShiftHandoverText as (item: never) => string],
-    ['📢 업무 공지', data.announcements, renderSummaryNoticeText as (item: never) => string],
-    ['🔄 업무 변경', data.changes, renderSummaryNoticeText as (item: never) => string],
-    ['✅ 오늘 완료', data.doneToday, renderSummaryCardText as (item: never) => string],
-    ['📝 오늘 변경 기록', activityLogs, renderSummaryActivityText as (item: never) => string],
+    ['📢 업무 공지 (3일 내)', brief.announcements, renderSummaryNoticeText as (item: never) => string],
+    ['🔄 업무 변경 (3일 내)', brief.changes, renderSummaryNoticeText as (item: never) => string],
+    ['✅ 오늘 완료', brief.doneToday, renderSummaryCardText as (item: never) => string],
   ];
 
   const lines = [
@@ -135,7 +167,7 @@ export function buildSummaryText(
     getSummaryMetaLine(authorLabel),
     '',
     '[요약]',
-    `미확인 긴급 ${data.unackedUrgent.length}건 · 긴급 ${data.urgentActive.length}건 · 진행중 ${data.progressActive.length}건 · 보류 ${data.holdActive.length}건 · 할일 ${todayTodos.length}건 · 택시 ${pendingTaxi.length}건 · 오늘 완료 ${data.doneToday.length}건`,
+    `미확인 긴급 ${brief.unackedUrgent.length}건 · 긴급 ${brief.urgentActive.length}건 · 진행중 ${brief.progressActive.length}건 · 보류 ${brief.holdActive.length}건 · 할일 ${todayTodos.length}건 · 택시 ${pendingTaxi.length}건 · 오늘 완료 ${brief.doneToday.length}건`,
     '',
   ];
 
@@ -152,23 +184,17 @@ export function buildSummaryText(
   return lines.join('\n');
 }
 
-function sliceForPrint<T>(items: T[], max: number): { shown: T[]; overflow: number } {
-  if (items.length <= max) return { shown: items, overflow: 0 };
-  return { shown: items.slice(0, max), overflow: items.length - max };
-}
-
-function renderPrintOverflowHtml(count: number): string {
-  if (count <= 0) return '';
-  return `<p class="section__more">외 ${count}건 — 앱에서 전체 확인</p>`;
-}
-
 function renderCompactCardItemHtml(card: Card, warn = false): string {
   const prefix = card.room ? `[${card.room}] ` : '';
   const meta = `${cardStatusLabel(card)} · ${card.author || '—'} · ${formatTime(card.updated_at || card.created_at)}`;
   const next = card.next_action ? ` · 다음: ${escapeHtml(card.next_action)}` : '';
+  const resolution =
+    card.column_id === 'done' && card.resolution?.trim()
+      ? `<span class="item__result"><b>처리 결과</b> ${escapeHtml(card.resolution.trim())}</span>`
+      : '';
   return `
     <div class="item${warn ? ' item--warn' : ''}">
-      <p class="item__line"><strong>${escapeHtml(prefix + card.title)}</strong><span class="item__meta">${escapeHtml(meta)}${next}</span></p>
+      <p class="item__line"><strong>${escapeHtml(prefix + card.title)}</strong>${resolution}<span class="item__meta">${escapeHtml(meta)}${next}</span></p>
     </div>
   `;
 }
@@ -181,17 +207,6 @@ function renderCompactNoticeItemHtml(notice: Notice): string {
   return `
     <div class="item">
       <p class="item__line"><strong>${escapeHtml(notice.content)}</strong><span class="item__meta">${escapeHtml(meta)}</span></p>
-    </div>
-  `;
-}
-
-function renderCompactActivityItemHtml(log: ActivityLog): string {
-  const detail = formatActivityDetail(log);
-  const actor = log.shift && log.staff_name ? `${log.shift} · ${log.staff_name}` : '—';
-  const meta = `${ACTION_LABELS[log.action] || log.action} · ${actor} · ${formatTime(log.created_at)}${detail ? ` · ${detail}` : ''}`;
-  return `
-    <div class="item">
-      <p class="item__line"><strong>${escapeHtml(log.summary)}</strong><span class="item__meta">${escapeHtml(meta)}</span></p>
     </div>
   `;
 }
@@ -234,44 +249,27 @@ function renderCompactShiftHandoverItemHtml(record: ShiftHandover): string {
 function renderPrintCardSectionHtml(
   title: string,
   items: Card[],
-  max: number,
   warn = false,
   fullWidth = false,
 ): string {
-  const { shown, overflow } = sliceForPrint(items, max);
-  if (!shown.length) return '';
-  const itemsHtml = shown
+  if (!items.length) return '';
+  const itemsHtml = items
     .map((item) => renderCompactCardItemHtml(item, warn && item.card_acknowledgments.length === 0))
     .join('');
   return `
     <section class="section${warn ? ' section--warn' : ''}${fullWidth ? ' section--full' : ''}">
       <h3>${escapeHtml(title)} (${items.length}건)</h3>
       ${itemsHtml}
-      ${renderPrintOverflowHtml(overflow)}
     </section>
   `;
 }
 
-function renderPrintNoticeSectionHtml(title: string, items: Notice[], max: number): string {
-  const { shown, overflow } = sliceForPrint(items, max);
-  if (!shown.length) return '';
+function renderPrintNoticeSectionHtml(title: string, items: Notice[]): string {
+  if (!items.length) return '';
   return `
     <section class="section">
       <h3>${escapeHtml(title)} (${items.length}건)</h3>
-      ${shown.map(renderCompactNoticeItemHtml).join('')}
-      ${renderPrintOverflowHtml(overflow)}
-    </section>
-  `;
-}
-
-function renderPrintActivitySectionHtml(title: string, items: ActivityLog[], max: number): string {
-  const { shown, overflow } = sliceForPrint(items, max);
-  if (!shown.length) return '';
-  return `
-    <section class="section">
-      <h3>${escapeHtml(title)} (${items.length}건)</h3>
-      ${shown.map(renderCompactActivityItemHtml).join('')}
-      ${renderPrintOverflowHtml(overflow)}
+      ${items.map(renderCompactNoticeItemHtml).join('')}
     </section>
   `;
 }
@@ -279,68 +277,43 @@ function renderPrintActivitySectionHtml(title: string, items: ActivityLog[], max
 function renderPrintExtrasSectionHtml(
   title: string,
   items: Todo[] | TransportBooking[] | ShiftHandover[],
-  max: number,
   kind: 'todo' | 'taxi' | 'shift',
 ): string {
   if (!items.length) return '';
-  let itemsHtml = '';
-  if (kind === 'todo') {
-    const { shown, overflow } = sliceForPrint(items as Todo[], max);
-    if (!shown.length) return '';
-    itemsHtml = shown.map(renderCompactTodoItemHtml).join('');
-    return `
-    <section class="section">
-      <h3>${escapeHtml(title)} (${items.length}건)</h3>
-      ${itemsHtml}
-      ${renderPrintOverflowHtml(overflow)}
-    </section>
-  `;
-  }
-  if (kind === 'taxi') {
-    const { shown, overflow } = sliceForPrint(items as TransportBooking[], max);
-    if (!shown.length) return '';
-    itemsHtml = shown.map(renderCompactTaxiItemHtml).join('');
-    return `
-    <section class="section">
-      <h3>${escapeHtml(title)} (${items.length}건)</h3>
-      ${itemsHtml}
-      ${renderPrintOverflowHtml(overflow)}
-    </section>
-  `;
-  }
-  const { shown, overflow } = sliceForPrint(items as ShiftHandover[], max);
-  if (!shown.length) return '';
-  itemsHtml = shown.map(renderCompactShiftHandoverItemHtml).join('');
+  const itemsHtml =
+    kind === 'todo'
+      ? (items as Todo[]).map(renderCompactTodoItemHtml).join('')
+      : kind === 'taxi'
+        ? (items as TransportBooking[]).map(renderCompactTaxiItemHtml).join('')
+        : (items as ShiftHandover[]).map(renderCompactShiftHandoverItemHtml).join('');
   return `
     <section class="section">
       <h3>${escapeHtml(title)} (${items.length}건)</h3>
       ${itemsHtml}
-      ${renderPrintOverflowHtml(overflow)}
     </section>
   `;
 }
 
 export function buildA4PrintSectionsHtml(
   data: ShiftSummaryData,
-  activityLogs: ActivityLog[],
   extras?: BriefHandoverExtras,
 ): string {
   const todayTodos = extras?.todayTodos ?? [];
   const pendingTaxi = extras?.pendingTaxi ?? [];
   const todayShiftLogs = extras?.todayShiftLogs ?? [];
+  const brief = buildBriefSections(data);
 
   return [
-    renderPrintCardSectionHtml('⚠️ 미확인 긴급', data.unackedUrgent, 5, true, true),
-    renderPrintCardSectionHtml('🔴 현재 긴급', data.urgentActive, 5),
-    renderPrintCardSectionHtml('🟡 현재 진행중', data.progressActive, 4),
-    renderPrintCardSectionHtml('⏸ 보류 중', data.holdActive, 3),
-    renderPrintExtrasSectionHtml('📋 오늘 할일', todayTodos, 4, 'todo'),
-    renderPrintExtrasSectionHtml('🚕 오늘 택시', pendingTaxi, 4, 'taxi'),
-    renderPrintExtrasSectionHtml('📒 교대 기록', todayShiftLogs, 3, 'shift'),
-    renderPrintNoticeSectionHtml('📢 업무 공지', data.announcements, 3),
-    renderPrintNoticeSectionHtml('🔄 업무 변경', data.changes, 3),
-    renderPrintCardSectionHtml('✅ 오늘 완료', data.doneToday, 4),
-    renderPrintActivitySectionHtml('📝 변경 기록', activityLogs, 4),
+    renderPrintCardSectionHtml('⚠️ 미확인 긴급', brief.unackedUrgent, true, true),
+    renderPrintCardSectionHtml('🔴 현재 긴급', brief.urgentActive),
+    renderPrintCardSectionHtml('🟡 현재 진행중', brief.progressActive),
+    renderPrintCardSectionHtml('⏸ 보류 중 (7일 내 업데이트)', brief.holdActive),
+    renderPrintExtrasSectionHtml('📋 오늘 할일', todayTodos, 'todo'),
+    renderPrintExtrasSectionHtml('🚕 오늘 택시', pendingTaxi, 'taxi'),
+    renderPrintExtrasSectionHtml('📒 교대 기록', todayShiftLogs, 'shift'),
+    renderPrintNoticeSectionHtml('📢 업무 공지 (3일 내)', brief.announcements),
+    renderPrintNoticeSectionHtml('🔄 업무 변경 (3일 내)', brief.changes),
+    renderPrintCardSectionHtml('✅ 오늘 완료', brief.doneToday),
   ]
     .filter(Boolean)
     .join('');
@@ -466,8 +439,6 @@ const PRINT_STYLES = `
     padding: 1.5mm 2mm;
     border: 0.25mm solid #e2e8f0;
     border-radius: 2mm;
-    break-inside: avoid;
-    page-break-inside: avoid;
   }
 
   .section--full { grid-column: 1 / -1; }
@@ -484,13 +455,8 @@ const PRINT_STYLES = `
     font-size: 8pt;
     font-weight: 800;
     line-height: 1.2;
-  }
-
-  .section__more {
-    margin: 1mm 0 0;
-    color: #94a3b8;
-    font-size: 7pt;
-    font-style: italic;
+    break-after: avoid;
+    page-break-after: avoid;
   }
 
   .item {
@@ -499,6 +465,8 @@ const PRINT_STYLES = `
     border-radius: 1.5mm;
     margin-bottom: 1mm;
     background: #fff;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   .item:last-child { margin-bottom: 0; }
@@ -517,6 +485,24 @@ const PRINT_STYLES = `
   }
 
   .item__line strong { font-weight: 700; }
+
+  .item__result {
+    display: block;
+    margin-top: 0.7mm;
+    padding: 0.7mm 1mm;
+    border-left: 0.6mm solid #16a34a;
+    border-radius: 0.8mm;
+    background: #f0fdf4;
+    color: #166534;
+    font-size: 7.2pt;
+    line-height: 1.4;
+    white-space: pre-wrap;
+  }
+
+  .item__result b {
+    margin-right: 0.8mm;
+    font-weight: 800;
+  }
 
   .item__meta {
     display: block;
@@ -564,11 +550,10 @@ function printWhenReady(targetWindow: Window, onCleanup?: () => void) {
 
 export function buildPrintDocumentHtml(
   data: ShiftSummaryData,
-  activityLogs: ActivityLog[],
   authorLabel: string,
   extras?: BriefHandoverExtras,
 ): string {
-  const sections = buildA4PrintSectionsHtml(data, activityLogs, extras);
+  const sections = buildA4PrintSectionsHtml(data, extras);
   const content = sections || '<div class="empty">오늘 표시할 업무가 없습니다.</div>';
 
   return `<!DOCTYPE html>
@@ -581,7 +566,7 @@ export function buildPrintDocumentHtml(
   </head>
   <body>
     <div class="preview-toolbar screen-only">
-      <span class="preview-toolbar__title">교대 인계 요약 · A4 1장</span>
+      <span class="preview-toolbar__title">교대 인계 요약 · 전체 인계본</span>
       <button type="button" class="preview-toolbar__btn" onclick="window.print()">인쇄</button>
     </div>
     <div class="sheet">
@@ -598,11 +583,10 @@ export function buildPrintDocumentHtml(
 
 export function openSummaryPrintWindow(
   data: ShiftSummaryData,
-  activityLogs: ActivityLog[],
   authorLabel: string,
   extras?: BriefHandoverExtras,
 ): boolean {
-  const html = buildPrintDocumentHtml(data, activityLogs, authorLabel, extras);
+  const html = buildPrintDocumentHtml(data, authorLabel, extras);
 
   const popup = window.open('about:blank', 'shift-handover-summary', 'width=900,height=1100');
   if (popup) {
@@ -634,23 +618,19 @@ export function openSummaryPrintWindow(
   return true;
 }
 
-export function hasSummaryContent(
-  data: ShiftSummaryData,
-  activityLogs: ActivityLog[],
-  extras?: BriefHandoverExtras,
-): boolean {
+export function hasSummaryContent(data: ShiftSummaryData, extras?: BriefHandoverExtras): boolean {
+  const brief = buildBriefSections(data);
   return (
-    data.unackedUrgent.length > 0 ||
-    data.urgentActive.length > 0 ||
-    data.progressActive.length > 0 ||
-    data.holdActive.length > 0 ||
+    brief.unackedUrgent.length > 0 ||
+    brief.urgentActive.length > 0 ||
+    brief.progressActive.length > 0 ||
+    brief.holdActive.length > 0 ||
     (extras?.todayTodos?.length ?? 0) > 0 ||
     (extras?.pendingTaxi?.length ?? 0) > 0 ||
     (extras?.todayShiftLogs?.length ?? 0) > 0 ||
-    data.announcements.length > 0 ||
-    data.changes.length > 0 ||
-    data.doneToday.length > 0 ||
-    activityLogs.length > 0
+    brief.announcements.length > 0 ||
+    brief.changes.length > 0 ||
+    brief.doneToday.length > 0
   );
 }
 

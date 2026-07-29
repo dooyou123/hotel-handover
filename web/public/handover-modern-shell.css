@@ -15,7 +15,7 @@ html[data-ui='project'] body {
 
 html[data-ui='project'] .nova-shell {
   display: grid;
-  grid-template-columns: 15.5rem minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   min-height: 100dvh;
 }
 
@@ -26,9 +26,19 @@ html[data-ui='project'] .nova-sidebar {
   padding: 0.85rem 0.85rem 0.75rem;
   background: var(--surface);
   border-right: 1px solid var(--border);
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  z-index: 60;
+  width: min(18.5rem, 88vw);
   height: 100dvh;
+  transform: translateX(-105%);
+  transition: transform 0.22s ease;
+  box-shadow: var(--shadow-strong);
+}
+
+html[data-ui='project'] .nova-shell.is-nav-open .nova-sidebar {
+  transform: translateX(0);
 }
 
 html[data-ui='project'] .nova-sidebar__head {
@@ -40,8 +50,10 @@ html[data-ui='project'] .nova-sidebar__head {
 }
 
 html[data-ui='project'] .nova-sidebar__close {
-  display: none;
+  display: inline-flex;
   flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
   width: 2rem;
   height: 2rem;
   border: 1px solid var(--border);
@@ -53,7 +65,7 @@ html[data-ui='project'] .nova-sidebar__close {
 }
 
 html[data-ui='project'] .nova-mobile-nav-trigger {
-  display: none;
+  display: inline-flex;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
@@ -70,8 +82,18 @@ html[data-ui='project'] .nova-mobile-nav-trigger {
   touch-action: manipulation;
 }
 
+html[data-ui='project'] .nova-mobile-nav-trigger:hover {
+  background: var(--surface-2);
+}
+
 html[data-ui='project'] .nova-sidebar-backdrop {
-  display: none;
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  border: 0;
+  background: rgba(15, 23, 42, 0.42);
+  cursor: pointer;
 }
 
 html[data-ui='project'] .nova-sidebar__brand {
@@ -541,8 +563,8 @@ html[data-ui='project'] .nova-content {
 html[data-ui='project'] .nova-content:has(.handover-page) {
   position: relative;
   z-index: 1;
-  padding-top: 0.65rem;
-  padding-bottom: 0.75rem;
+  max-width: none;
+  padding: 0.65rem 1.25rem 0.75rem 1rem;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -565,7 +587,6 @@ html[data-ui='project'] .settings-appearance__option.is-active {
 
 @media (max-width: 900px) {
   html[data-ui='project'] .nova-shell {
-    grid-template-columns: 1fr;
     min-height: 100dvh;
     height: 100dvh;
     overflow: hidden;
@@ -575,87 +596,6 @@ html[data-ui='project'] .settings-appearance__option.is-active {
     min-height: 0;
     height: 100%;
     overflow: hidden;
-  }
-
-  html[data-ui='project'] .nova-mobile-nav-trigger {
-    display: inline-flex;
-  }
-
-  html[data-ui='project'] .nova-sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    z-index: 60;
-    width: min(18.5rem, 88vw);
-    height: 100dvh;
-    transform: translateX(-105%);
-    transition: transform 0.22s ease;
-    box-shadow: var(--shadow-strong);
-  }
-
-  html[data-ui='project'] .nova-shell.is-nav-open .nova-sidebar {
-    transform: translateX(0);
-  }
-
-  html[data-ui='project'] .nova-sidebar-backdrop {
-    display: block;
-    position: fixed;
-    inset: 0;
-    z-index: 55;
-    border: 0;
-    background: rgba(15, 23, 42, 0.42);
-    cursor: pointer;
-  }
-
-  html[data-ui='project'] .nova-shell:not(.is-nav-open) .nova-sidebar-backdrop {
-    display: none;
-  }
-
-  html[data-ui='project'] .nova-sidebar__close {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  html[data-ui='project'] .nova-nav {
-    flex-direction: column;
-    flex-wrap: nowrap;
-    overflow-x: hidden;
-    overflow-y: auto;
-    gap: 0.5rem;
-    padding-bottom: 0.15rem;
-  }
-
-  html[data-ui='project'] .nav-group {
-    flex-shrink: 1;
-    min-width: 0;
-    padding: 0.15rem 0 0.55rem;
-    border-left: 0;
-    padding-left: 0;
-  }
-
-  html[data-ui='project'] .nav-group + .nav-group {
-    margin-top: 0.15rem;
-    padding-top: 0.55rem;
-    border-top: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
-    border-left: 0;
-    padding-left: 0;
-  }
-
-  html[data-ui='project'] .nav-group__label {
-    font-size: 0.68rem;
-    letter-spacing: 0.1em;
-  }
-
-  html[data-ui='project'] .nova-nav__btn {
-    padding: 0.55rem 0.7rem;
-    font-size: 0.92rem;
-  }
-
-  html[data-ui='project'] .nova-sidebar__foot {
-    margin-top: auto;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--border);
   }
 
   html[data-ui='project'] .nova-topbar {

@@ -54,41 +54,50 @@ export function HandoverCardCommentSection({
     >
       {hasComments ? (
         <div className="project-list-row__comment-feed">
-          {expanded ? (
-            <div className="project-list-row__comment-feed-head">
-              <span className="project-list-row__comment-feed-title">
-                댓글 {hasActiveComments ? activeCommentCount : comments.length}개
-              </span>
-              <span className="project-list-row__comment-feed-actions">
-                {onOpenComments ? (
+          <div className="project-list-row__comment-feed-head">
+            <span className="project-list-row__comment-feed-title">
+              댓글 {hasActiveComments ? activeCommentCount : comments.length}개
+            </span>
+            <span className="project-list-row__comment-feed-actions">
+              {expanded ? (
+                <>
+                  {onOpenComments ? (
+                    <button
+                      type="button"
+                      className="project-list-row__comment-open"
+                      onClick={onOpenComments}
+                    >
+                      댓글 창 열기
+                    </button>
+                  ) : null}
                   <button
                     type="button"
-                    className="project-list-row__comment-open"
-                    onClick={onOpenComments}
+                    className="project-list-row__comment-collapse"
+                    onClick={() => setExpanded(false)}
                   >
-                    댓글 창 열기
+                    접기
                   </button>
-                ) : null}
+                </>
+              ) : hiddenCount > 0 ? (
                 <button
                   type="button"
-                  className="project-list-row__comment-collapse"
-                  onClick={() => setExpanded(false)}
+                  className="project-list-row__comment-more"
+                  onClick={() => setExpanded(true)}
                 >
-                  접기
+                  이전 댓글 {hiddenCount}개 더 보기
                 </button>
-              </span>
-            </div>
-          ) : hiddenCount > 0 ? (
-            <button
-              type="button"
-              className="project-list-row__comment-more"
-              onClick={() => setExpanded(true)}
-            >
-              이전 댓글 {hiddenCount}개 더 보기
-            </button>
-          ) : null}
+              ) : null}
+            </span>
+          </div>
 
-          <ul className="project-list-row__comment-list">
+          <ul
+            className={[
+              'project-list-row__comment-list',
+              expanded ? 'is-expanded' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
             {visibleComments.map((comment) => {
               const deleted = isCommentDeleted(comment);
               const author = comment.staff_name || comment.shift || '?';
