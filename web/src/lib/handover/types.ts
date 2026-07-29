@@ -38,6 +38,7 @@ export type CardAttachment = {
 
 export type Card = {
   id: string;
+  handover_no: number;
   hotel_id: string;
   column_id: ColumnId;
   priority: Priority;

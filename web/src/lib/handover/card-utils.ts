@@ -301,6 +301,8 @@ export function filterCards(
       .join(' ');
 
     const haystack = [
+      String(card.handover_no ?? ''),
+      card.handover_no ? `#${card.handover_no}` : '',
       card.room,
       card.title,
       card.details,

@@ -2424,19 +2424,33 @@ html[data-ui='project'] .project-list-row__ticket {
 }
 
 html[data-ui='project'] .project-list-row__stub {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   margin: 0;
-  padding: 0.95rem 0.55rem;
+  padding: 0.8rem 0.55rem 0.95rem;
   border: 0;
   background: color-mix(in srgb, var(--row-accent, #2563eb) 9%, var(--surface));
   color: inherit;
   font: inherit;
   cursor: pointer;
   text-align: center;
+}
+
+/* 티켓 일련번호 — 스텁 맨 위에 가운데로, 값들보다 한 톤 낮게 */
+html[data-ui='project'] .project-list-row__stub-number {
+  align-self: stretch;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  font-size: 0.84rem;
+  font-weight: 750;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--text-muted) 80%, var(--text));
 }
 
 html[data-ui='project'] .project-list-row__stub-status {
@@ -2752,7 +2766,12 @@ html[data-ui='project'] .project-list-row:hover {
 
   html[data-ui='project'] .project-list-row__stub {
     gap: 0.35rem;
-    padding: 0.7rem 0.35rem;
+    padding: 0.6rem 0.35rem 0.7rem;
+  }
+
+  html[data-ui='project'] .project-list-row__stub-number {
+    padding-bottom: 0.35rem;
+    font-size: 0.78rem;
   }
 
   html[data-ui='project'] .project-list-row__stub-label {
@@ -5799,6 +5818,14 @@ html[data-ui='project'] .handover-mobile {
     gap: 0.3rem 0.5rem;
     padding: 0.5rem 0.75rem;
     text-align: left;
+  }
+
+  html[data-ui='project'] .project-list-row__stub-number {
+    align-self: auto;
+    flex: 0 0 auto;
+    padding-bottom: 0;
+    border-bottom: 0;
+    font-size: 0.74rem;
   }
 
   html[data-ui='project'] .project-list-row__stub-field {

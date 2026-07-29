@@ -42,13 +42,21 @@ type HandoverListProjectProps = {
 };
 
 type ListStatusTab = Exclude<HandoverStatusTab, 'archive'>;
-type HandoverSort = 'activity-desc' | 'activity-asc' | 'created-desc' | 'created-asc';
+type HandoverSort =
+  | 'activity-desc'
+  | 'activity-asc'
+  | 'created-desc'
+  | 'created-asc'
+  | 'number-desc'
+  | 'number-asc';
 
 const HANDOVER_SORT_OPTIONS: { value: HandoverSort; label: string }[] = [
   { value: 'activity-desc', label: '최근 활동순' },
   { value: 'activity-asc', label: '오래된 활동순' },
   { value: 'created-desc', label: '등록 최신순' },
   { value: 'created-asc', label: '등록 오래된순' },
+  { value: 'number-desc', label: '번호 큰순' },
+  { value: 'number-asc', label: '번호 작은순' },
 ];
 
 function cardTime(value: string): number {
@@ -65,7 +73,9 @@ function sortHandoverCards(cards: Card[], sort: HandoverSort): Card[] {
       return cardTime(a.updated_at || a.created_at) - cardTime(b.updated_at || b.created_at);
     }
     if (sort === 'created-desc') return cardTime(b.created_at) - cardTime(a.created_at);
-    return cardTime(a.created_at) - cardTime(b.created_at);
+    if (sort === 'created-asc') return cardTime(a.created_at) - cardTime(b.created_at);
+    if (sort === 'number-desc') return (b.handover_no ?? -1) - (a.handover_no ?? -1);
+    return (a.handover_no ?? Number.MAX_SAFE_INTEGER) - (b.handover_no ?? Number.MAX_SAFE_INTEGER);
   });
 }
 

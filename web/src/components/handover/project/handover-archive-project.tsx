@@ -20,13 +20,21 @@ type HandoverArchiveProjectProps = {
   onRestore?: (cardId: string) => Promise<void>;
 };
 
-type ArchiveSort = 'archived-desc' | 'archived-asc' | 'created-desc' | 'created-asc';
+type ArchiveSort =
+  | 'archived-desc'
+  | 'archived-asc'
+  | 'created-desc'
+  | 'created-asc'
+  | 'number-desc'
+  | 'number-asc';
 
 const ARCHIVE_SORT_OPTIONS: { value: ArchiveSort; label: string }[] = [
   { value: 'archived-desc', label: '최근 보관순' },
   { value: 'archived-asc', label: '오래된 보관순' },
   { value: 'created-desc', label: '등록 최신순' },
   { value: 'created-asc', label: '등록 오래된순' },
+  { value: 'number-desc', label: '번호 큰순' },
+  { value: 'number-asc', label: '번호 작은순' },
 ];
 
 function timestamp(value: string | null): number {
@@ -40,7 +48,9 @@ function sortArchivedCards(cards: Card[], sort: ArchiveSort): Card[] {
     if (sort === 'archived-desc') return timestamp(b.archived_at) - timestamp(a.archived_at);
     if (sort === 'archived-asc') return timestamp(a.archived_at) - timestamp(b.archived_at);
     if (sort === 'created-desc') return timestamp(b.created_at) - timestamp(a.created_at);
-    return timestamp(a.created_at) - timestamp(b.created_at);
+    if (sort === 'created-asc') return timestamp(a.created_at) - timestamp(b.created_at);
+    if (sort === 'number-desc') return (b.handover_no ?? -1) - (a.handover_no ?? -1);
+    return (a.handover_no ?? Number.MAX_SAFE_INTEGER) - (b.handover_no ?? Number.MAX_SAFE_INTEGER);
   });
 }
 

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { splitTextWithLinks } from '@/lib/text/linkify';
-import { isCardDueSoon, isCardOverdue, isCommentEdited, splitTextBySearchQuery, canDeleteCard, findDuplicateCards, titlesAreSimilar, isCardSnoozed, getStaleLevel, getHoldStaleLevel, isStaleCard, isLongHoldCard, needsComplaintFirstResponse } from '@/lib/handover/card-utils';
+import { isCardDueSoon, isCardOverdue, isCommentEdited, splitTextBySearchQuery, canDeleteCard, findDuplicateCards, titlesAreSimilar, isCardSnoozed, getStaleLevel, getHoldStaleLevel, isStaleCard, isLongHoldCard, needsComplaintFirstResponse, filterCards } from '@/lib/handover/card-utils';
 import {
   formatComplaintRemedies,
   hasComplaintRemedies,
@@ -15,7 +15,7 @@ import {
 } from '@/lib/handover/ticker-nav';
 import { pinnedNotices, unreadPinnedCount } from '@/lib/notices/reads';
 import { buildTodayAlerts } from '@/lib/today/alerts';
-import type { CardComment } from '@/lib/handover/types';
+import type { Card, CardComment } from '@/lib/handover/types';
 import { buildAmenityOrderLines, buildAmenityOrderText } from '@/lib/amenity/order-sheet';
 import { buildAmenityTransactionsCsv, getAmenityTransactionsExportFilename } from '@/lib/amenity/export';
 import { getKoreanHoliday, getKoreanHolidaysInMonth } from '@/lib/calendar/korean-holidays';
@@ -126,6 +126,43 @@ test('getAmenityTransactionsExportFilename uses amenity prefix', () => {
 
 test('getExportFilename includes date prefix', () => {
   assert.match(getExportFilename('txt'), /^인수인계_\d{4}-\d{2}-\d{2}\.txt$/);
+});
+
+test('filterCards finds a handover by its permanent number', () => {
+  const card = {
+    id: 'card-42',
+    handover_no: 42,
+    hotel_id: 'hotel',
+    column_id: 'progress',
+    priority: 'normal',
+    category: '기타',
+    room: '',
+    title: '외벽 작업 안내',
+    details: '',
+    resolution: '',
+    next_action: '',
+    author: '김프런',
+    assignee_shift: '',
+    assignee_name: '',
+    due_at: null,
+    sort_order: 0,
+    archived_at: null,
+    linked_todo_id: null,
+    created_at: '2026-07-29T00:00:00.000Z',
+    updated_at: '2026-07-29T00:00:00.000Z',
+    card_acknowledgments: [],
+    card_comments: [],
+    card_attachments: [],
+  } as Card;
+  const options = {
+    quickFilter: 'all' as const,
+    category: '',
+    session: { shift: 'A', group: 'A', name: '김프런' },
+  };
+
+  assert.deepEqual(filterCards([card], { ...options, query: '#42' }), [card]);
+  assert.deepEqual(filterCards([card], { ...options, query: '42' }), [card]);
+  assert.deepEqual(filterCards([card], { ...options, query: '#41' }), []);
 });
 
 test('buildSummaryText includes header and empty state', () => {

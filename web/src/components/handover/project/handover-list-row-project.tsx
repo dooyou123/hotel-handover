@@ -149,6 +149,11 @@ export function HandoverListRowProject({
 
       <div className="project-list-row__ticket">
         <button type="button" className="project-list-row__stub" onClick={onOpen}>
+          {card.handover_no ? (
+            <span className="project-list-row__stub-number" title={`인수인계 #${card.handover_no}`}>
+              <SearchHighlight text={`#${card.handover_no}`} query={searchQuery} />
+            </span>
+          ) : null}
           <span className={`project-list-row__stub-status project-list-row__stub-status--${statusClass}`}>
             {status}
           </span>

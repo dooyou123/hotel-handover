@@ -1332,6 +1332,7 @@ export function CardModal({
           <>
             {!commentsOnly ? (
               <div className="drawer-panel__chips">
+                {card.handover_no ? <span className="drawer-chip">#{card.handover_no}</span> : null}
                 <span className="drawer-chip">{PRIORITY_LABELS[form.priority]}</span>
                 <span className="drawer-chip">{COLUMN_LABELS[form.column_id]}</span>
                 {form.room ? <span className="drawer-chip drawer-chip--room">{form.room}</span> : null}
