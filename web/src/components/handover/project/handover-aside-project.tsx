@@ -11,21 +11,30 @@ import type { Todo } from '@/lib/todos/types';
 import type { WorkSession } from '@/lib/handover/types';
 import { useTodayShiftHandovers } from '@/lib/handover/use-activity-logs';
 import { PersonalTasksPanel } from '@/components/personal-tasks/personal-tasks-panel';
+import type { PersonalTask } from '@/lib/personal-tasks/types';
+import { useTrashedCount } from '@/lib/handover/use-cards';
+import { AsideMemoPad } from './aside-memo-pad';
 import { AsideMonthCalendar } from './aside-month-calendar';
 import { HandoverAsideRecords } from './handover-aside-records';
+import { AsideLongHoldPanel } from './aside-long-hold-panel';
 import { HandoverTopActions } from './handover-top-actions';
+import type { Card } from '@/lib/handover/types';
 
 type HandoverAsideProjectProps = {
   session: WorkSession;
   todos: Todo[];
+  cards?: Card[];
   onShiftStart: () => void;
   onShiftEnd: () => void;
   onOpenShiftBrief: () => void;
   onOpenRecords: (tab: HandoverRecordsTab) => void;
   onOpenCardById?: (cardId: string) => void;
+  onShowLongHold?: () => void;
   onOpenTodo: (todo: Todo) => void;
   onOpenEvent: (event: HotelEvent) => void;
   onToggleTodo: (todo: Todo) => void;
+  onPromoteTaskToCard?: (task: PersonalTask) => void;
+  onOpenTrash?: () => void;
 };
 
 const INTRO_PULSE_MS = 1800;
@@ -33,15 +42,20 @@ const INTRO_PULSE_MS = 1800;
 export function HandoverAsideProject({
   session,
   todos,
+  cards = [],
   onShiftStart,
   onShiftEnd,
   onOpenShiftBrief,
   onOpenRecords,
   onOpenCardById,
+  onShowLongHold,
   onOpenTodo,
   onOpenEvent,
   onToggleTodo,
+  onPromoteTaskToCard,
+  onOpenTrash,
 }: HandoverAsideProjectProps) {
+  const { data: trashedCount = 0 } = useTrashedCount();
   const { data: todayHandovers = [] } = useTodayShiftHandovers(30);
   const shiftState = deriveShiftWorkbenchState(session, todayHandovers);
   const sessionParts = formatWorkbenchSessionParts(session);
@@ -127,6 +141,14 @@ export function HandoverAsideProject({
 
         <HandoverAsideRecords onOpenRecords={onOpenRecords} onOpenCardById={onOpenCardById} />
 
+        {onShowLongHold ? (
+          <AsideLongHoldPanel
+            cards={cards}
+            onOpenCardById={onOpenCardById}
+            onShowAll={onShowLongHold}
+          />
+        ) : null}
+
         <AsideMonthCalendar
           todos={todos}
           onOpenEvent={onOpenEvent}
@@ -135,8 +157,30 @@ export function HandoverAsideProject({
         />
 
         <section className="aside-card aside-card--personal-tasks">
-          <PersonalTasksPanel variant="aside" />
+          <PersonalTasksPanel variant="aside" onPromoteToCard={onPromoteTaskToCard} />
         </section>
+
+        <AsideMemoPad staffName={session.name} />
+
+        {onOpenTrash ? (
+          <button
+            type="button"
+            className="aside-trash"
+            onClick={onOpenTrash}
+            title="삭제한 인수인계 — 30일간 보관 후 자동 삭제"
+          >
+            <span className="aside-trash__icon" aria-hidden>
+              🗑️
+            </span>
+            <span className="aside-trash__text">
+              휴지통
+              <span className="aside-trash__sub">
+                {trashedCount ? `삭제한 카드 ${trashedCount}건 보관 중` : '삭제한 카드 30일 보관'}
+              </span>
+            </span>
+            {trashedCount ? <span className="aside-trash__count">{trashedCount}</span> : null}
+          </button>
+        ) : null}
       </div>
     </aside>
   );

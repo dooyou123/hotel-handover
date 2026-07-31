@@ -383,7 +383,7 @@ export function HandoverMobilePanel({
                 ■ 교대 종료
               </button>
               <button type="button" className="handover-mobile__action" onClick={() => runAndClose(onOpenShiftBrief)}>
-                교대 인계
+                오늘 인계 다시 보기
               </button>
               <button
                 type="button"

@@ -44,10 +44,60 @@ import {
   nextMonthlyDueDate,
   nextWeeklyDueDate,
 } from '@/lib/todos/recurrence';
+import {
+  dailyHandoverWelcomeKey,
+  DAILY_HANDOVER_WELCOME_BACKGROUNDS,
+  localDateKey,
+  pickDailyHandoverWelcomeBackground,
+} from '@/lib/onboarding/daily-handover-welcome';
+import { briefChipJumpTarget } from '@/lib/handover/brief-navigate';
 
 test('monthDateRange uses last day of month', () => {
   assert.deepEqual(monthDateRange('2026-06'), { start: '2026-06-01', end: '2026-06-30' });
   assert.deepEqual(monthDateRange('2026-02'), { start: '2026-02-01', end: '2026-02-28' });
+});
+
+test('daily handover welcome key is scoped by local date and worker', () => {
+  const now = new Date(2026, 6, 30, 7, 45);
+  assert.equal(localDateKey(now), '2026-07-30');
+  assert.equal(
+    dailyHandoverWelcomeKey({ group: 'B', name: '강두훈' }, now),
+    'handover-daily-welcome-v1:2026-07-30:B:%EA%B0%95%EB%91%90%ED%9B%88',
+  );
+});
+
+test('daily handover welcome background is stable for the same day and worker', () => {
+  const morning = new Date(2026, 6, 31, 7, 10);
+  const evening = new Date(2026, 6, 31, 22, 40);
+  const worker = { group: 'B', name: '김좌명' };
+  const first = pickDailyHandoverWelcomeBackground(worker, morning);
+  assert.ok((DAILY_HANDOVER_WELCOME_BACKGROUNDS as readonly string[]).includes(first.url));
+  assert.equal(typeof first.mirrored, 'boolean');
+  assert.deepEqual(pickDailyHandoverWelcomeBackground(worker, evening), first);
+
+  const visuals = Array.from({ length: 21 }, (_, offset) =>
+    pickDailyHandoverWelcomeBackground(worker, new Date(2026, 6, 1 + offset, 9)),
+  );
+  const distinctUrls = new Set(visuals.map((item) => item.url));
+  const distinctCombos = new Set(visuals.map((item) => `${item.url}:${item.mirrored ? 1 : 0}`));
+  assert.equal(DAILY_HANDOVER_WELCOME_BACKGROUNDS.length, 7);
+  assert.ok(distinctUrls.size >= 4);
+  assert.ok(distinctCombos.size > distinctUrls.size);
+});
+
+test('brief chip jump maps to list filters and related pages', () => {
+  assert.deepEqual(briefChipJumpTarget('longHold'), {
+    kind: 'list',
+    statusTab: 'hold',
+    quickFilter: 'hold-long',
+  });
+  assert.deepEqual(briefChipJumpTarget('unacked'), {
+    kind: 'list',
+    statusTab: 'progress',
+    quickFilter: 'unacked',
+  });
+  assert.equal(briefChipJumpTarget('taxi')?.kind, 'href');
+  assert.equal(briefChipJumpTarget('missing'), null);
 });
 
 test('getKoreanHoliday returns fixed and lunar holidays', () => {
@@ -1100,6 +1150,115 @@ test('isLongPreviewText detects multiline and long single-line card bodies', () 
   assert.equal(isLongPreviewText('1\n2\n3\n4'), false);
   assert.equal(isLongPreviewText('1\n2\n3\n4\n5'), true);
   assert.equal(isLongPreviewText('a'.repeat(241)), true);
+});
+
+test('buildCardChangeSummary describes edited fields in Korean', () => {
+  const { buildCardChangeSummary, cardMoveSummaryPrefix } =
+    require('@/lib/handover/card-diff') as typeof import('@/lib/handover/card-diff');
+
+  const before = {
+    column_id: 'progress',
+    priority: 'today',
+    category: '시설',
+    room: '1203',
+    title: '욕조 누수',
+    details: '타일 확인 완료',
+    resolution: '',
+    next_action: '방수 재확인',
+    author: '강두훈',
+    assignee_shift: 'B',
+    assignee_name: '강두훈',
+    due_at: null,
+    complaint_remedies: [],
+    complaint_remedy_other: '',
+  } as unknown as import('@/lib/handover/types').Card;
+
+  // 변경 없음 → 빈 배열 (불필요한 로그 방지)
+  assert.deepEqual(
+    buildCardChangeSummary(before, {
+      priority: 'today',
+      category: '시설',
+      room: '1203',
+      title: '욕조 누수',
+    }),
+    [],
+  );
+
+  const changes = buildCardChangeSummary(before, {
+    priority: 'urgent',
+    room: '1502',
+    assignee_name: '최성은',
+    due_at: '2026-08-02T00:00:00+09:00',
+    details: '타일 확인 완료. 방수층 손상 의심으로 업체 견적 요청함',
+  });
+  assert.deepEqual(changes, [
+    '중요도: 🟡 오늘 → 🔴 긴급',
+    '객실: 1203 → 1502',
+    '상세: "타일 확인 완료" → "타일 확인 완료. 방수층 손상 의심으로 업체…"',
+    '담당: 강두훈 → 최성은',
+    '기한: 없음 → 2026-08-02',
+  ]);
+
+  // 상태(column_id)는 move 로그 from/to로 따로 기록하므로 여기 포함되지 않는다
+  assert.deepEqual(buildCardChangeSummary(before, { column_id: 'hold' }), []);
+
+  assert.equal(cardMoveSummaryPrefix('progress', 'hold'), '보류');
+  assert.equal(cardMoveSummaryPrefix('hold', 'progress'), '재개');
+  assert.equal(cardMoveSummaryPrefix('progress', 'done'), '완료');
+  assert.equal(cardMoveSummaryPrefix('done', 'progress'), '이동');
+});
+
+test('due presets resolve to concrete dates and sanitize stored values', () => {
+  const { DEFAULT_DUE_PRESETS, resolveDuePreset, sanitizeDuePresets } =
+    require('@/lib/handover/due-presets') as typeof import('@/lib/handover/due-presets');
+
+  assert.deepEqual(
+    DEFAULT_DUE_PRESETS.map((preset) => preset.label),
+    ['오늘 자정', '오늘 저녁', '내일 아침'],
+  );
+
+  const now = new Date(2026, 6, 31, 14, 0);
+  assert.deepEqual(resolveDuePreset({ label: '오늘 자정', dayOffset: 0, time: '23:59' }, now), {
+    label: '오늘 자정',
+    date: '2026-07-31',
+    time: '23:59',
+  });
+  // 월말 경계에서 내일 계산
+  assert.deepEqual(resolveDuePreset({ label: '내일 아침', dayOffset: 1, time: '09:00' }, now), {
+    label: '내일 아침',
+    date: '2026-08-01',
+    time: '09:00',
+  });
+
+  // 깨진 저장값 → 기본값 복귀
+  assert.deepEqual(sanitizeDuePresets(null), DEFAULT_DUE_PRESETS);
+  assert.deepEqual(sanitizeDuePresets([{ label: '', dayOffset: 0, time: '25:99' }]), DEFAULT_DUE_PRESETS);
+
+  // 유효한 항목만 통과, 최대 5개, 라벨 12자 제한
+  const sanitized = sanitizeDuePresets([
+    { label: '  퇴근 전  ', dayOffset: 0, time: '17:30' },
+    { label: '잘못된 시간', dayOffset: 1, time: '9:00' },
+    { label: '아주아주아주아주 긴 프리셋 이름', dayOffset: 1, time: '08:00' },
+  ]);
+  assert.deepEqual(sanitized, [
+    { label: '퇴근 전', dayOffset: 0, time: '17:30' },
+    { label: '아주아주아주아주 긴 프', dayOffset: 1, time: '08:00' },
+  ]);
+});
+
+test('targetImageSize shrinks long edge to 2560 preserving aspect ratio', () => {
+  const { targetImageSize, IMAGE_MAX_EDGE } =
+    require('@/lib/handover/image-compress') as typeof import('@/lib/handover/image-compress');
+
+  assert.equal(IMAGE_MAX_EDGE, 2560);
+  // 작은 이미지는 그대로
+  assert.deepEqual(targetImageSize(1200, 800), { width: 1200, height: 800 });
+  // 가로가 긴 경우
+  assert.deepEqual(targetImageSize(5120, 2560), { width: 2560, height: 1280 });
+  // 세로가 긴 경우
+  assert.deepEqual(targetImageSize(3000, 4000), { width: 1920, height: 2560 });
+  // 사용자 지정 maxEdge
+  assert.deepEqual(targetImageSize(4000, 2000, 1000), { width: 1000, height: 500 });
 });
 
 test('isDoneTodoHiddenFromList hides done todos older than 30 days', () => {
@@ -2199,4 +2358,247 @@ test('parseGoogleSheetShareUrl accepts edit sharing links', () => {
     'https://docs.google.com/spreadsheets/d/abc123/edit#gid=42',
   );
   assert.equal(csvUrl, 'https://docs.google.com/spreadsheets/d/abc123/export?format=csv&gid=42');
+});
+
+test('pickLastShiftBaseline prefers my last shift end over start', () => {
+  const {
+    pickLastShiftBaseline,
+    resolveUnseenBaseline,
+  } = require('@/lib/handover/unseen') as typeof import('@/lib/handover/unseen');
+  const record = (staff: string, type: 'start' | 'end', at: string) =>
+    ({ staff_name: staff, handover_type: type, handover_at: at }) as import('@/lib/handover/types').ShiftHandover;
+
+  const records = [
+    record('김프런', 'start', '2026-07-31T00:00:00+00:00'),
+    record('김프런', 'end', '2026-07-30T12:00:00+00:00'),
+    record('박야간', 'end', '2026-07-30T23:00:00+00:00'),
+    record('김프런', 'start', '2026-07-30T00:00:00+00:00'),
+  ];
+
+  // 오늘 교대 시작을 눌렀어도 기준점은 "어제 퇴근(종료)" — 자리를 비운 사이의 변경을 잡는다
+  assert.equal(pickLastShiftBaseline(records, '김프런'), '2026-07-30T12:00:00+00:00');
+  // 종료 기록이 없으면 마지막 시작 기록으로 대체
+  assert.equal(
+    pickLastShiftBaseline(records.filter((r) => r.handover_type !== 'end'), '김프런'),
+    '2026-07-31T00:00:00+00:00',
+  );
+  // 내 기록이 없으면 기준점 없음
+  assert.equal(pickLastShiftBaseline(records, '이신입'), null);
+
+  // "모두 확인" 시각이 더 최근이면 그것이 기준점 (Z/+00:00 표기 혼용도 안전해야 함)
+  assert.equal(
+    resolveUnseenBaseline('2026-07-30T12:00:00+00:00', '2026-07-31T01:00:00.000Z'),
+    '2026-07-31T01:00:00.000Z',
+  );
+  assert.equal(resolveUnseenBaseline(null, null), null);
+});
+
+test('computeUnseenCardIds flags changes by others since baseline', () => {
+  const { computeUnseenCardIds } = require('@/lib/handover/unseen') as typeof import('@/lib/handover/unseen');
+  const card = (id: string, updatedAt: string) =>
+    ({ id, updated_at: updatedAt }) as import('@/lib/handover/types').Card;
+  const log = (entityId: string, staff: string, createdAt: string) =>
+    ({
+      entity_type: 'card',
+      entity_id: entityId,
+      staff_name: staff,
+      created_at: createdAt,
+    }) as import('@/lib/handover/types').ActivityLog;
+
+  const baseline = '2026-07-30T12:00:00+00:00';
+  const unseen = computeUnseenCardIds({
+    baseline,
+    staffName: '김프런',
+    cards: [
+      card('old', '2026-07-30T09:00:00+00:00'), // 기준점 이전 → 제외
+      card('by-other', '2026-07-30T15:00:00+00:00'), // 다른 사람이 변경 → 포함
+      card('by-me', '2026-07-30T16:00:00+00:00'), // 내가만 변경 → 제외
+      card('mixed', '2026-07-30T17:00:00+00:00'), // 나+타인 변경 → 포함
+      card('no-log', '2026-07-30T18:00:00+00:00'), // 로그 없음 → 안전하게 포함
+    ],
+    logs: [
+      log('by-other', '박야간', '2026-07-30T15:00:00+00:00'),
+      log('by-me', '김프런', '2026-07-30T16:00:00+00:00'),
+      log('mixed', '김프런', '2026-07-30T16:30:00+00:00'),
+      log('mixed', '박야간', '2026-07-30T17:00:00+00:00'),
+      // 기준점 이전 로그는 무시
+      log('old', '박야간', '2026-07-30T09:00:00+00:00'),
+    ],
+  });
+
+  assert.deepEqual([...unseen].sort(), ['by-other', 'mixed', 'no-log']);
+});
+
+test('planThreadLink covers create/join/merge/none cases', () => {
+  const {
+    planThreadLink,
+    buildThreadCounts,
+  } = require('@/lib/handover/card-thread') as typeof import('@/lib/handover/card-thread');
+  const gen = () => 'new-thread';
+
+  // 둘 다 스레드 없음 → 새 스레드에 둘 다 넣기
+  assert.deepEqual(planThreadLink({ id: 'a', thread_id: null }, { id: 'b', thread_id: null }, gen), {
+    kind: 'create',
+    threadId: 'new-thread',
+    cardIds: ['a', 'b'],
+  });
+  // 한쪽만 있음 → 없는 쪽이 합류
+  assert.deepEqual(planThreadLink({ id: 'a', thread_id: 't1' }, { id: 'b', thread_id: null }, gen), {
+    kind: 'join',
+    threadId: 't1',
+    cardIds: ['b'],
+  });
+  assert.deepEqual(planThreadLink({ id: 'a', thread_id: null }, { id: 'b', thread_id: 't2' }, gen), {
+    kind: 'join',
+    threadId: 't2',
+    cardIds: ['a'],
+  });
+  // 서로 다른 스레드 → 열려 있는 카드(source) 쪽으로 병합
+  assert.deepEqual(planThreadLink({ id: 'a', thread_id: 't1' }, { id: 'b', thread_id: 't2' }, gen), {
+    kind: 'merge',
+    threadId: 't1',
+    fromThreadId: 't2',
+  });
+  // 이미 같은 스레드거나 자기 자신 → 아무것도 안 함
+  assert.deepEqual(planThreadLink({ id: 'a', thread_id: 't1' }, { id: 'b', thread_id: 't1' }, gen), { kind: 'none' });
+  assert.deepEqual(planThreadLink({ id: 'a', thread_id: null }, { id: 'a', thread_id: null }, gen), { kind: 'none' });
+
+  assert.deepEqual(
+    [...buildThreadCounts([{ thread_id: 't1' }, { thread_id: 't1' }, { thread_id: null }, { thread_id: 't2' }])],
+    [['t1', 2], ['t2', 1]],
+  );
+});
+
+test('checklist helpers: sanitize, toggle, progress, change summary', () => {
+  const {
+    sanitizeChecklist,
+    toggleChecklistItem,
+    checklistProgress,
+    summarizeChecklistChanges,
+  } = require('@/lib/handover/checklist') as typeof import('@/lib/handover/checklist');
+
+  // 깨진 항목은 버리고 정상 항목만 남긴다
+  const sanitized = sanitizeChecklist([
+    { id: 'a', text: ' 업체 연락 ', done: false },
+    { id: 'b', text: '', done: false },
+    { text: '아이디 없음', done: true },
+    'garbage',
+    null,
+  ]);
+  assert.deepEqual(
+    sanitized.map((item) => item.id),
+    ['a'],
+  );
+  assert.equal(sanitized[0].text, '업체 연락');
+  assert.equal(sanitizeChecklist('not-array').length, 0);
+
+  // 토글: 완료 시 이름·시각 기록, 해제 시 초기화
+  const now = new Date('2026-07-31T10:00:00Z');
+  const items = [
+    { id: 'a', text: '업체 연락', done: false, done_by: null, done_at: null },
+    { id: 'b', text: '방문 확인', done: false, done_by: null, done_at: null },
+  ];
+  const toggled = toggleChecklistItem(items, 'a', '강두훈', now);
+  assert.equal(toggled[0].done, true);
+  assert.equal(toggled[0].done_by, '강두훈');
+  assert.equal(toggled[0].done_at, now.toISOString());
+  assert.equal(toggled[1].done, false);
+  const untoggled = toggleChecklistItem(toggled, 'a', '강두훈', now);
+  assert.equal(untoggled[0].done, false);
+  assert.equal(untoggled[0].done_by, null);
+
+  assert.deepEqual(checklistProgress(toggled), { done: 1, total: 2 });
+
+  // 변경 요약: 체크/해제/항목 변경
+  const changes = summarizeChecklistChanges(items, toggled);
+  assert.deepEqual(changes, ['체크 완료: 업체 연락']);
+  const structural = summarizeChecklistChanges(items, [
+    ...items,
+    { id: 'c', text: '보상 처리', done: false, done_by: null, done_at: null },
+  ]);
+  assert.deepEqual(structural, ['체크리스트 항목 변경']);
+  assert.deepEqual(summarizeChecklistChanges(items, items), []);
+});
+
+test('pinnedFirst floats pinned cards to the top, recent pin first', () => {
+  const { pinnedFirst } = require('@/lib/handover/card-utils') as typeof import('@/lib/handover/card-utils');
+  const card = (id: string, pinnedAt: string | null) => ({ id, pinned_at: pinnedAt });
+
+  const sorted = pinnedFirst([
+    card('a', null),
+    card('b', '2026-07-30T10:00:00Z'),
+    card('c', null),
+    card('d', '2026-07-31T09:00:00Z'),
+  ]);
+  assert.deepEqual(
+    sorted.map((item) => item.id),
+    ['d', 'b', 'a', 'c'],
+  );
+
+  // 고정 카드가 없으면 순서를 건드리지 않는다
+  const untouched = pinnedFirst([card('a', null), card('b', null)]);
+  assert.deepEqual(untouched.map((item) => item.id), ['a', 'b']);
+});
+
+test('groupCardsByThread pulls same-thread cards to the first occurrence', () => {
+  const { groupCardsByThread } = require('@/lib/handover/card-thread') as typeof import('@/lib/handover/card-thread');
+  const card = (id: string, threadId: string | null) => ({ id, thread_id: threadId });
+
+  const groups = groupCardsByThread([
+    card('a', 't1'),
+    card('b', null),
+    card('c', 't2'),
+    card('d', 't1'), // a 위치의 t1 그룹으로 합류
+    card('e', null),
+  ]);
+
+  assert.deepEqual(
+    groups.map((group) => ({ threadId: group.threadId, ids: group.cards.map((item) => item.id) })),
+    [
+      { threadId: 't1', ids: ['a', 'd'] },
+      { threadId: null, ids: ['b'] },
+      { threadId: 't2', ids: ['c'] },
+      { threadId: null, ids: ['e'] },
+    ],
+  );
+});
+
+test('suggestThreadCandidates prefers same room, then category, excludes same thread', () => {
+  const { suggestThreadCandidates } = require('@/lib/handover/card-thread') as typeof import('@/lib/handover/card-thread');
+  const card = (id: string, room: string, category: string, threadId: string | null, updatedAt: string) =>
+    ({ id, room, category, thread_id: threadId, created_at: updatedAt, updated_at: updatedAt }) as import('@/lib/handover/types').Card;
+
+  const source = { id: 'me', thread_id: 't1', room: '802', category: '시설' };
+  const candidates = suggestThreadCandidates(source, [
+    card('same-thread', '802', '시설', 't1', '2026-07-31T10:00:00Z'), // 같은 스레드 → 제외
+    card('same-room', '802', '컴플레인', null, '2026-07-30T10:00:00Z'),
+    card('same-cat', '905', '시설', null, '2026-07-31T09:00:00Z'),
+    card('unrelated', '1201', '기타', null, '2026-07-31T11:00:00Z'),
+    card('same-both', '802', '시설', 't9', '2026-07-29T10:00:00Z'),
+  ]);
+
+  assert.deepEqual(
+    candidates.map((item) => item.id),
+    ['same-both', 'same-room', 'same-cat', 'unrelated'],
+  );
+});
+
+test('needsShiftEndRecord detects start-without-end for the previous worker', () => {
+  const { needsShiftEndRecord } = require('@/lib/handover/shift-ui-state') as typeof import('@/lib/handover/shift-ui-state');
+  const record = (staff: string, type: 'start' | 'end', at: string) =>
+    ({ staff_name: staff, handover_type: type, handover_at: at }) as import('@/lib/handover/types').ShiftHandover;
+
+  const todayHandovers = [
+    record('김프런', 'start', '2026-07-31T09:00:00+00:00'),
+    record('박야간', 'start', '2026-07-31T00:00:00+00:00'),
+    record('박야간', 'end', '2026-07-31T08:50:00+00:00'),
+  ];
+
+  // 시작만 있고 종료가 없으면 종료 기록 유도 대상
+  assert.equal(needsShiftEndRecord('김프런', todayHandovers), true);
+  // 이미 종료를 기록했으면 대상 아님
+  assert.equal(needsShiftEndRecord('박야간', todayHandovers), false);
+  // 오늘 기록이 아예 없으면 대상 아님
+  assert.equal(needsShiftEndRecord('이신입', todayHandovers), false);
+  assert.equal(needsShiftEndRecord('', todayHandovers), false);
 });

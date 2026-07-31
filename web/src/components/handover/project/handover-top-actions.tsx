@@ -13,7 +13,7 @@ type HandoverTopActionsProps = {
 const ACTION_HINTS = {
   start: '인수인계를 시작하고 「인계」 탭에서 미완료 업무를 확인합니다.',
   end: '근무 종료 시 잔여 업무를 정리하고 교대 종료를 기록합니다.',
-  brief: '교대 인계 요약 화면으로 이동합니다.',
+  brief: '오늘의 교대 인계 요약을 다시 엽니다.',
 } as const;
 
 export function HandoverTopActions({
@@ -56,7 +56,7 @@ export function HandoverTopActions({
       <span className="handover-top-actions__icon" aria-hidden>
         🔄
       </span>
-      교대 인계
+      오늘 인계 다시 보기
     </button>
   );
 

@@ -1,6 +1,7 @@
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
 import { getSupabasePublicEnv } from '@/lib/supabase/env';
+import { compressImageFile } from '@/lib/handover/image-compress';
 import type { CardAttachment } from '@/lib/handover/types';
 
 const BUCKET = 'card-attachments';
@@ -40,16 +41,19 @@ export async function uploadCardAttachment(
   if (!file.type.startsWith('image/')) {
     throw new Error('이미지 파일만 등록할 수 있습니다.');
   }
-  if (file.size > MAX_BYTES) {
+
+  // 큰 원본은 브라우저에서 줄여서 올린다 — 직원은 원본을 그대로 선택하면 된다
+  const prepared = await compressImageFile(file, { maxBytes: MAX_BYTES });
+  if (prepared.size > MAX_BYTES) {
     throw new Error('이미지는 2MB 이하만 등록할 수 있습니다.');
   }
 
-  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  const ext = prepared.name.split('.').pop()?.toLowerCase() || 'jpg';
   const storagePath = `${DEFAULT_HOTEL_ID}/${cardId}/${Date.now()}.${ext}`;
   const supabase = createClient();
 
-  const { error: uploadError } = await supabase.storage.from(BUCKET).upload(storagePath, file, {
-    contentType: file.type,
+  const { error: uploadError } = await supabase.storage.from(BUCKET).upload(storagePath, prepared, {
+    contentType: prepared.type,
     upsert: false,
   });
   if (uploadError) throw uploadError;
@@ -58,8 +62,8 @@ export async function uploadCardAttachment(
     .from('card_attachments')
     .insert({
       card_id: cardId,
-      filename: file.name,
-      mime_type: file.type,
+      filename: prepared.name,
+      mime_type: prepared.type,
       storage_path: storagePath,
     })
     .select('*')
@@ -71,6 +75,41 @@ export async function uploadCardAttachment(
 
   const attachment = data as CardAttachment;
   return { ...attachment, url: getAttachmentUrl(storagePath) };
+}
+
+/**
+ * 사진 주석 저장 — 첨부 행(id·순서)은 그대로 두고 스토리지 파일만 주석본으로 교체한다.
+ * 새 파일을 먼저 올리고 DB를 바꾼 뒤 옛 파일을 지우므로, 중간에 실패해도 사진이 사라지지 않는다.
+ */
+export async function replaceCardAttachment(attachment: CardAttachment, file: File): Promise<void> {
+  const prepared = await compressImageFile(file, { maxBytes: MAX_BYTES });
+  if (prepared.size > MAX_BYTES) {
+    throw new Error('이미지는 2MB 이하만 등록할 수 있습니다.');
+  }
+
+  const ext = prepared.name.split('.').pop()?.toLowerCase() || 'jpg';
+  const storagePath = `${DEFAULT_HOTEL_ID}/${attachment.card_id}/${Date.now()}.${ext}`;
+  const supabase = createClient();
+
+  const { error: uploadError } = await supabase.storage.from(BUCKET).upload(storagePath, prepared, {
+    contentType: prepared.type,
+    upsert: false,
+  });
+  if (uploadError) throw uploadError;
+
+  const { error } = await supabase
+    .from('card_attachments')
+    .update({ filename: prepared.name, mime_type: prepared.type, storage_path: storagePath })
+    .eq('id', attachment.id);
+  if (error) {
+    await supabase.storage.from(BUCKET).remove([storagePath]);
+    throw error;
+  }
+
+  if (attachment.storage_path) {
+    await supabase.storage.from(BUCKET).remove([attachment.storage_path]);
+  }
+  await supabase.from('cards').update({ updated_at: new Date().toISOString() }).eq('id', attachment.card_id);
 }
 
 export async function deleteCardAttachment(attachment: CardAttachment): Promise<void> {

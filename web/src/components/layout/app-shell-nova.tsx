@@ -10,6 +10,8 @@ import { AppTicker } from '@/components/layout/app-ticker';
 import { SessionBar } from '@/components/layout/session-bar';
 import { ScheduleConfirmBanner } from '@/components/schedules/schedule-confirm-banner';
 import { StaffOnboardingModal } from '@/components/onboarding/staff-onboarding-modal';
+import { DailyHandoverWelcome } from '@/components/onboarding/daily-handover-welcome';
+import { FeedbackButton } from '@/components/feedback/feedback-modal';
 import { MobileNavBackdrop, MobileNavProvider, MobileNavTrigger, useMobileNav } from '@/components/layout/mobile-nav';
 
 type AppShellNovaProps = {
@@ -39,6 +41,11 @@ function AppShellNovaInner({ email, children }: AppShellNovaProps) {
         </div>
         <AppNav />
         <div className="nova-sidebar__foot">
+          <FeedbackButton
+            className="nova-sidebar__foot-link nova-sidebar__foot-action"
+            label="개선 · 버그 신고"
+            onOpen={closeNav}
+          />
           <Link href="/help" className="nova-sidebar__foot-link" onClick={closeNav}>
             도움말
           </Link>
@@ -73,6 +80,7 @@ function AppShellNovaInner({ email, children }: AppShellNovaProps) {
         </main>
       </div>
       <StaffOnboardingModal />
+      <DailyHandoverWelcome />
     </div>
   );
 }

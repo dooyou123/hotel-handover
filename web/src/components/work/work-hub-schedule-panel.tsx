@@ -90,6 +90,21 @@ function shortDateLabel(isoDate: string): string {
   return `${Number(match[2])}/${Number(match[3])}`;
 }
 
+function weekdayLabel(isoDate: string): string {
+  const parsed = new Date(`${isoDate}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toLocaleDateString('ko-KR', { weekday: 'short' });
+}
+
+function UpcomingDateBadge({ date }: { date: string }) {
+  return (
+    <span className="work-hub-schedule__upcoming-date" aria-label={formatCalendarDateLabel(date)}>
+      <strong>{shortDateLabel(date)}</strong>
+      <small>{weekdayLabel(date)}</small>
+    </span>
+  );
+}
+
 export function WorkHubSchedulePanel() {
   const searchParams = useSearchParams();
   const today = todayDateString();
@@ -552,23 +567,25 @@ export function WorkHubSchedulePanel() {
                     </WorkHubList>
                   ) : upcomingCount ? (
                     <div className="work-hub-schedule__upcoming">
-                      <p className="work-hub-schedule__upcoming-hint">
-                        이 날에는 항목이 없습니다. 다가오는 {upcomingCount}건을 보여줍니다.
-                      </p>
+                      <WorkHubEmpty>
+                        {formatCalendarDateLabel(selectedDate)}에는 등록된 할일·일정이 없습니다.
+                      </WorkHubEmpty>
+                      <div className="work-hub-schedule__upcoming-head">
+                        <span className="work-hub-schedule__upcoming-label">다가오는 일정</span>
+                        <span className="work-hub-schedule__upcoming-note">
+                          이후 2주 · {upcomingCount}건
+                        </span>
+                      </div>
                       <WorkHubList>
                         {upcomingEvents.map(({ date, event }) => (
                           <WorkHubRow
                             key={`up-event-${event.id}-${date}`}
                             tone="event"
+                            liClassName="work-hub-schedule__upcoming-item"
+                            leading={<UpcomingDateBadge date={date} />}
                             kind={event.category || '일정'}
                             title={event.title}
-                            meta={
-                              <>
-                                {shortDateLabel(date)}
-                                {' · '}
-                                {formatEventTimeRange(event.start_time, event.end_time) || '종일'}
-                              </>
-                            }
+                            meta={formatEventTimeRange(event.start_time, event.end_time) || '종일'}
                             onClick={() => {
                               setSelectedDate(date);
                               setMonth(date.slice(0, 7));
@@ -581,12 +598,12 @@ export function WorkHubSchedulePanel() {
                           <WorkHubRow
                             key={`up-todo-${todo.id}`}
                             tone={todo.priority === 'urgent' ? 'urgent' : 'todo'}
+                            liClassName="work-hub-schedule__upcoming-item"
+                            leading={todo.due_date ? <UpcomingDateBadge date={todo.due_date} /> : undefined}
                             kind="할일"
                             title={todo.title}
                             meta={
                               <>
-                                {todo.due_date ? shortDateLabel(todo.due_date) : ''}
-                                {' · '}
                                 {TODO_PRIORITY_LABELS[todo.priority]}
                                 {todo.assignee_name ? ` · ${todo.assignee_name}` : ''}
                               </>

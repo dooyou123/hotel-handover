@@ -130,7 +130,17 @@ export function FeedbackModal({ open, onClose, onSuccess }: FeedbackModalProps) 
   );
 }
 
-export function FeedbackButton() {
+type FeedbackButtonProps = {
+  className?: string;
+  label?: string;
+  onOpen?: () => void;
+};
+
+export function FeedbackButton({
+  className = 'btn btn--ghost btn--small',
+  label = '개선 · 버그 신고',
+  onOpen,
+}: FeedbackButtonProps = {}) {
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -141,8 +151,15 @@ export function FeedbackButton() {
 
   return (
     <>
-      <button type="button" className="btn btn--ghost btn--small" onClick={() => setOpen(true)}>
-        개선 · 버그 신고
+      <button
+        type="button"
+        className={className}
+        onClick={() => {
+          onOpen?.();
+          setOpen(true);
+        }}
+      >
+        {label}
       </button>
       <FeedbackModal
         open={open}

@@ -16,6 +16,15 @@ export function deriveShiftWorkbenchState(
   return 'on_shift';
 }
 
+/** 오늘 교대를 시작만 하고 종료를 안 누른 상태인지 — 근무자 교체 시 종료 기록 유도용 */
+export function needsShiftEndRecord(staffName: string, todayHandovers: ShiftHandover[]): boolean {
+  if (!staffName) return false;
+  const latestMine = todayHandovers
+    .filter((record) => record.staff_name === staffName)
+    .sort((a, b) => b.handover_at.localeCompare(a.handover_at))[0];
+  return Boolean(latestMine && latestMine.handover_type === 'start');
+}
+
 export function formatWorkbenchSessionLabel(session: Pick<WorkSession, 'group' | 'name'>): string {
   const parts = formatWorkbenchSessionParts(session);
   if (!parts.ready && !session.name) return '지금 근무 설정 필요';

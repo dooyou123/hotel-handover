@@ -14,6 +14,11 @@ type HandoverListSummaryProps = {
   todos: Todo[];
   events: HotelEvent[];
   staffNames: string[];
+  unseenCount: number;
+  unseenHint: boolean;
+  unseenActive: boolean;
+  onShowUnseen: () => void;
+  onClearUnseen: () => void;
   onShowUnacked: () => void;
   onOpenCard: (card: Card) => void;
   onAcknowledge: (cardId: string) => void;
@@ -24,6 +29,11 @@ export function HandoverListSummary({
   todos,
   events,
   staffNames,
+  unseenCount,
+  unseenHint,
+  unseenActive,
+  onShowUnseen,
+  onClearUnseen,
   onShowUnacked,
   onOpenCard,
   onAcknowledge,
@@ -72,6 +82,26 @@ export function HandoverListSummary({
       ) : (
         <span className="handover-list-summary__ok">미확인 긴급 없음</span>
       )}
+
+      {unseenCount ? (
+        <span className="handover-list-summary__unseen">
+          <button
+            type="button"
+            className={`handover-list-summary__chip handover-list-summary__chip--unseen${unseenActive ? ' is-active' : ''}`}
+            onClick={onShowUnseen}
+            title="내 마지막 교대 기록 이후 다른 사람이 바꾼 카드만 봅니다"
+          >
+            <span className="handover-list-summary__unseen-dot" aria-hidden />안 본 변경 {unseenCount}건
+          </button>
+          <button type="button" className="handover-list-summary__link" onClick={onClearUnseen}>
+            모두 확인
+          </button>
+        </span>
+      ) : unseenHint ? (
+        <span className="handover-list-summary__hint">
+          교대 시작을 눌러두면 자리 비운 사이 바뀐 카드를 모아 보여드려요
+        </span>
+      ) : null}
 
       {todayWorkCount ? (
         <Link href={buildWorkHubHref('schedule')} className="handover-list-summary__chip">

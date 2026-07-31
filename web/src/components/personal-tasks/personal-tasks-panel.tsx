@@ -15,6 +15,8 @@ import { promotePersonalTaskToTeamTodo } from '@/lib/todos/promote-personal-task
 type PersonalTasksPanelProps = {
   variant?: 'aside' | 'page';
   onToast?: (message: string) => void;
+  /** 할 일을 인수인계 카드 작성으로 승격 (인수인계 페이지에서만 제공) */
+  onPromoteToCard?: (task: PersonalTask) => void;
 };
 
 function formatDue(value: string | null): string {
@@ -39,7 +41,7 @@ function isDueTodayOrOverdue(task: PersonalTask): boolean {
   return task.due_date === localTodayString() || isOverdue(task);
 }
 
-export function PersonalTasksPanel({ variant = 'page', onToast }: PersonalTasksPanelProps) {
+export function PersonalTasksPanel({ variant = 'page', onToast, onPromoteToCard }: PersonalTasksPanelProps) {
   const queryClient = useQueryClient();
   const { session, requireSession, authorLabel } = useWorkSession();
   const staffName = session.name;
@@ -193,6 +195,16 @@ export function PersonalTasksPanel({ variant = 'page', onToast }: PersonalTasksP
                   }}
                 >
                   팀 공유
+                </button>
+              ) : null}
+              {task.status === 'open' && onPromoteToCard ? (
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--small"
+                  title="이 내용으로 인수인계 카드 작성을 시작합니다"
+                  onClick={() => onPromoteToCard(task)}
+                >
+                  카드로
                 </button>
               ) : null}
               {!compact ? (

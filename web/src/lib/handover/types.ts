@@ -55,6 +55,16 @@ export type Card = {
   sort_order: number;
   archived_at: string | null;
   linked_todo_id: string | null;
+  /** 사건 스레드 — 같은 사건의 카드들이 같은 값을 공유 */
+  thread_id: string | null;
+  /** 핀 고정 시각 — null이면 고정 안 됨. 고정 카드는 진행중 탭 최상단에 표시 */
+  pinned_at: string | null;
+  /** 휴지통 이동 시각 — null이면 정상. 30일 지나면 자동으로 완전 삭제 */
+  deleted_at?: string | null;
+  /** 휴지통으로 보낸 사람 이름 */
+  deleted_by?: string | null;
+  /** 다음 조치가 여러 단계일 때의 체크리스트 */
+  checklist: ChecklistItem[];
   first_response_at?: string | null;
   complaint_remedies?: string[];
   complaint_remedy_other?: string;
@@ -144,6 +154,18 @@ export type CardInput = {
   due_at: string | null;
   complaint_remedies: string[];
   complaint_remedy_other: string;
+  /** 후속 인계 작성 시 사건 스레드 연결용 (선택) */
+  thread_id?: string | null;
+  checklist?: ChecklistItem[];
+};
+
+export type ChecklistItem = {
+  id: string;
+  text: string;
+  done: boolean;
+  /** 완료 처리한 직원 이름 (교대가 바뀌어도 누가 했는지 남긴다) */
+  done_by?: string | null;
+  done_at?: string | null;
 };
 
 export type WorkSession = {

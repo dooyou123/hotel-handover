@@ -23,11 +23,10 @@ export function HeaderActionsSlot() {
 
 export function useRegisterHeaderActions(node: ReactNode | null) {
   const ctx = useContext(HeaderActionsContext);
-  if (!ctx) return;
-
-  const { setHeaderActions } = ctx;
+  const setHeaderActions = ctx?.setHeaderActions;
 
   useEffect(() => {
+    if (!setHeaderActions) return;
     setHeaderActions(node);
     return () => setHeaderActions(null);
   }, [node, setHeaderActions]);

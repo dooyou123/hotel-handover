@@ -23,18 +23,29 @@ import {
   type CardFormSnapshot,
 } from '@/lib/handover/card-draft';
 import { parseDueAt, toDateInputValue, toTimeInputValue, joinDatetimeLocalValue, splitDatetimeLocalValue, canDeleteCard, findDuplicateCards, resolveStaffNameForDelete } from '@/lib/handover/card-utils';
+import {
+  DEFAULT_DUE_PRESETS,
+  MAX_DUE_PRESETS,
+  loadDuePresets,
+  resolveDuePreset,
+  saveDuePresets,
+  type DuePresetConfig,
+} from '@/lib/handover/due-presets';
 import { readWorkSession } from '@/lib/handover/use-work-session';
 import { WORK_GROUPS, formatSessionLabel, formatWorkGroupLabel } from '@/lib/constants';
 import type { Card, CardAttachment, CardInput, ColumnId, Priority } from '@/lib/handover/types';
 import type { Todo } from '@/lib/todos/types';
 import { useCardTemplates, type CardTemplate } from '@/lib/settings/use-settings';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
+import { ImageAnnotateModal } from '@/components/ui/image-annotate-modal';
 import { CardCommentComposer } from './card-comment-composer';
 import { CardCommentItem } from './card-comment-item';
 import type { SimilarHistoryHit } from '@/lib/handover/similar-history';
 import { CardDuplicateWarning } from './card-duplicate-warning';
 import { CardSimilarHistory } from './card-similar-history';
 import { CardActivityTimeline } from './card-activity-timeline';
+import { CardChecklistEditor } from './card-checklist-editor';
+import { CardThreadSection } from './card-thread-section';
 import { HandoverCreateTemplates } from './handover-create-templates';
 import { ComplaintRemedyPicker } from './complaint-remedy-picker';
 import { EMPTY_COMPLAINT_REMEDIES, sanitizeComplaintRemediesForCategory } from '@/lib/handover/complaint-remedies';
@@ -65,10 +76,18 @@ type CardModalProps = {
   onDeleteComment?: (cardId: string, commentId: string) => Promise<void>;
   onUploadAttachment?: (cardId: string, file: File) => Promise<void>;
   onDeleteAttachment?: (attachment: CardAttachment) => Promise<void>;
+  /** 사진 주석 저장 — 첨부를 주석이 합성된 이미지로 교체 */
+  onAnnotateAttachment?: (attachment: CardAttachment, file: File) => Promise<void>;
   onCreateTodo?: () => void | Promise<void>;
   onRecordFirstResponse?: () => void | Promise<void>;
   onSwitchToFull?: () => void;
   onDuplicate?: (card: Card) => void | Promise<void>;
+  onOpenCardById?: (cardId: string) => void;
+  onLinkThread?: (source: Card, target: Card) => Promise<void>;
+  onUnlinkThread?: (card: Card) => Promise<void>;
+  onCreateFollowUp?: (card: Card) => void | Promise<void>;
+  /** 작성 중 유사 카드와 사건 연결 — 대상 카드에 thread_id를 보장하고 그 값을 돌려준다 */
+  onEnsureThreadForCard?: (card: Card) => Promise<string | null>;
   onAcknowledge?: (cardId: string) => void | Promise<void>;
   onMarkDone?: (cardId: string) => void | Promise<void>;
   acknowledging?: boolean;
@@ -98,10 +117,16 @@ export function CardModal({
   onDeleteComment,
   onUploadAttachment,
   onDeleteAttachment,
+  onAnnotateAttachment,
   onCreateTodo,
   onRecordFirstResponse,
   onSwitchToFull,
   onDuplicate,
+  onOpenCardById,
+  onLinkThread,
+  onUnlinkThread,
+  onCreateFollowUp,
+  onEnsureThreadForCard,
   onAcknowledge,
   onMarkDone,
   acknowledging = false,
@@ -110,8 +135,22 @@ export function CardModal({
   const [form, setForm] = useState<CardInput>(emptyForm);
   const [dueDate, setDueDate] = useState('');
   const [dueTime, setDueTime] = useState('');
+  const [duePresets, setDuePresets] = useState<DuePresetConfig[]>(DEFAULT_DUE_PRESETS);
+  const [duePresetEditOpen, setDuePresetEditOpen] = useState(false);
+  /** 작성 중 유사 카드와 사건 연결을 선택한 경우 그 카드 id */
+  const [linkedDupId, setLinkedDupId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDuePresets(loadDuePresets());
+  }, []);
+
+  function updateDuePresets(next: DuePresetConfig[]) {
+    setDuePresets(next);
+    saveDuePresets(next);
+  }
   const [commentLoading, setCommentLoading] = useState(false);
   const [attachmentLoading, setAttachmentLoading] = useState(false);
+  const [annotateTarget, setAnnotateTarget] = useState<CardAttachment | null>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [pendingPreviewUrls, setPendingPreviewUrls] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -280,6 +319,7 @@ export function CardModal({
         due_at: card.due_at,
         complaint_remedies: [...(card.complaint_remedies ?? [])],
         complaint_remedy_other: card.complaint_remedy_other ?? '',
+        checklist: (card.checklist ?? []).map((item) => ({ ...item })),
       };
       nextDueDate = card.due_at ? toDateInputValue(card.due_at) : '';
       nextDueTime = card.due_at ? toTimeInputValue(card.due_at) : '';
@@ -331,6 +371,7 @@ export function CardModal({
       dueTime: nextDueTime,
     };
     setError(null);
+    setLinkedDupId(null);
     setPendingFiles([]);
     setPendingPreviewUrls((urls) => {
       urls.forEach((url) => URL.revokeObjectURL(url));
@@ -384,6 +425,19 @@ export function CardModal({
     [activeCards, form.room, form.title, card?.id],
   );
 
+  async function linkDraftToCard(target: Card) {
+    if (!onEnsureThreadForCard) return;
+    const threadId = await onEnsureThreadForCard(target);
+    if (!threadId) return;
+    setForm((prev) => ({ ...prev, thread_id: threadId }));
+    setLinkedDupId(target.id);
+  }
+
+  function unlinkDraft() {
+    setForm((prev) => ({ ...prev, thread_id: null }));
+    setLinkedDupId(null);
+  }
+
   const savedAttachmentCount = card?.card_attachments.length ?? 0;
   const totalAttachmentCount = savedAttachmentCount + pendingFiles.length;
   const canAddAttachment = totalAttachmentCount < 2 && onUploadAttachment;
@@ -420,8 +474,8 @@ export function CardModal({
         const file = new File([blob], `clipboard-${Date.now()}.${ext}`, { type: blob.type });
 
         if (requireSession && !requireSession('사진 첨부')) return;
-        if (file.size > 2 * 1024 * 1024) {
-          setError('이미지는 2MB 이하만 등록할 수 있습니다.');
+        if (file.size > 10 * 1024 * 1024) {
+          setError('이미지는 10MB 이하만 등록할 수 있습니다.');
           return;
         }
 
@@ -546,7 +600,7 @@ export function CardModal({
     const ok = await confirm({
       title: '인수인계 삭제',
       message: '정말 이 인수인계를 삭제하시겠습니까?',
-      detail: '삭제하면 복구할 수 없습니다.',
+      detail: '휴지통으로 옮겨지며, 30일 안에는 사이드바의 휴지통에서 복원할 수 있습니다.',
       tone: 'danger',
       confirmLabel: '삭제',
     });
@@ -592,8 +646,8 @@ export function CardModal({
       setError('이미지 파일만 등록할 수 있습니다.');
       return;
     }
-    if (file.size > 2 * 1024 * 1024) {
-      setError('이미지는 2MB 이하만 등록할 수 있습니다.');
+    if (file.size > 10 * 1024 * 1024) {
+      setError('이미지는 10MB 이하만 등록할 수 있습니다.');
       return;
     }
     setError(null);
@@ -737,7 +791,10 @@ export function CardModal({
           onChange={(event) => setForm({ ...form, title: event.target.value })}
         />
       </label>
-      <CardDuplicateWarning duplicates={duplicateCards} />
+      <CardDuplicateWarning
+        duplicates={duplicateCards}
+        onOpenCard={onOpenCardById ? (item) => onOpenCardById(item.id) : undefined}
+      />
       <label className="field">
         <span>상세</span>
         <textarea
@@ -751,6 +808,11 @@ export function CardModal({
           Enter로 줄바꿈, 1. 2.로 항목을 나누면 목록에서 읽기 쉽습니다.
         </span>
       </label>
+      <CardChecklistEditor
+        items={form.checklist ?? []}
+        staffName={defaultName}
+        onChange={(items) => setForm({ ...form, checklist: items })}
+      />
       {form.column_id === 'done' ? (
         <label className="field">
           <span>처리 결과 *</span>
@@ -816,6 +878,124 @@ export function CardModal({
             setDueTime(time);
           }}
         />
+        <div className="field-presets" role="group" aria-label="마감 빠른 선택">
+          {duePresets.map((config, index) => {
+            const preset = resolveDuePreset(config);
+            const active = dueDate === preset.date && dueTime === preset.time;
+            return (
+              <button
+                type="button"
+                key={`${config.label}-${index}`}
+                className={`field-preset-btn${active ? ' is-active' : ''}`}
+                title={`${config.dayOffset === 0 ? '오늘' : '내일'} ${config.time}`}
+                onClick={() => {
+                  setDueDate(preset.date);
+                  setDueTime(preset.time);
+                }}
+              >
+                {preset.label}
+              </button>
+            );
+          })}
+          {dueDate || dueTime ? (
+            <button
+              type="button"
+              className="field-preset-btn field-preset-btn--clear"
+              onClick={() => {
+                setDueDate('');
+                setDueTime('');
+              }}
+            >
+              지우기
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="field-preset-btn field-preset-btn--edit"
+            aria-expanded={duePresetEditOpen}
+            onClick={() => setDuePresetEditOpen((prev) => !prev)}
+          >
+            {duePresetEditOpen ? '편집 완료' : '편집'}
+          </button>
+        </div>
+        {duePresetEditOpen ? (
+          <div className="due-preset-editor">
+            {duePresets.map((config, index) => (
+              <div className="due-preset-editor__row" key={index}>
+                <input
+                  className="due-preset-editor__label"
+                  value={config.label}
+                  maxLength={12}
+                  placeholder="이름"
+                  onChange={(event) =>
+                    updateDuePresets(
+                      duePresets.map((item, i) =>
+                        i === index ? { ...item, label: event.target.value } : item,
+                      ),
+                    )
+                  }
+                />
+                <select
+                  className="due-preset-editor__day"
+                  value={config.dayOffset}
+                  onChange={(event) =>
+                    updateDuePresets(
+                      duePresets.map((item, i) =>
+                        i === index
+                          ? { ...item, dayOffset: Number(event.target.value) === 1 ? 1 : 0 }
+                          : item,
+                      ),
+                    )
+                  }
+                >
+                  <option value={0}>오늘</option>
+                  <option value={1}>내일</option>
+                </select>
+                <input
+                  type="time"
+                  className="due-preset-editor__time"
+                  value={config.time}
+                  onChange={(event) =>
+                    updateDuePresets(
+                      duePresets.map((item, i) =>
+                        i === index ? { ...item, time: event.target.value || item.time } : item,
+                      ),
+                    )
+                  }
+                />
+                <button
+                  type="button"
+                  className="due-preset-editor__remove"
+                  aria-label="프리셋 삭제"
+                  disabled={duePresets.length <= 1}
+                  onClick={() => updateDuePresets(duePresets.filter((_, i) => i !== index))}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            <div className="due-preset-editor__actions">
+              {duePresets.length < MAX_DUE_PRESETS ? (
+                <button
+                  type="button"
+                  className="due-preset-editor__add"
+                  onClick={() =>
+                    updateDuePresets([...duePresets, { label: '프리셋', dayOffset: 0, time: '12:00' }])
+                  }
+                >
+                  + 추가
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="due-preset-editor__reset"
+                onClick={() => updateDuePresets(DEFAULT_DUE_PRESETS)}
+              >
+                기본값으로
+              </button>
+            </div>
+          </div>
+        ) : null}
         <span className="field-hint">비우면 마감 없음 · 날짜만 지정 시 23:59로 저장됩니다</span>
       </label>
       <label className="field field--full">
@@ -887,7 +1067,7 @@ export function CardModal({
     <section className="drawer-section">
       <h3 className="drawer-section__title">사진 첨부</h3>
       <p className="drawer-section__hint">
-        최대 2장 · 2MB 이하. 「+ 사진 추가」로 고르거나, 복사한 사진·스크린샷을 이 화면에서 붙여넣기(Ctrl+V, Mac은 ⌘+V)로 넣을 수 있습니다.
+        최대 2장 · 큰 사진은 자동으로 줄여서 올라갑니다. 「+ 사진 추가」로 고르거나, 복사한 사진·스크린샷을 이 화면에서 붙여넣기(Ctrl+V, Mac은 ⌘+V)로 넣을 수 있습니다.
       </p>
       <div className="card-attachments">
         {card?.card_attachments.map((attachment) => (
@@ -901,6 +1081,17 @@ export function CardModal({
             {onDeleteAttachment ? (
               <button type="button" onClick={() => onDeleteAttachment(attachment)} className="card-attachment__delete">
                 삭제
+              </button>
+            ) : null}
+            {attachment.url && onAnnotateAttachment ? (
+              <button
+                type="button"
+                className="card-attachment__annotate"
+                title="사진 위에 동그라미·화살표 표시"
+                onClick={() => setAnnotateTarget(attachment)}
+                disabled={attachmentLoading || saving}
+              >
+                ✎ 주석
               </button>
             ) : null}
           </div>
@@ -993,6 +1184,19 @@ export function CardModal({
       {commentBlock}
       {attachmentBlock}
       {linkBlock}
+      {card ? (
+        <section className="drawer-section">
+          <h3 className="drawer-section__title">사건 스레드</h3>
+          <CardThreadSection
+            card={card}
+            activeCards={activeCards}
+            onOpenCardById={onOpenCardById}
+            onLink={onLinkThread ? (target) => onLinkThread(card, target) : undefined}
+            onUnlink={onUnlinkThread ? () => onUnlinkThread(card) : undefined}
+            onCreateFollowUp={onCreateFollowUp ? () => onCreateFollowUp(card) : undefined}
+          />
+        </section>
+      ) : null}
       {card ? <CardActivityTimeline cardId={card.id} /> : null}
       {error ? <p className="amenity-alert drawer-section__error">{error}</p> : null}
     </>
@@ -1092,7 +1296,13 @@ export function CardModal({
             autoFocus
           />
         </label>
-        <CardDuplicateWarning duplicates={duplicateCards} />
+        <CardDuplicateWarning
+          duplicates={duplicateCards}
+          onOpenCard={onOpenCardById ? (item) => onOpenCardById(item.id) : undefined}
+          onLinkThread={onEnsureThreadForCard ? (item) => void linkDraftToCard(item) : undefined}
+          onUnlinkThread={unlinkDraft}
+          linkedCardId={linkedDupId}
+        />
         <label className="field">
           <span>상세</span>
           <textarea
@@ -1103,6 +1313,11 @@ export function CardModal({
             placeholder="상황·배경을 적어 주세요"
           />
         </label>
+        <CardChecklistEditor
+          items={form.checklist ?? []}
+          staffName={defaultName}
+          onChange={(items) => setForm({ ...form, checklist: items })}
+        />
         <label className="field">
           <span>객실 또는 위치</span>
           <input
@@ -1421,11 +1636,27 @@ export function CardModal({
                 긴 공지·이벤트 안내는 <Link href={buildWorkHubHref('notices')}>게시판</Link>에, 카드에는 지금 넘겨야 할 업무만 적어 주세요.
               </p>
             ) : null}
+            {!card && createStep === 'form' && form.thread_id ? (
+              <p className="card-draft-notice" role="status">
+                저장하면 이전 카드와 같은 사건 스레드로 연결됩니다.
+              </p>
+            ) : null}
             <div className="drawer-panel__body">{panelBody}</div>
             {showCreateFormChrome || commentsOnly ? formFooter : null}
           </form>
         )}
       </aside>
+      {annotateTarget?.url && onAnnotateAttachment ? (
+        <ImageAnnotateModal
+          imageUrl={annotateTarget.url}
+          filename={annotateTarget.filename}
+          onClose={() => setAnnotateTarget(null)}
+          onSave={async (file) => {
+            await onAnnotateAttachment(annotateTarget, file);
+            setAnnotateTarget(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 

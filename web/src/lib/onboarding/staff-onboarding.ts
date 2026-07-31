@@ -35,6 +35,7 @@ export function isStaffOnboardingComplete(): boolean {
 
 export function markStaffOnboardingComplete() {
   localStorage.setItem(STAFF_ONBOARDING_STORAGE_KEY, 'done');
+  window.dispatchEvent(new Event('handover-onboarding-complete'));
 }
 
 export function shouldShowStaffOnboarding(sessionComplete: boolean): boolean {

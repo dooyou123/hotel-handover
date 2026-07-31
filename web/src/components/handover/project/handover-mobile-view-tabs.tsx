@@ -18,7 +18,7 @@ export function HandoverMobileViewTabs({ view, panelBadge = 0, onChange }: Hando
         className={`handover-mobile-view-tabs__btn${view === 'list' ? ' is-active' : ''}`}
         onClick={() => onChange('list')}
       >
-        목록
+        보드
       </button>
       <button
         type="button"

@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import type { HandoverViewMode } from '@/lib/handover/types';
 import { HandoverSearchBar } from './handover-search-bar';
 
@@ -37,6 +38,25 @@ export function HandoverToolbarProject({
   const isArchiveView = viewMode === 'archive';
   const isBriefView = viewMode === 'brief';
   const isBoardView = viewMode === 'board';
+  const canArchiveDone = isManager && doneCount > 0;
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    function onPointerDown(event: MouseEvent) {
+      if (!moreRef.current?.contains(event.target as Node)) setMoreOpen(false);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setMoreOpen(false);
+    }
+    window.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [moreOpen]);
 
   return (
     <section className="project-handover-toolbar project-handover-toolbar--main" aria-label="인수인계 도구">
@@ -84,17 +104,52 @@ export function HandoverToolbarProject({
             onSearchDateFromChange={onSearchDateFromChange}
             onSearchDateToChange={onSearchDateToChange}
           />
-          {isManager && doneCount > 0 ? (
-            <button type="button" className="project-handover-toolbar__btn" onClick={onArchiveDone}>
+          {canArchiveDone ? (
+            <button
+              type="button"
+              className="project-handover-toolbar__btn project-handover-toolbar__btn--archive-desktop"
+              onClick={onArchiveDone}
+            >
               완료 비우기
             </button>
           ) : null}
+          {canArchiveDone ? (
+            <div className="project-handover-toolbar__more" ref={moreRef}>
+              <button
+                type="button"
+                className="project-handover-toolbar__btn project-handover-toolbar__btn--icon project-handover-toolbar__btn--more"
+                aria-label="더 보기"
+                aria-expanded={moreOpen}
+                onClick={() => setMoreOpen((open) => !open)}
+              >
+                ···
+              </button>
+              {moreOpen ? (
+                <div className="project-handover-toolbar__more-panel" role="menu">
+                  <button
+                    type="button"
+                    className="project-handover-toolbar__more-item"
+                    role="menuitem"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      onArchiveDone();
+                    }}
+                  >
+                    완료 비우기
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           <button
             type="button"
-            className="project-handover-toolbar__btn project-handover-toolbar__btn--primary"
+            className="project-handover-toolbar__btn project-handover-toolbar__btn--primary project-handover-toolbar__btn--add-inline"
             onClick={onAdd}
           >
-            + 새 인수인계
+            <span className="project-handover-toolbar__add-full">+ 새 인수인계</span>
+            <span className="project-handover-toolbar__add-short" aria-hidden>
+              +
+            </span>
           </button>
         </div>
       </div>

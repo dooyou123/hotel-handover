@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
-import { buildProjectListSections, isActiveHandoverCard, isBulkArchivableCard } from '@/lib/handover/card-utils';
+import { buildProjectListSections, isActiveHandoverCard, isBulkArchivableCard, pinnedFirst } from '@/lib/handover/card-utils';
+import { buildThreadCounts, groupCardsByThread } from '@/lib/handover/card-thread';
 import { isToday } from '@/lib/handover/shift-summary';
 import type { Card, QuickFilter } from '@/lib/handover/types';
 import { HandoverListRowProject } from './handover-list-row-project';
@@ -13,6 +14,7 @@ type HandoverListProjectProps = {
   allCards?: Card[];
   searchQuery?: string;
   quickFilter?: QuickFilter;
+  unseenCardIds?: Set<string>;
   staffNames: string[];
   isManager?: boolean;
   archivedCount?: number;
@@ -39,6 +41,8 @@ type HandoverListProjectProps = {
   onBulkUnassign: (cardIds: string[]) => Promise<void>;
   onBulkResume: (cardIds: string[]) => Promise<void>;
   onBulkArchive: (cardIds: string[]) => Promise<void>;
+  onCreateFollowUp?: (card: Card) => void;
+  onTogglePin?: (card: Card) => void;
 };
 
 type ListStatusTab = Exclude<HandoverStatusTab, 'archive'>;
@@ -88,6 +92,7 @@ export function HandoverListProject({
   allCards = cards,
   searchQuery,
   quickFilter = 'all',
+  unseenCardIds,
   staffNames,
   onOpenCard,
   onOpenCardComments,
@@ -109,6 +114,8 @@ export function HandoverListProject({
   onBulkUnassign,
   onBulkResume,
   onBulkArchive,
+  onCreateFollowUp,
+  onTogglePin,
   isManager = false,
   archivedCount = 0,
   statusTab: statusTabProp,
@@ -125,6 +132,7 @@ export function HandoverListProject({
   const [doneShowAll, setDoneShowAll] = useState(false);
   const [sort, setSort] = useState<HandoverSort>('activity-desc');
 
+  const threadCounts = useMemo(() => buildThreadCounts(allCards), [allCards]);
   const sections = useMemo(() => buildProjectListSections(cards, staffNames), [cards, staffNames]);
   const sectionMap = useMemo(() => {
     const map = new Map(sections.map((section) => [section.id, section]));
@@ -142,7 +150,8 @@ export function HandoverListProject({
   const progressCards = useMemo(() => {
     const unacked = sectionMap.get('unacked')?.cards ?? [];
     const progress = sectionMap.get('progress')?.cards ?? [];
-    return [...sortHandoverCards(unacked, sort), ...sortHandoverCards(progress, sort)];
+    // 핀 고정 카드는 정렬과 무관하게 항상 맨 위
+    return pinnedFirst([...sortHandoverCards(unacked, sort), ...sortHandoverCards(progress, sort)]);
   }, [sectionMap, sort]);
 
   const holdCards = useMemo(
@@ -196,6 +205,16 @@ export function HandoverListProject({
   useEffect(() => {
     if (quickFilter === 'hold-long') setStatusTab('hold');
   }, [quickFilter]);
+
+  useEffect(() => {
+    function handleSetStatusTab(event: Event) {
+      const statusTab = (event as CustomEvent<{ statusTab?: ListStatusTab }>).detail?.statusTab;
+      if (!statusTab) return;
+      setStatusTab(statusTab);
+    }
+    window.addEventListener('handover-set-status-tab', handleSetStatusTab);
+    return () => window.removeEventListener('handover-set-status-tab', handleSetStatusTab);
+  }, [setStatusTab]);
 
   useEffect(() => {
     function handleReveal(event: Event) {
@@ -471,33 +490,51 @@ export function HandoverListProject({
       >
         {activeCards.length ? (
           <div className="project-list__rows">
-            {activeCards.map((card) => {
-              const selectable = isActiveHandoverCard(card) || isBulkArchivableCard(card);
+            {groupCardsByThread(activeCards).map((group) => {
+              const rows = group.cards.map((card) => {
+                const selectable = isActiveHandoverCard(card) || isBulkArchivableCard(card);
 
-              return (
-                <HandoverListRowProject
-                  key={card.id}
-                  card={card}
-                  searchQuery={searchQuery}
-                  staffNames={staffNames}
-                  bulkMode={bulkMode && selectable}
-                  selected={selectedIds.includes(card.id)}
-                  onToggleSelect={() => toggleCardSelection(card.id)}
-                  onOpen={() => onOpenCard(card)}
-                  onOpenComments={() => onOpenCardComments(card)}
-                  onAddComment={(content) => onAddComment(card.id, content)}
-                  staffName={staffName}
-                  commentDisabled={commentDisabled}
-                  onAcknowledge={() => onAcknowledge(card.id)}
-                  onMarkDone={() => onMarkDone(card.id)}
-                  onHold={() => onHold(card.id)}
-                  onResume={() => onResume(card.id)}
-                  onAssignChange={(assigneeName) => onAssignChange(card.id, assigneeName)}
-                  onSnooze={() => onSnooze(card.id)}
-                  onUnsnooze={() => onUnsnooze(card.id)}
-                  onRecordFirstResponse={() => onRecordFirstResponse(card.id)}
-                />
-              );
+                return (
+                  <HandoverListRowProject
+                    key={card.id}
+                    card={card}
+                    searchQuery={searchQuery}
+                    staffNames={staffNames}
+                    unseen={unseenCardIds?.has(card.id) ?? false}
+                    threadCount={card.thread_id ? threadCounts.get(card.thread_id) ?? 1 : 0}
+                    bulkMode={bulkMode && selectable}
+                    selected={selectedIds.includes(card.id)}
+                    onToggleSelect={() => toggleCardSelection(card.id)}
+                    onOpen={() => onOpenCard(card)}
+                    onOpenComments={() => onOpenCardComments(card)}
+                    onAddComment={(content) => onAddComment(card.id, content)}
+                    staffName={staffName}
+                    commentDisabled={commentDisabled}
+                    onAcknowledge={() => onAcknowledge(card.id)}
+                    onMarkDone={() => onMarkDone(card.id)}
+                    onHold={() => onHold(card.id)}
+                    onResume={() => onResume(card.id)}
+                    onAssignChange={(assigneeName) => onAssignChange(card.id, assigneeName)}
+                    onSnooze={() => onSnooze(card.id)}
+                    onUnsnooze={() => onUnsnooze(card.id)}
+                    onRecordFirstResponse={() => onRecordFirstResponse(card.id)}
+                    onCreateFollowUp={onCreateFollowUp ? () => onCreateFollowUp(card) : undefined}
+                    onTogglePin={onTogglePin ? () => onTogglePin(card) : undefined}
+                  />
+                );
+              });
+
+              if (group.threadId && group.cards.length > 1) {
+                return (
+                  <div key={`thread-${group.threadId}`} className="project-list__thread-group">
+                    <p className="project-list__thread-group-head">
+                      <span aria-hidden>🔗</span> 같은 사건 {group.cards.length}건
+                    </p>
+                    {rows}
+                  </div>
+                );
+              }
+              return rows;
             })}
           </div>
         ) : (

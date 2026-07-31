@@ -9,7 +9,7 @@ export const ENTITY_LABELS: Record<string, string> = {
 };
 
 export function activityTargetLabel(summary: string): string {
-  return summary.replace(/^(추가|수정|삭제|완료|댓글|이동|공지|보관|복원):\s*/, '').trim();
+  return summary.replace(/^(추가|수정|삭제|완료|댓글|이동|공지|보관|복원|휴지통 복원|영구 삭제|사건 연결 해제|사건 연결|고정 해제|고정):\s*/, '').trim();
 }
 
 export function activityBadgeLabel(log: ActivityLog): string {
@@ -63,10 +63,22 @@ export function formatActivityHeadline(log: ActivityLog): string {
     case 'update':
       if (log.summary.startsWith('댓글:')) return '댓글을 남겼습니다';
       return `${entity} 내용을 수정했습니다`;
+    case 'link':
+      return `다른 카드와 사건으로 연결했습니다 — ${target}`;
+    case 'unlink':
+      return '사건 연결을 해제했습니다';
+    case 'pin':
+      return '카드를 목록 상단에 고정했습니다';
+    case 'unpin':
+      return '카드 고정을 해제했습니다';
     case 'archive_done':
       return '완료된 인수인계를 보관함으로 옮겼습니다';
     case 'restore_archive':
       return '보관함에서 인수인계를 복원했습니다';
+    case 'trash_restore':
+      return '휴지통에서 인수인계를 복원했습니다';
+    case 'trash_purge':
+      return '휴지통에서 완전히 삭제했습니다';
     case 'clear_done':
       return '완료 칸을 비웠습니다';
     default:
@@ -77,8 +89,15 @@ export function formatActivityHeadline(log: ActivityLog): string {
 export function formatActivityDetail(log: ActivityLog): string {
   if (!log.details) return '';
 
+  if (log.action === 'move' && log.details.quick === true) return '목록 ✓ 완료 버튼';
+
+  // 변경 필드 목록이 있으면 그것이 가장 구체적인 정보다 (move의 from→to는 headline이 이미 보여준다)
+  const changes = log.details.changes;
+  if (Array.isArray(changes) && changes.length) {
+    return changes.map((item) => String(item)).join('\n');
+  }
+
   if (log.action === 'move') {
-    if (log.details.quick === true) return '목록 ✓ 완료 버튼';
     const from = typeof log.details.from === 'string' ? log.details.from : '';
     const to = typeof log.details.to === 'string' ? log.details.to : '';
     if (from && to) {
@@ -86,11 +105,6 @@ export function formatActivityDetail(log: ActivityLog): string {
       const toLabel = COLUMN_LABELS[to as keyof typeof COLUMN_LABELS] ?? to;
       return `${fromLabel} → ${toLabel}`;
     }
-  }
-
-  const changes = log.details.changes;
-  if (Array.isArray(changes)) {
-    return changes.map((item) => String(item)).join('\n');
   }
 
   if (typeof log.details.reason === 'string') return log.details.reason;

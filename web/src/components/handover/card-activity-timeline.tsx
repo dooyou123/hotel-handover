@@ -1,14 +1,17 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { formatTime } from '@/lib/handover/card-utils';
 import {
   activityBadgeLabel,
   activityBadgeTone,
   formatActivityActor,
+  formatActivityDetail,
   formatActivityHeadline,
 } from '@/lib/handover/activity-display';
 import { useActivityLogs } from '@/lib/handover/use-activity-logs';
+
+const FULL_HISTORY_LIMIT = 100;
 
 type CardActivityTimelineProps = {
   cardId: string;
@@ -16,6 +19,9 @@ type CardActivityTimelineProps = {
 };
 
 export function CardActivityTimeline({ cardId, limit = 8 }: CardActivityTimelineProps) {
+  const [showAll, setShowAll] = useState(false);
+  const effectiveLimit = showAll ? FULL_HISTORY_LIMIT : limit;
+
   const filters = useMemo(
     () => ({
       entityType: 'card',
@@ -27,7 +33,7 @@ export function CardActivityTimeline({ cardId, limit = 8 }: CardActivityTimeline
   );
 
   const { data: logs = [], isLoading } = useActivityLogs({
-    limit,
+    limit: effectiveLimit,
     filters,
     enabled: Boolean(cardId),
   });
@@ -49,6 +55,7 @@ export function CardActivityTimeline({ cardId, limit = 8 }: CardActivityTimeline
       <ul className="card-activity-timeline__list">
         {logs.map((log) => {
           const tone = activityBadgeTone(log);
+          const detail = formatActivityDetail(log);
           return (
             <li key={log.id} className="card-activity-timeline__item">
               <div className="card-activity-timeline__head">
@@ -60,11 +67,21 @@ export function CardActivityTimeline({ cardId, limit = 8 }: CardActivityTimeline
                 </time>
               </div>
               <p className="card-activity-timeline__text">{formatActivityHeadline(log)}</p>
+              {detail ? <p className="card-activity-timeline__detail">{detail}</p> : null}
               <p className="card-activity-timeline__actor">{formatActivityActor(log)}</p>
             </li>
           );
         })}
       </ul>
+      {!showAll && logs.length >= limit ? (
+        <button
+          type="button"
+          className="card-activity-timeline__more"
+          onClick={() => setShowAll(true)}
+        >
+          전체 이력 보기
+        </button>
+      ) : null}
     </section>
   );
 }

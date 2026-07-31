@@ -44,6 +44,7 @@ export function HandoverSearchBar({
           type="button"
           className={`handover-search-bar__dates-toggle${datesOpen ? ' is-open' : ''}${hasActiveDates ? ' has-value' : ''}`}
           aria-expanded={datesOpen}
+          aria-label="기간 필터"
           onClick={() => setDatesOpen((open) => !open)}
         >
           기간{hasActiveDates ? ' ·' : ''}

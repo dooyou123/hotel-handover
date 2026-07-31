@@ -20,7 +20,6 @@ import {
   useShiftHandovers,
   type ActivityLogFilters,
 } from '@/lib/handover/use-activity-logs';
-
 type HandoverRecordsModalProps = {
   open: boolean;
   initialTab?: HandoverRecordsTab;
@@ -56,7 +55,6 @@ export function HandoverRecordsModal({
     filters: activityFilters,
     enabled: open && tab === 'activity',
   });
-
   function updateShiftFilters(patch: Partial<ShiftHandoverFilters>) {
     setShiftFilters((prev) => ({ ...prev, ...patch }));
   }

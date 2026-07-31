@@ -3,8 +3,10 @@
 import { PRIORITY_LABELS } from '@/lib/handover/constants';
 import {
   formatAssigneeLabel,
+  formatHoldStaleBadge,
   formatRelativeTime,
   formatSnoozeUntil,
+  getHoldStaleLevel,
   stripShiftLabel,
   isArchivedCard,
   isCardDueActive,
@@ -46,6 +48,11 @@ type HandoverListRowProjectProps = {
   onUnsnooze?: () => void;
   onRecordFirstResponse?: () => void;
   onRestore?: () => void;
+  onCreateFollowUp?: () => void;
+  onTogglePin?: () => void;
+  unseen?: boolean;
+  /** 사건 스레드 배지 — 0이면 스레드 없음, 1 이상이면 활성 카드 기준 스레드 크기 */
+  threadCount?: number;
 };
 
 export function HandoverListRowProject({
@@ -69,12 +76,18 @@ export function HandoverListRowProject({
   onUnsnooze,
   onRecordFirstResponse,
   onRestore,
+  onCreateFollowUp,
+  onTogglePin,
+  unseen = false,
+  threadCount = 0,
 }: HandoverListRowProjectProps) {
   const isUrgent = isUrgentPriorityCard(card);
   const archived = isArchivedCard(card);
+  const checklistDone = card.checklist.filter((item) => item.done).length;
   const needsMyAck = !archived && isUnackedUrgentCardForStaff(card, staffName);
   const teamAckPending = isTeamAckPending(card, staffNames);
   const snoozed = isCardSnoozed(card);
+  const holdStaleLevel = getHoldStaleLevel(card);
   const needsFirstResponse = needsComplaintFirstResponse(card);
   const hasComments = hasActiveCardComments(card);
   const nextAction = card.next_action?.trim() || '';
@@ -183,6 +196,13 @@ export function HandoverListRowProject({
         <div className="project-list-row__pass">
           <div className="project-list-row__pass-top">
             <div className="project-list-row__pass-heading">
+              {unseen ? (
+                <span
+                  className="project-list-row__unseen-dot"
+                  title="내 마지막 교대 이후 변경됨"
+                  aria-label="안 본 변경"
+                />
+              ) : null}
               <button
                 type="button"
                 className="project-list-row__title"
@@ -192,14 +212,45 @@ export function HandoverListRowProject({
                 <SearchHighlight text={card.title} query={searchQuery} />
               </button>
               <span className="project-list-row__pass-flags">
+                {card.pinned_at ? (
+                  <span
+                    className="project-list-row__badge project-list-row__badge--pin"
+                    title="목록 맨 위에 고정된 카드"
+                  >
+                    📌 고정
+                  </span>
+                ) : null}
                 {isUrgent ? (
                   <span className="project-list-row__badge project-list-row__badge--urgent">
                     {PRIORITY_LABELS[card.priority]}
                   </span>
                 ) : null}
+                {holdStaleLevel ? (
+                  <span className="project-list-row__badge project-list-row__badge--hold-long">
+                    {formatHoldStaleBadge(holdStaleLevel)}
+                  </span>
+                ) : null}
                 {snoozed && card.snoozed_until ? (
                   <span className="project-list-row__badge project-list-row__badge--snooze">
                     알림 끔 · {formatSnoozeUntil(card.snoozed_until)}까지
+                  </span>
+                ) : null}
+                {threadCount > 0 ? (
+                  <span
+                    className="project-list-row__badge project-list-row__badge--thread"
+                    title="사건 스레드로 연결된 카드 — 카드를 열면 전체 흐름이 보입니다"
+                  >
+                    🔗 사건{threadCount > 1 ? ` ${threadCount}` : ''}
+                  </span>
+                ) : null}
+                {card.checklist.length ? (
+                  <span
+                    className={`project-list-row__badge project-list-row__badge--check${
+                      checklistDone === card.checklist.length ? ' is-complete' : ''
+                    }`}
+                    title="체크리스트 진행 상황 — 카드를 열면 항목이 보입니다"
+                  >
+                    ☑ {checklistDone}/{card.checklist.length}
                   </span>
                 ) : null}
                 <ComplaintSlaBadge card={card} />
@@ -250,6 +301,8 @@ export function HandoverListRowProject({
                   onSnooze={onSnooze}
                   onUnsnooze={onUnsnooze}
                   onAssignChange={onAssignChange}
+                  pinned={Boolean(card.pinned_at)}
+                  onTogglePin={archived ? undefined : onTogglePin}
                 />
               </div>
             ) : null}
@@ -325,6 +378,19 @@ export function HandoverListRowProject({
                 }}
               >
                 완료
+              </button>
+            ) : null}
+            {onCreateFollowUp ? (
+              <button
+                type="button"
+                className="project-list-row__followup"
+                title="객실·분류를 이어받은 새 카드를 만들고 이 카드와 같은 사건으로 연결합니다"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onCreateFollowUp();
+                }}
+              >
+                이어쓰기
               </button>
             ) : null}
           </div>

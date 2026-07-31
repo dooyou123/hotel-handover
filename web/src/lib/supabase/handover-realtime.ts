@@ -183,6 +183,9 @@ function scheduleCardQueryRefresh(queryClient: QueryClient) {
     cardRefreshTimer = null;
     void queryClient.refetchQueries({ queryKey: ['cards', DEFAULT_HOTEL_ID], type: 'active' });
     void queryClient.refetchQueries({ queryKey: ['archived-cards', DEFAULT_HOTEL_ID], type: 'active' });
+    void queryClient.refetchQueries({ queryKey: ['archived-cards-count', DEFAULT_HOTEL_ID], type: 'active' });
+    void queryClient.refetchQueries({ queryKey: ['trashed-cards', DEFAULT_HOTEL_ID], type: 'active' });
+    void queryClient.refetchQueries({ queryKey: ['trashed-cards-count', DEFAULT_HOTEL_ID], type: 'active' });
   }, 500);
 }
 

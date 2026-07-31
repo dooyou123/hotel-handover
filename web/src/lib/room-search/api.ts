@@ -82,6 +82,7 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
       .from('cards')
       .select('id, title, room, category, column_id, details, author, updated_at, created_at, archived_at')
       .eq('hotel_id', DEFAULT_HOTEL_ID)
+      .is('deleted_at', null)
       .or(
         [
           `room.ilike.${like}`,

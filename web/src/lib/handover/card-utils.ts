@@ -285,6 +285,8 @@ export function filterCards(
     session: WorkSession;
     dateFrom?: string | null;
     dateTo?: string | null;
+    /** quickFilter 'unseen'에서 사용 — 기준점 이후 변경된 카드 id */
+    unseenCardIds?: Set<string>;
   },
 ): Card[] {
   const q = options.query.trim().toLowerCase();
@@ -341,6 +343,9 @@ export function filterCards(
     if (options.quickFilter === 'hold-long') {
       return isLongHoldCard(card);
     }
+    if (options.quickFilter === 'unseen') {
+      return options.unseenCardIds?.has(card.id) ?? false;
+    }
     if (options.quickFilter !== 'all' && options.quickFilter) {
       return card.category === options.quickFilter;
     }
@@ -374,6 +379,17 @@ export function stripShiftLabel(value: string): string {
 
 export function isActiveHandoverCard(card: Card): boolean {
   return card.column_id !== 'done' && !card.archived_at;
+}
+
+/**
+ * 핀 고정 카드를 목록 맨 위로 올린다. 고정끼리는 최근에 고정한 순,
+ * 나머지는 전달받은 정렬 순서를 그대로 유지한다.
+ */
+export function pinnedFirst<T extends { pinned_at: string | null }>(cards: T[]): T[] {
+  const pinned = cards.filter((card) => card.pinned_at);
+  if (!pinned.length) return cards;
+  pinned.sort((a, b) => (b.pinned_at ?? '').localeCompare(a.pinned_at ?? ''));
+  return [...pinned, ...cards.filter((card) => !card.pinned_at)];
 }
 
 function normalizeMatchText(value: string): string {

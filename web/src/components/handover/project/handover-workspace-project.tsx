@@ -8,8 +8,10 @@ import type { Card, HandoverViewMode, QuickFilter, WorkSession } from '@/lib/han
 import type { HotelEvent } from '@/lib/events/types';
 import type { TodayAlertItem } from '@/lib/today/alerts';
 import type { Todo } from '@/lib/todos/types';
+import type { PersonalTask } from '@/lib/personal-tasks/types';
 import { RoomView } from '@/components/handover/room-view';
 import { buildProjectListSections } from '@/lib/handover/card-utils';
+import { useRegisterHeaderActions } from '@/components/layout/header-actions';
 import { HandoverArchiveProject } from './handover-archive-project';
 import { HandoverAsideProject } from './handover-aside-project';
 import { HandoverMobilePanel } from './handover-mobile-panel';
@@ -37,6 +39,9 @@ type HandoverWorkspaceProjectProps = {
   archivedLoading: boolean;
   archivedCount: number;
   archivedSearchCount: number;
+  archiveHasMore: boolean;
+  onLoadMoreArchive: () => void;
+  onLoadAllArchive: () => void;
   isManager: boolean;
   session: WorkSession;
   onViewModeChange: (mode: HandoverViewMode) => void;
@@ -49,6 +54,8 @@ type HandoverWorkspaceProjectProps = {
   onRestoreFromArchive: (cardId: string) => Promise<void>;
   onOpenRecords: (tab: HandoverRecordsTab) => void;
   onOpenShiftBrief: () => void;
+  onNavigateFromBrief?: (target: import('@/lib/handover/brief-navigate').BriefListJump) => void;
+  onShowLongHold?: () => void;
   authorLabel: string;
   requireSession: (action: string) => boolean;
   onToast: (message: string) => void;
@@ -75,7 +82,15 @@ type HandoverWorkspaceProjectProps = {
   onBulkUnassign: (cardIds: string[]) => Promise<void>;
   onBulkResume: (cardIds: string[]) => Promise<void>;
   onBulkArchive: (cardIds: string[]) => Promise<void>;
+  onCreateFollowUp?: (card: Card) => void;
+  onTogglePin?: (card: Card) => void;
+  onPromoteTaskToCard?: (task: PersonalTask) => void;
+  onOpenTrash?: () => void;
   onShowUnacked: () => void;
+  unseenCardIds: Set<string>;
+  unseenHint: boolean;
+  onShowUnseen: () => void;
+  onClearUnseen: () => void;
   onAlertClick: (id: string) => void;
   onOpenTodo: (todo: Todo) => void;
   onToggleTodo: (todo: Todo) => void;
@@ -100,6 +115,9 @@ export function HandoverWorkspaceProject({
   archivedLoading,
   archivedCount,
   archivedSearchCount,
+  archiveHasMore,
+  onLoadMoreArchive,
+  onLoadAllArchive,
   isManager,
   session,
   onViewModeChange,
@@ -112,6 +130,8 @@ export function HandoverWorkspaceProject({
   onRestoreFromArchive,
   onOpenRecords,
   onOpenShiftBrief,
+  onNavigateFromBrief,
+  onShowLongHold,
   authorLabel,
   requireSession,
   onToast,
@@ -138,7 +158,15 @@ export function HandoverWorkspaceProject({
   onBulkUnassign,
   onBulkResume,
   onBulkArchive,
+  onCreateFollowUp,
+  onTogglePin,
+  onPromoteTaskToCard,
+  onOpenTrash,
   onShowUnacked,
+  unseenCardIds,
+  unseenHint,
+  onShowUnseen,
+  onClearUnseen,
   onAlertClick,
   onOpenTodo,
   onToggleTodo,
@@ -153,6 +181,24 @@ export function HandoverWorkspaceProject({
     () => summaryData.unackedUrgent.length + alerts.length,
     [summaryData.unackedUrgent.length, alerts.length],
   );
+
+  const headerAddAction = useMemo(
+    () => (
+      <button
+        type="button"
+        className="btn btn--primary btn--small nova-topbar__add"
+        onClick={onAdd}
+        aria-label="새 인수인계"
+      >
+        <span className="nova-topbar__add-full">+ 새 인수인계</span>
+        <span className="nova-topbar__add-short" aria-hidden>
+          +
+        </span>
+      </button>
+    ),
+    [onAdd],
+  );
+  useRegisterHeaderActions(headerAddAction);
 
   const statusCounts = useMemo(() => {
     const sections = buildProjectListSections(visibleCards, staffNames);
@@ -218,6 +264,7 @@ export function HandoverWorkspaceProject({
           onOpenTodo={onOpenTodo}
           onOpenEvent={onOpenEvent}
           onOpenRecords={onOpenRecords}
+          onNavigateToList={onNavigateFromBrief}
           onToast={onToast}
         />
       </div>
@@ -256,6 +303,10 @@ export function HandoverWorkspaceProject({
               <HandoverArchiveProject
                 cards={archivedCards}
                 isLoading={archivedLoading}
+                totalCount={archivedCount}
+                hasMore={archiveHasMore}
+                onLoadMore={onLoadMoreArchive}
+                onLoadAll={onLoadAllArchive}
                 isManager={isManager}
                 searchQuery={searchQuery}
                 searchDateFrom={searchDateFrom}
@@ -275,6 +326,11 @@ export function HandoverWorkspaceProject({
                   todos={todos}
                   events={events}
                   staffNames={staffNames}
+                  unseenCount={unseenCardIds.size}
+                  unseenHint={unseenHint}
+                  unseenActive={quickFilter === 'unseen'}
+                  onShowUnseen={onShowUnseen}
+                  onClearUnseen={onClearUnseen}
                   onShowUnacked={onShowUnacked}
                   onOpenCard={onOpenCard}
                   onAcknowledge={onAcknowledge}
@@ -284,6 +340,7 @@ export function HandoverWorkspaceProject({
                 allCards={cards}
                 searchQuery={searchQuery}
                 quickFilter={quickFilter}
+                unseenCardIds={unseenCardIds}
                 staffNames={staffNames}
                 isManager={isManager}
                 archivedCount={archivedCount}
@@ -310,6 +367,8 @@ export function HandoverWorkspaceProject({
                 onBulkUnassign={onBulkUnassign}
                 onBulkResume={onBulkResume}
                 onBulkArchive={onBulkArchive}
+                onCreateFollowUp={onCreateFollowUp}
+                onTogglePin={onTogglePin}
               />
               </>
             )}
@@ -319,14 +378,18 @@ export function HandoverWorkspaceProject({
         <HandoverAsideProject
           session={session}
           todos={todos}
+          cards={cards}
           onShiftStart={onShiftStart}
           onShiftEnd={onShiftEnd}
           onOpenShiftBrief={onOpenShiftBrief}
           onOpenRecords={onOpenRecords}
           onOpenCardById={onOpenCardById}
+          onShowLongHold={onShowLongHold}
           onOpenTodo={onOpenTodo}
           onOpenEvent={onOpenEvent}
           onToggleTodo={onToggleTodo}
+          onPromoteTaskToCard={onPromoteTaskToCard}
+          onOpenTrash={onOpenTrash}
         />
       </div>
 

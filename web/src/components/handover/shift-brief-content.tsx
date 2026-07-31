@@ -19,6 +19,7 @@ import { transportStatusLabel, type TransportBooking } from '@/lib/transport/typ
 import { formatEventTimeRange, mergeWorkScheduleItems, type WorkScheduleItem } from '@/lib/work-items/merge';
 import { LinkifiedText } from '@/components/ui/linkified-text';
 import { ReviewActionCompleteModal } from '@/components/reviews/review-action-complete-modal';
+import { briefChipJumpTarget, type BriefListJump } from '@/lib/handover/brief-navigate';
 
 export type AmenityBriefAlert = {
   id: number;
@@ -60,12 +61,40 @@ export type ShiftBriefContentProps = {
   onExportText?: () => void;
   onExportPrint?: () => void;
   onExportImage?: () => void;
+  onNavigateToList?: (target: BriefListJump) => void;
   exportingImage?: boolean;
   showFooter?: boolean;
   showPrint?: boolean;
   className?: string;
   hkDayNotes?: { previous: string; next: string } | null;
 };
+
+function BriefExpandableBody({
+  children,
+  preview,
+}: {
+  children: ReactNode;
+  preview?: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  if (!children) return preview ? <>{preview}</> : null;
+
+  return (
+    <div className={`brief-item__fold${open ? ' is-open' : ''}`}>
+      {open ? <div className="brief-item__fold-body">{children}</div> : preview}
+      <button
+        type="button"
+        className="brief-item__fold-toggle"
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen((value) => !value);
+        }}
+      >
+        {open ? '접기' : '더 보기'}
+      </button>
+    </div>
+  );
+}
 
 function BriefCardItem({
   card,
@@ -91,6 +120,7 @@ function BriefCardItem({
     card.category === '컴플레인' && hasComplaintRemedies(card.complaint_remedies, card.complaint_remedy_other)
       ? formatComplaintRemedies(card.complaint_remedies, card.complaint_remedy_other)
       : '';
+  const hasExtra = Boolean(remedySummary || card.details);
 
   const ackButton =
     unacked && onAcknowledge ? (
@@ -118,20 +148,24 @@ function BriefCardItem({
   const content = (
     <>
       <p className="brief-item__title">{card.title}</p>
-      {remedySummary ? <p className="brief-item__sub">제공: {remedySummary}</p> : null}
-      {card.next_action ? (
-        <p className="brief-item__sub">
-          다음: <LinkifiedText text={card.next_action} as="span" />
-        </p>
-      ) : null}
-      {card.details ? (
-        <p className="brief-item__detail">
-          <LinkifiedText text={card.details} as="span" />
-        </p>
-      ) : null}
       <p className="brief-item__meta">
         {card.author || '—'} · {formatTime(card.updated_at || card.created_at)}
       </p>
+      {card.next_action ? (
+        <p className="brief-item__sub brief-item__sub--clamp">
+          다음: <LinkifiedText text={card.next_action} as="span" />
+        </p>
+      ) : null}
+      {remedySummary || card.details ? (
+        <BriefExpandableBody>
+          {remedySummary ? <p className="brief-item__sub">제공: {remedySummary}</p> : null}
+          {card.details ? (
+            <p className="brief-item__detail">
+              <LinkifiedText text={card.details} as="span" />
+            </p>
+          ) : null}
+        </BriefExpandableBody>
+      ) : null}
     </>
   );
 
@@ -180,16 +214,32 @@ function BriefNoticeItem({ notice }: { notice: Notice }) {
         <span className="brief-item__status">{noticeTypeShort(notice.type)}</span>
       </div>
       {singleBlock ? (
-        <p className="brief-item__detail brief-item__detail--pre brief-item__detail--lead">
-          <LinkifiedText text={title} as="span" />
-        </p>
+        title.length > 72 ? (
+          <BriefExpandableBody
+            preview={
+              <p className="brief-item__title brief-item__title--clamp">
+                <LinkifiedText text={title} as="span" />
+              </p>
+            }
+          >
+            <p className="brief-item__detail brief-item__detail--pre">
+              <LinkifiedText text={title} as="span" />
+            </p>
+          </BriefExpandableBody>
+        ) : (
+          <p className="brief-item__detail brief-item__detail--pre brief-item__detail--lead">
+            <LinkifiedText text={title} as="span" />
+          </p>
+        )
       ) : (
         <>
           <p className="brief-item__title">{title}</p>
           {body ? (
-            <p className="brief-item__detail brief-item__detail--pre">
-              <LinkifiedText text={body} as="span" />
-            </p>
+            <BriefExpandableBody>
+              <p className="brief-item__detail brief-item__detail--pre">
+                <LinkifiedText text={body} as="span" />
+              </p>
+            </BriefExpandableBody>
           ) : null}
         </>
       )}
@@ -200,40 +250,56 @@ function BriefNoticeItem({ notice }: { notice: Notice }) {
   );
 }
 
-function BriefRecordsSection({
+function BriefFoldSection({
   title,
+  count,
   lead,
-  emptyText,
-  onOpenAll,
-  isEmpty,
+  preview,
+  tone,
   children,
+  defaultOpen = false,
+  onJump,
 }: {
   title: string;
-  lead: string;
-  emptyText: string;
-  onOpenAll?: () => void;
-  isEmpty: boolean;
+  count: number;
+  lead?: string;
+  preview?: string;
+  tone?: 'alert' | 'warn';
   children: ReactNode;
+  defaultOpen?: boolean;
+  onJump?: () => void;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <section className="brief-section brief-section--records">
-      <div className="brief-section__head">
-        <h2>{title}</h2>
-        {onOpenAll ? (
-          <button type="button" className="btn btn--ghost btn--xs" onClick={onOpenAll}>
-            전체 보기
+    <details
+      className={`brief-section brief-section--fold${tone ? ` brief-section--${tone}` : ''}`}
+      open={open}
+      onToggle={(event) => setOpen((event.currentTarget as HTMLDetailsElement).open)}
+    >
+      <summary className="brief-section__summary">
+        <span className="brief-section__summary-main">
+          <span className="brief-section__summary-title">{title}</span>
+          {preview ? <span className="brief-section__summary-preview">{preview}</span> : null}
+        </span>
+        <span className="brief-section__summary-count">{count}</span>
+      </summary>
+      {lead ? <p className="brief-section__lead">{lead}</p> : null}
+      {onJump ? (
+        <div className="brief-section__fold-actions">
+          <button
+            type="button"
+            className="btn btn--ghost btn--xs"
+            onClick={(event) => {
+              event.preventDefault();
+              onJump();
+            }}
+          >
+            목록에서 보기
           </button>
-        ) : null}
-      </div>
-      <div className="brief-section__body">
-        <p className="brief-section__lead">{lead}</p>
-        {isEmpty ? (
-          <p className="brief-section__empty">{emptyText}</p>
-        ) : (
-          <div className="brief-section__list">{children}</div>
-        )}
-      </div>
-    </section>
+        </div>
+      ) : null}
+      <div className="brief-section__list">{children}</div>
+    </details>
   );
 }
 
@@ -411,9 +477,13 @@ function BriefReviewItem({
           <span className="brief-item__room">{formatReviewGuestLabel(review)}</span>
         ) : null}
       </div>
-      <p className="brief-item__title">
-        <LinkifiedText text={review.content_ko} as="span" />
-      </p>
+      <BriefExpandableBody
+        preview={<p className="brief-item__title brief-item__title--clamp">{review.content_ko}</p>}
+      >
+        <p className="brief-item__title">
+          <LinkifiedText text={review.content_ko} as="span" />
+        </p>
+      </BriefExpandableBody>
       <p className="brief-item__meta">{formatTime(review.created_at)}</p>
       <div className="brief-item__actions">
         <button type="button" className="btn btn--outline btn--xs" disabled={followUpBusy} onClick={onFollowUp}>
@@ -511,6 +581,7 @@ export function ShiftBriefContent({
   onExportText,
   onExportPrint,
   onExportImage,
+  onNavigateToList,
   exportingImage = false,
   showFooter = true,
   showPrint = false,
@@ -541,6 +612,21 @@ export function ShiftBriefContent({
     pendingTaxi.length > 0 ||
     todayShiftLogs.length > 0 ||
     Boolean(hkDayNotes);
+  const hasPriorityContent =
+    summary.unackedUrgent.length > 0 ||
+    summary.urgentActive.length > 0 ||
+    summary.progressActive.length > 0 ||
+    pendingTaxi.length > 0 ||
+    todayWorkItems.length > 0 ||
+    pendingNegativeReviews.length > 0 ||
+    amenityAlerts.length > 0 ||
+    Boolean(hkDayNotes);
+  const hasReferenceContent =
+    summary.holdActive.length > 0 ||
+    summary.pinnedAnnouncements.length > 0 ||
+    summary.changes.length > 0 ||
+    todayShiftLogs.length > 0 ||
+    Boolean(onSaveBriefMemo);
 
   return (
     <div className={`shift-brief ${className}`.trim()}>
@@ -588,223 +674,328 @@ export function ShiftBriefContent({
       ) : null}
 
       <div className="shift-brief__chips">
-        <span className={`brief-chip${summary.unackedUrgent.length ? ' brief-chip--alert' : ''}`}>
-          미확인 긴급 <strong>{summary.unackedUrgent.length}</strong>
-        </span>
-        <span className="brief-chip">
-          긴급 <strong>{summary.urgentActive.length}</strong>
-        </span>
-        <span className="brief-chip">
-          진행중 <strong>{summary.progressActive.length}</strong>
-        </span>
-        <span className={`brief-chip${summary.holdActive.length ? ' brief-chip--warn' : ''}`}>
-          보류 <strong>{summary.holdActive.length}</strong>
-        </span>
-        <span className={`brief-chip${summary.staleActive.length ? ' brief-chip--warn' : ''}`}>
-          오래됨 <strong>{summary.staleActive.length}</strong>
-        </span>
-        <span className={`brief-chip${summary.longHoldActive.length ? ' brief-chip--warn' : ''}`}>
-          보류 오래됨 <strong>{summary.longHoldActive.length}</strong>
-        </span>
-        <span className={`brief-chip${checklist.incomplete ? ' brief-chip--warn' : ''}`}>
-          체크리스트 미완료 <strong>{checklist.incomplete}</strong>
-        </span>
-        <span className={`brief-chip${pendingNegativeReviews.length ? ' brief-chip--warn' : ''}`}>
-          후속 리뷰 <strong>{pendingNegativeReviews.length}</strong>
-        </span>
-        <span className={`brief-chip${amenityAlerts.length ? ' brief-chip--warn' : ''}`}>
-          어메니티 부족 <strong>{amenityAlerts.length}</strong>
-        </span>
-        <span className={`brief-chip${todayWorkItems.length ? ' brief-chip--warn' : ''}`}>
-          업무 일정 <strong>{todayWorkItems.length}</strong>
-        </span>
-        <span className={`brief-chip${pendingTaxi.length ? ' brief-chip--warn' : ''}`}>
-          택시 <strong>{pendingTaxi.length}</strong>
-        </span>
+        {[
+          {
+            key: 'unacked',
+            label: '미확인 긴급',
+            count: summary.unackedUrgent.length,
+            tone: 'alert' as const,
+          },
+          {
+            key: 'urgent',
+            label: '긴급',
+            count: summary.urgentActive.length,
+            tone: 'alert' as const,
+          },
+          {
+            key: 'progress',
+            label: '진행중',
+            count: summary.progressActive.length,
+          },
+          {
+            key: 'hold',
+            label: '보류',
+            count: summary.holdActive.length,
+            tone: 'warn' as const,
+          },
+          {
+            key: 'stale',
+            label: '오래됨',
+            count: summary.staleActive.length,
+            tone: 'warn' as const,
+          },
+          {
+            key: 'longHold',
+            label: '보류 오래됨',
+            count: summary.longHoldActive.length,
+            tone: 'warn' as const,
+          },
+          {
+            key: 'checklist',
+            label: '체크리스트 미완료',
+            count: checklist.incomplete,
+            tone: 'warn' as const,
+          },
+          {
+            key: 'reviews',
+            label: '후속 리뷰',
+            count: pendingNegativeReviews.length,
+            tone: 'warn' as const,
+          },
+          {
+            key: 'amenity',
+            label: '어메니티 부족',
+            count: amenityAlerts.length,
+            tone: 'warn' as const,
+          },
+          {
+            key: 'work',
+            label: '업무 일정',
+            count: todayWorkItems.length,
+          },
+          {
+            key: 'taxi',
+            label: '택시',
+            count: pendingTaxi.length,
+            tone: 'warn' as const,
+          },
+        ]
+          .filter((chip) => chip.count > 0)
+          .map((chip) => {
+            const jump = onNavigateToList ? briefChipJumpTarget(chip.key) : null;
+            const className = `brief-chip${chip.tone === 'alert' ? ' brief-chip--alert' : ''}${
+              chip.tone === 'warn' ? ' brief-chip--warn' : ''
+            }${jump ? ' brief-chip--action' : ''}`;
+            const label = (
+              <>
+                {chip.label} <strong>{chip.count}</strong>
+              </>
+            );
+            if (jump && onNavigateToList) {
+              return (
+                <button
+                  key={chip.key}
+                  type="button"
+                  className={className}
+                  title="목록·관련 화면으로 이동"
+                  onClick={() => onNavigateToList(jump)}
+                >
+                  {label}
+                </button>
+              );
+            }
+            return (
+              <span key={chip.key} className={className}>
+                {label}
+              </span>
+            );
+          })}
       </div>
 
       {isLoading || shiftLogsLoading || taxiLoading ? (
         <p className="empty-state">인계 내용을 불러오는 중…</p>
       ) : (
         <div className="shift-brief__sections">
-          {onSaveBriefMemo ? (
-            <BriefMemoSection sessionReady={sessionReady} saving={briefMemoSaving} onSave={onSaveBriefMemo} />
+          {hasPriorityContent ? (
+          <div className="shift-brief__priority">
+            <p className="shift-brief__zone-label">지금 확인할 항목</p>
+
+            {summary.unackedUrgent.length ? (
+              <section className="brief-section brief-section--alert">
+                <h2>미확인 긴급 — 지금 확인</h2>
+                <p className="brief-section__lead">카드에서 ✓ 긴급 확인을 눌러 다음 교대로 넘깁니다.</p>
+                <div className="brief-section__list">
+                  {summary.unackedUrgent.map((card) => (
+                    <BriefCardItem
+                      key={card.id}
+                      card={card}
+                      warn
+                      currentStaffName={currentStaffName}
+                      ackBusy={ackBusyId === card.id}
+                      onAcknowledge={() => onAcknowledge(card.id)}
+                      onOpenCard={onOpenCard}
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {summary.urgentActive.length ? (
+              <section className="brief-section brief-section--alert">
+                <h2>긴급 처리 중</h2>
+                <div className="brief-section__list">
+                  {summary.urgentActive.map((card) => (
+                    <BriefCardItem key={card.id} card={card} onOpenCard={onOpenCard} />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {summary.progressActive.length ? (
+              <section className="brief-section">
+                <h2>오늘 진행 업무</h2>
+                <div className="brief-section__list">
+                  {summary.progressActive.map((card) => (
+                    <BriefCardItem key={card.id} card={card} onOpenCard={onOpenCard} />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {pendingTaxi.length ? (
+              <section className="brief-section">
+                <h2>오늘 택시 — 미완료</h2>
+                <p className="brief-section__lead">오늘 픽업 예정이며 아직 완료 처리되지 않은 건입니다.</p>
+                <div className="brief-section__list">
+                  {pendingTaxi.map((booking) => (
+                    <BriefTaxiItem key={booking.id} booking={booking} />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {todayWorkItems.length ? (
+              <section className="brief-section">
+                <h2>오늘 업무 일정</h2>
+                <p className="brief-section__lead">오늘 할일·호텔 일정(교육·VIP·점검 등)입니다.</p>
+                <div className="brief-section__list">
+                  {todayWorkItems.map((item) => (
+                    <BriefWorkScheduleItem
+                      key={item.kind === 'todo' ? `todo-${item.todo.id}` : `event-${item.event.id}`}
+                      item={item}
+                      onOpenTodo={onOpenTodo}
+                      onOpenEvent={onOpenEvent}
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {pendingNegativeReviews.length ? (
+              <section className="brief-section brief-section--warn">
+                <h2>후속 필요 리뷰</h2>
+                <p className="brief-section__lead">조치가 끝났으면 「조치 완료」를 눌러 인계 목록에서 숨깁니다.</p>
+                <div className="brief-section__list">
+                  {pendingNegativeReviews.map((review) => (
+                    <BriefReviewItem
+                      key={review.id}
+                      review={review}
+                      followUpBusy={followUpBusyId === review.id}
+                      actionBusy={reviewActionBusyId === review.id}
+                      onFollowUp={() => onFollowUp(review)}
+                      onCompleteAction={() => setActionReview(review)}
+                      canCompleteAction={Boolean(onCompleteReviewAction)}
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {amenityAlerts.length ? (
+              <section className="brief-section">
+                <h2>어메니티 부족·품절</h2>
+                <div className="brief-section__list">
+                  {amenityAlerts.map((item) => (
+                    <article key={item.id} className="brief-item">
+                      <p className="brief-item__title">{item.name}</p>
+                      <p className="brief-item__sub">
+                        재고 {item.quantity.toLocaleString()}개 · 30일 사용{' '}
+                        {item.monthlyUsage.toLocaleString()}개
+                        {item.orderBoxes > 0 ? ` · 발주 권장 ${item.orderBoxes}박스` : ''}
+                      </p>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {hkDayNotes ? (
+              <section className="brief-section">
+                <h2>하우스키핑 전달 메모</h2>
+                <div className="brief-section__list">
+                  {hkDayNotes.previous ? (
+                    <article className="brief-item">
+                      <p className="brief-item__meta">어제 미완료·특이</p>
+                      <p className="brief-item__title">{hkDayNotes.previous}</p>
+                    </article>
+                  ) : null}
+                  {hkDayNotes.next ? (
+                    <article className="brief-item">
+                      <p className="brief-item__meta">내일 단체·행사</p>
+                      <p className="brief-item__title">{hkDayNotes.next}</p>
+                    </article>
+                  ) : null}
+                </div>
+              </section>
+            ) : null}
+          </div>
           ) : null}
 
-          {hkDayNotes ? (
-            <section className="brief-section">
-              <h2>하우스키핑 전달 메모</h2>
-              <div className="brief-section__list">
-                {hkDayNotes.previous ? (
-                  <article className="brief-item">
-                    <p className="brief-item__meta">어제 미완료·특이</p>
-                    <p className="brief-item__title">{hkDayNotes.previous}</p>
-                  </article>
-                ) : null}
-                {hkDayNotes.next ? (
-                  <article className="brief-item">
-                    <p className="brief-item__meta">내일 단체·행사</p>
-                    <p className="brief-item__title">{hkDayNotes.next}</p>
-                  </article>
-                ) : null}
-              </div>
-            </section>
-          ) : null}
+          {hasReferenceContent ? (
+          <div className="shift-brief__reference">
+            <p className="shift-brief__zone-label">참고 · 이어서 볼 항목</p>
 
-          {summary.unackedUrgent.length ? (
-            <section className="brief-section brief-section--alert">
-              <h2>미확인 긴급 — 지금 확인</h2>
-              <p className="brief-section__lead">카드에서 ✓ 긴급 확인을 눌러 다음 교대로 넘깁니다.</p>
-              <div className="brief-section__list">
-                {summary.unackedUrgent.map((card) => (
-                  <BriefCardItem
-                    key={card.id}
-                    card={card}
-                    warn
-                    currentStaffName={currentStaffName}
-                    ackBusy={ackBusyId === card.id}
-                    onAcknowledge={() => onAcknowledge(card.id)}
-                    onOpenCard={onOpenCard}
-                  />
-                ))}
-              </div>
-            </section>
-          ) : null}
-
-          {summary.urgentActive.length ? (
-            <section className="brief-section">
-              <h2>긴급 처리 중</h2>
-              <div className="brief-section__list">
-                {summary.urgentActive.map((card) => (
-                  <BriefCardItem key={card.id} card={card} onOpenCard={onOpenCard} />
-                ))}
-              </div>
-            </section>
-          ) : null}
-
-          {summary.progressActive.length ? (
-            <section className="brief-section">
-              <h2>오늘 진행 업무</h2>
-              <div className="brief-section__list">
-                {summary.progressActive.map((card) => (
-                  <BriefCardItem key={card.id} card={card} onOpenCard={onOpenCard} />
-                ))}
-              </div>
-            </section>
-          ) : null}
-
-          {summary.holdActive.length ? (
-            <section className="brief-section brief-section--warn">
-              <h2>보류 — 대기 중</h2>
-              <p className="brief-section__lead">아직 끝나지 않았지만 지금은 멈춰 둔 업무입니다.</p>
-              <div className="brief-section__list">
+            {summary.holdActive.length ? (
+              <BriefFoldSection
+                title="보류 — 대기 중"
+                count={summary.holdActive.length}
+                preview={[
+                  ...summary.longHoldActive,
+                  ...summary.holdActive.filter(
+                    (card) => !summary.longHoldActive.some((longHold) => longHold.id === card.id),
+                  ),
+                ]
+                  .slice(0, 3)
+                  .map((card) => card.title)
+                  .join(' · ')}
+                lead={
+                  summary.longHoldActive.length
+                    ? `아직 끝나지 않았지만 지금은 멈춰 둔 업무입니다. 그중 ${summary.longHoldActive.length}건은 24시간 이상 보류입니다.`
+                    : '아직 끝나지 않았지만 지금은 멈춰 둔 업무입니다.'
+                }
+                tone="warn"
+                onJump={
+                  onNavigateToList
+                    ? () =>
+                        onNavigateToList(
+                          summary.longHoldActive.length
+                            ? { kind: 'list', statusTab: 'hold', quickFilter: 'hold-long' }
+                            : { kind: 'list', statusTab: 'hold', quickFilter: 'all' },
+                        )
+                    : undefined
+                }
+              >
                 {summary.holdActive.map((card) => (
                   <BriefCardItem key={card.id} card={card} onOpenCard={onOpenCard} />
                 ))}
-              </div>
-            </section>
-          ) : null}
+              </BriefFoldSection>
+            ) : null}
 
-          {todayWorkItems.length ? (
-            <section className="brief-section">
-              <h2>오늘 업무 일정</h2>
-              <p className="brief-section__lead">오늘 할일·호텔 일정(교육·VIP·점검 등)입니다.</p>
-              <div className="brief-section__list">
-                {todayWorkItems.map((item) => (
-                  <BriefWorkScheduleItem
-                    key={item.kind === 'todo' ? `todo-${item.todo.id}` : `event-${item.event.id}`}
-                    item={item}
-                    onOpenTodo={onOpenTodo}
-                    onOpenEvent={onOpenEvent}
-                  />
-                ))}
-              </div>
-            </section>
-          ) : null}
-
-          {pendingTaxi.length ? (
-            <section className="brief-section">
-              <h2>오늘 택시 — 미완료</h2>
-              <p className="brief-section__lead">오늘 픽업 예정이며 아직 완료 처리되지 않은 건입니다.</p>
-              <div className="brief-section__list">
-                {pendingTaxi.map((booking) => (
-                  <BriefTaxiItem key={booking.id} booking={booking} />
-                ))}
-              </div>
-            </section>
-          ) : null}
-
-          {summary.pinnedAnnouncements.length ? (
-            <section className="brief-section">
-              <h2>고정 공지</h2>
-              <div className="brief-section__list">
+            {summary.pinnedAnnouncements.length ? (
+              <BriefFoldSection title="고정 공지" count={summary.pinnedAnnouncements.length}>
                 {summary.pinnedAnnouncements.map((notice) => (
                   <BriefNoticeItem key={notice.id} notice={notice} />
                 ))}
-              </div>
-            </section>
-          ) : null}
+              </BriefFoldSection>
+            ) : null}
 
-          {summary.changes.length ? (
-            <section className="brief-section">
-              <h2>업무 변경</h2>
-              <div className="brief-section__list">
+            {summary.changes.length ? (
+              <BriefFoldSection title="업무 변경" count={summary.changes.length}>
                 {summary.changes.map((notice) => (
                   <BriefNoticeItem key={notice.id} notice={notice} />
                 ))}
-              </div>
-            </section>
-          ) : null}
+              </BriefFoldSection>
+            ) : null}
 
-          {pendingNegativeReviews.length ? (
-            <section className="brief-section brief-section--warn">
-              <h2>후속 필요 리뷰</h2>
-              <p className="brief-section__lead">조치가 끝났으면 「조치 완료」를 눌러 인계 목록에서 숨깁니다.</p>
-              <div className="brief-section__list">
-                {pendingNegativeReviews.map((review) => (
-                  <BriefReviewItem
-                    key={review.id}
-                    review={review}
-                    followUpBusy={followUpBusyId === review.id}
-                    actionBusy={reviewActionBusyId === review.id}
-                    onFollowUp={() => onFollowUp(review)}
-                    onCompleteAction={() => setActionReview(review)}
-                    canCompleteAction={Boolean(onCompleteReviewAction)}
-                  />
-                ))}
-              </div>
-            </section>
-          ) : null}
+            <BriefFoldSection
+              title="오늘 교대 기록"
+              count={todayShiftLogs.length}
+              lead="교대 시작·종료 시 저장된 인수·마감 스냅샷입니다."
+              defaultOpen={false}
+            >
+              {todayShiftLogs.length ? (
+                todayShiftLogs.map((record) => (
+                  <BriefShiftHandoverItem key={record.id} record={record} />
+                ))
+              ) : (
+                <p className="brief-section__empty">
+                  오늘 교대 기록이 없습니다. 교대 시작·종료 시 자동 저장됩니다.
+                </p>
+              )}
+              {onOpenShiftHistory ? (
+                <div className="brief-section__fold-actions">
+                  <button type="button" className="btn btn--ghost btn--xs" onClick={onOpenShiftHistory}>
+                    전체 보기
+                  </button>
+                </div>
+              ) : null}
+            </BriefFoldSection>
 
-          {amenityAlerts.length ? (
-            <section className="brief-section">
-              <h2>어메니티 부족·품절</h2>
-              <div className="brief-section__list">
-                {amenityAlerts.map((item) => (
-                  <article key={item.id} className="brief-item">
-                    <p className="brief-item__title">{item.name}</p>
-                    <p className="brief-item__sub">
-                      재고 {item.quantity.toLocaleString()}개 · 30일 사용{' '}
-                      {item.monthlyUsage.toLocaleString()}개
-                      {item.orderBoxes > 0 ? ` · 발주 권장 ${item.orderBoxes}박스` : ''}
-                    </p>
-                  </article>
-                ))}
-              </div>
-            </section>
+            {onSaveBriefMemo ? (
+              <BriefMemoSection sessionReady={sessionReady} saving={briefMemoSaving} onSave={onSaveBriefMemo} />
+            ) : null}
+          </div>
           ) : null}
-
-          <BriefRecordsSection
-            title="오늘 교대 기록"
-            lead="교대 시작·종료 시 저장된 인수·마감 스냅샷입니다."
-            emptyText="오늘 교대 기록이 없습니다. 교대 시작·종료 시 자동 저장됩니다."
-            onOpenAll={onOpenShiftHistory}
-            isEmpty={!todayShiftLogs.length}
-          >
-            {todayShiftLogs.map((record) => (
-              <BriefShiftHandoverItem key={record.id} record={record} />
-            ))}
-          </BriefRecordsSection>
 
           {!hasContent ? <p className="empty-state">현재 인계할 특이 사항이 없습니다.</p> : null}
         </div>

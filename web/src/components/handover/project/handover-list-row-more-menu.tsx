@@ -20,6 +20,8 @@ type HandoverListRowMoreMenuProps = {
   onSnooze?: () => void;
   onUnsnooze?: () => void;
   onAssignChange: (assigneeName: string) => void;
+  pinned?: boolean;
+  onTogglePin?: () => void;
 };
 
 const MENU_MIN_WIDTH = 168;
@@ -70,6 +72,8 @@ export function HandoverListRowMoreMenu({
   onSnooze,
   onUnsnooze,
   onAssignChange,
+  pinned = false,
+  onTogglePin,
 }: HandoverListRowMoreMenuProps) {
   const { confirm } = useConfirmDialog();
   const [open, setOpen] = useState(false);
@@ -83,6 +87,7 @@ export function HandoverListRowMoreMenu({
     canResume ||
     needsFirstResponse ||
     canSnooze ||
+    Boolean(onTogglePin) ||
     (canAssign && staffNames.length > 0);
 
   const closeMenu = useCallback(() => {
@@ -175,6 +180,21 @@ export function HandoverListRowMoreMenu({
       onClick={(event) => event.stopPropagation()}
       onKeyDown={handleMenuKeyDown}
     >
+      {onTogglePin ? (
+        <button
+          type="button"
+          role="menuitem"
+          className="project-list-row__more-item"
+          title="급하진 않지만 계속 보여야 하는 카드를 진행중 탭 맨 위에 고정합니다"
+          onClick={(event) => {
+            event.stopPropagation();
+            closeMenu();
+            onTogglePin();
+          }}
+        >
+          {pinned ? '고정 해제' : '📌 상단 고정'}
+        </button>
+      ) : null}
       {canHold ? (
         <button
           type="button"

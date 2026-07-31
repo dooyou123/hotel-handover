@@ -36,6 +36,7 @@ export async function fetchSimilarHistory(
       .from('cards')
       .select('id, title, room, category, column_id, resolution, details, updated_at, created_at, archived_at')
       .eq('hotel_id', DEFAULT_HOTEL_ID)
+      .is('deleted_at', null)
       .ilike('room', roomPattern)
       .gte('created_at', since)
       .order('updated_at', { ascending: false })

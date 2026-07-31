@@ -26,7 +26,7 @@ export function FloorHeatmapPageClient() {
   });
   const { data: archivedCards = [], isLoading: archivedLoading } = useQuery({
     queryKey: ['cards-archived', DEFAULT_HOTEL_ID],
-    queryFn: fetchArchivedCards,
+    queryFn: () => fetchArchivedCards(),
   });
   const { data: reviews = [], isLoading: reviewsLoading } = useQuery({
     queryKey: ['guest-reviews', DEFAULT_HOTEL_ID],

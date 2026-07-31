@@ -48,6 +48,7 @@ type HandoverShiftBriefProjectProps = {
   onOpenTodo?: (todo: Todo) => void;
   onOpenEvent?: (event: HotelEvent) => void;
   onOpenRecords?: (tab: HandoverRecordsTab) => void;
+  onNavigateToList?: (target: import('@/lib/handover/brief-navigate').BriefListJump) => void;
   onToast: (message: string) => void;
 };
 
@@ -63,6 +64,7 @@ export function HandoverShiftBriefProject({
   onOpenTodo,
   onOpenEvent,
   onOpenRecords,
+  onNavigateToList,
   onToast,
 }: HandoverShiftBriefProjectProps) {
   const queryClient = useQueryClient();
@@ -319,6 +321,7 @@ export function HandoverShiftBriefProject({
       todayShiftLogs={todayShiftLogs}
       shiftLogsLoading={logsLoading}
       onOpenShiftHistory={onOpenRecords ? () => onOpenRecords('shift') : undefined}
+      onNavigateToList={onNavigateToList}
       showFooter={false}
     />
     <div ref={sheetRef} className="export-sheet hidden" aria-hidden />

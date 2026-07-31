@@ -263,6 +263,15 @@ html[data-ui='project'] .nova-sidebar__foot-link {
   text-decoration: none;
 }
 
+html[data-ui='project'] .nova-sidebar__foot-action {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
 html[data-ui='project'] .nova-sidebar__foot-link:hover {
   background: var(--surface-2);
   color: var(--text);
@@ -599,9 +608,10 @@ html[data-ui='project'] .settings-appearance__option.is-active {
   }
 
   html[data-ui='project'] .nova-topbar {
-    flex-wrap: wrap;
-    padding: 0.55rem 0.85rem 0.45rem;
-    gap: 0.55rem;
+    flex-wrap: nowrap;
+    align-items: center;
+    padding: 0.4rem 0.65rem;
+    gap: 0.4rem;
   }
 
   html[data-ui='project'] .today-taxi-bar {
@@ -609,16 +619,50 @@ html[data-ui='project'] .settings-appearance__option.is-active {
   }
 
   html[data-ui='project'] .nova-topbar__end {
-    flex-wrap: wrap;
-    width: 100%;
+    flex-wrap: nowrap;
+    width: auto;
+    flex: 1 1 auto;
+    min-width: 0;
     margin-left: 0;
     justify-content: flex-end;
+    gap: 0.3rem;
+  }
+
+  html[data-ui='project'] .nova-topbar--primary .app-ticker--headline {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 8.5rem;
+  }
+
+  html[data-ui='project'] .nova-topbar .header__actions-utils {
+    display: none;
+  }
+
+  html[data-ui='project'] .nova-topbar__add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.25rem;
+    min-height: 2.25rem;
+    padding: 0 0.55rem;
+    font-weight: 800;
+  }
+
+  html[data-ui='project'] .nova-topbar__add-full {
+    display: none;
   }
 
   html[data-ui='project'] .nova-content {
+    flex: 1 1 auto;
+    min-height: 0;
     padding: 0.85rem 0.85rem 1.5rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
 
+  /* 인수인계만 내부 스크롤 — 셸 overflow hidden을 그대로 씀 */
   html[data-ui='project'] .nova-content:has(.handover-page) {
     padding: 0.25rem 0 0;
     display: flex;
@@ -641,16 +685,51 @@ html[data-ui='project'] .settings-appearance__option.is-active {
   }
 
   html[data-ui='project'] .nova-topbar {
-    flex-direction: column;
-    align-items: stretch;
-    padding: 0.4rem 0.55rem;
-    gap: 0.4rem;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    padding: 0.35rem 0.45rem;
+    gap: 0.3rem;
   }
 
   html[data-ui='project'] .nova-topbar__end {
-    width: 100%;
-    justify-content: space-between;
-    gap: 0.35rem;
+    width: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+    justify-content: flex-end;
+    gap: 0.25rem;
+  }
+
+  /* 날짜는 폰 상태표시줄과 중복 — 근무자 선택에 가로 폭을 넘긴다 */
+  html[data-ui='project'] .nova-topbar__date {
+    display: none;
+  }
+
+  html[data-ui='project'] .nova-topbar--primary .app-ticker--headline {
+    max-width: 5.5rem;
+  }
+
+  html[data-ui='project'] .app-ticker__headline-body {
+    display: none;
+  }
+
+  html[data-ui='project'] .app-ticker__headline-action,
+  html[data-ui='project'] .app-ticker__headline-more {
+    display: none;
+  }
+
+  html[data-ui='project'] .user-menu__name {
+    display: none;
+  }
+
+  html[data-ui='project'] .session-bar--compact {
+    gap: 0.25rem;
+  }
+
+  html[data-ui='project'] .session-bar__select {
+    min-height: 2.1rem;
+    padding: 0.2rem 0.35rem;
+    font-size: 0.78rem;
   }
 
   html[data-ui='project'] .today-staff-bar--compact {
@@ -680,12 +759,13 @@ html[data-ui='project'] .settings-appearance__option.is-active {
     flex-wrap: nowrap;
     width: auto;
     min-width: 0;
-    flex: 1;
+    flex: 0 1 auto;
   }
 
   html[data-ui='project'] .header__actions-inner {
     width: auto;
     flex-shrink: 0;
+    gap: 0.25rem;
   }
 }
 
@@ -1150,6 +1230,17 @@ html[data-ui='project'] .card-activity-timeline__text {
   line-height: 1.4;
 }
 
+html[data-ui='project'] .card-activity-timeline__detail {
+  margin: 0.25rem 0 0;
+  padding-left: 0.55rem;
+  border-left: 2px solid color-mix(in srgb, var(--border) 80%, transparent);
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
 html[data-ui='project'] .card-activity-timeline__actor {
   margin: 0.2rem 0 0;
   font-size: 0.72rem;
@@ -1160,6 +1251,24 @@ html[data-ui='project'] .card-activity-timeline__empty {
   margin: 0;
   font-size: 0.82rem;
   color: var(--text-muted);
+}
+
+html[data-ui='project'] .card-activity-timeline__more {
+  margin-top: 0.55rem;
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+html[data-ui='project'] .card-activity-timeline__more:hover {
+  background: color-mix(in srgb, var(--surface) 92%, var(--border));
+  color: var(--text);
 }
 
 /* 게시판 필독 확인 */
@@ -1238,4 +1347,193 @@ html[data-ui='project'] .notice-read-status__unread {
 
 html[data-ui='project'] .notice-read-status__done {
   color: var(--primary);
+}
+
+/* 하루 첫 진입 — 근무자에게 인계 요약을 먼저 읽도록 안내하는 전환 화면 */
+html[data-ui='project'] .daily-handover-welcome {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  overflow: hidden;
+  color: #fff;
+  isolation: isolate;
+}
+
+html[data-ui='project'] .daily-handover-welcome__photo,
+html[data-ui='project'] .daily-handover-welcome__shade {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+}
+
+html[data-ui='project'] .daily-handover-welcome__photo {
+  inset: -1.5rem;
+  background-color: #151b22;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  filter: blur(3px);
+  transform: scale(1.035);
+}
+
+html[data-ui='project'] .daily-handover-welcome__photo.is-mirrored {
+  transform: scaleX(-1) scale(1.035);
+}
+
+html[data-ui='project'] .daily-handover-welcome__shade {
+  z-index: -1;
+  background:
+    linear-gradient(180deg, rgba(7, 12, 19, 0.38) 0%, rgba(7, 12, 19, 0.5) 45%, rgba(7, 12, 19, 0.78) 100%),
+    radial-gradient(circle at 50% 40%, rgba(13, 24, 38, 0.04), rgba(5, 9, 14, 0.5));
+  backdrop-filter: saturate(0.82);
+}
+
+html[data-ui='project'] .daily-handover-welcome__content {
+  width: min(38rem, calc(100vw - 2rem));
+  padding: clamp(1.5rem, 5vw, 3rem);
+  text-align: center;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.4);
+}
+
+html[data-ui='project'] .daily-handover-welcome__time {
+  font-size: clamp(4.75rem, 11vw, 8.5rem);
+  font-weight: 300;
+  line-height: 0.92;
+  letter-spacing: -0.065em;
+  font-variant-numeric: tabular-nums;
+}
+
+html[data-ui='project'] .daily-handover-welcome__date {
+  margin: 0.75rem 0 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+html[data-ui='project'] .daily-handover-welcome__staff {
+  display: inline-flex;
+  margin: 1rem 0 0;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  background: rgba(9, 15, 23, 0.28);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  backdrop-filter: blur(10px);
+}
+
+html[data-ui='project'] .daily-handover-welcome__question {
+  margin-top: clamp(2.25rem, 7vh, 4.5rem);
+}
+
+html[data-ui='project'] .daily-handover-welcome__question h2 {
+  margin: 0;
+  font-size: clamp(1.65rem, 4vw, 2.35rem);
+  font-weight: 750;
+  line-height: 1.25;
+  letter-spacing: -0.035em;
+}
+
+html[data-ui='project'] .daily-handover-welcome__question p {
+  margin: 0.7rem 0 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: clamp(0.98rem, 2vw, 1.12rem);
+  font-weight: 500;
+}
+
+html[data-ui='project'] .daily-handover-welcome__actions {
+  display: grid;
+  gap: 0.65rem;
+  width: min(24rem, 100%);
+  margin: 1.75rem auto 0;
+}
+
+html[data-ui='project'] .daily-handover-welcome__primary,
+html[data-ui='project'] .daily-handover-welcome__secondary {
+  min-height: 3.25rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.7rem;
+  font: inherit;
+  font-size: 0.94rem;
+  font-weight: 750;
+  cursor: pointer;
+  transition:
+    transform 0.16s ease,
+    background 0.16s ease,
+    border-color 0.16s ease;
+}
+
+html[data-ui='project'] .daily-handover-welcome__primary {
+  border: 1px solid #fff;
+  background: #fff;
+  color: #18212c;
+  box-shadow: 0 0.8rem 2rem rgba(0, 0, 0, 0.18);
+}
+
+html[data-ui='project'] .daily-handover-welcome__secondary {
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  background: rgba(10, 16, 24, 0.32);
+  color: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(12px);
+}
+
+html[data-ui='project'] .daily-handover-welcome__primary:hover,
+html[data-ui='project'] .daily-handover-welcome__secondary:hover {
+  transform: translateY(-1px);
+}
+
+html[data-ui='project'] .daily-handover-welcome__secondary:hover {
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(10, 16, 24, 0.5);
+}
+
+html[data-ui='project'] .daily-handover-welcome__primary:focus-visible,
+html[data-ui='project'] .daily-handover-welcome__secondary:focus-visible {
+  outline: 3px solid rgba(255, 255, 255, 0.55);
+  outline-offset: 3px;
+}
+
+@media (max-width: 640px) {
+  html[data-ui='project'] .daily-handover-welcome {
+    place-items: stretch;
+  }
+
+  html[data-ui='project'] .daily-handover-welcome__content {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    width: auto;
+    min-height: 100dvh;
+    padding:
+      max(2rem, env(safe-area-inset-top))
+      1.25rem
+      max(1.5rem, calc(env(safe-area-inset-bottom) + 1rem));
+  }
+
+  html[data-ui='project'] .daily-handover-welcome__time {
+    margin-top: auto;
+    font-size: clamp(4.5rem, 23vw, 6.5rem);
+  }
+
+  html[data-ui='project'] .daily-handover-welcome__question {
+    margin-top: auto;
+  }
+
+  html[data-ui='project'] .daily-handover-welcome__actions {
+    width: 100%;
+    margin-top: 1.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-ui='project'] .daily-handover-welcome__primary,
+  html[data-ui='project'] .daily-handover-welcome__secondary {
+    transition: none;
+  }
 }

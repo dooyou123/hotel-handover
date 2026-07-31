@@ -223,6 +223,121 @@ a.help-quick-link:hover {
   font-weight: 400;
 }
 
+.field-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.field-preset-btn {
+  padding: 0.28rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.field-preset-btn:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.field-preset-btn.is-active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary-hover);
+}
+
+.field-preset-btn--clear {
+  border-style: dashed;
+}
+
+.field-preset-btn--edit {
+  margin-left: auto;
+  border-color: transparent;
+  background: transparent;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* 마감 프리셋 편집기 — .field 전역 input 스타일을 좁게 재정의 */
+.due-preset-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+  padding: 0.55rem 0.6rem;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.due-preset-editor__row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.field .due-preset-editor input,
+.field .due-preset-editor select {
+  width: auto;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 0.82rem;
+}
+
+.field .due-preset-editor .due-preset-editor__label {
+  flex: 1;
+  min-width: 0;
+}
+
+.due-preset-editor__remove {
+  flex-shrink: 0;
+  width: 1.7rem;
+  height: 1.7rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.due-preset-editor__remove:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.due-preset-editor__actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.due-preset-editor__add,
+.due-preset-editor__reset {
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.due-preset-editor__add:hover,
+.due-preset-editor__reset:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
 .field span {
   font-size: 0.84rem;
   color: var(--text-muted);
@@ -370,6 +485,7 @@ a.help-quick-link:hover {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 0.6rem;
   width: min(100%, 56rem);
   padding: 0.35rem 4.5rem 0.35rem 0.15rem;
   color: #f8fafc;
@@ -388,21 +504,41 @@ a.help-quick-link:hover {
   align-items: center;
   justify-content: center;
   width: 100%;
+  height: 100%;
+  align-self: stretch;
   min-height: 0;
   max-height: calc(100vh - 5.5rem);
   padding: 0 2.5rem;
+  overflow: hidden;
   box-sizing: border-box;
 }
 
 .image-preview-lightbox__stage img {
   display: block;
-  max-width: min(96vw, 56rem);
+  /* 작은 원본도 화면에 맞게 키운다 — 비율은 contain이 지킨다 */
+  width: 100%;
+  height: 100%;
+  max-width: min(96vw, 72rem);
   max-height: calc(100vh - 5.5rem);
-  width: auto;
-  height: auto;
   object-fit: contain;
-  border-radius: var(--radius-sm);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+  cursor: zoom-in;
+  transition: transform 0.16s ease;
+  touch-action: none;
+  user-select: none;
+}
+
+.image-preview-lightbox__stage img.is-zoomed {
+  cursor: grab;
+}
+
+.image-preview-lightbox__stage img.is-dragging {
+  cursor: grabbing;
+  transition: none;
+}
+
+.image-preview-lightbox__zoom-hint {
+  font-size: 0.74rem;
+  color: rgba(248, 250, 252, 0.55);
 }
 
 .image-preview-lightbox__nav {
@@ -441,6 +577,147 @@ a.help-quick-link:hover {
   color: rgba(248, 250, 252, 0.78);
   text-align: center;
   word-break: break-all;
+}
+
+/* 사진 주석 편집기 */
+.image-annotate {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.9rem;
+  background: rgba(2, 6, 23, 0.92);
+}
+
+.image-annotate__toolbar {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.image-annotate__tools {
+  display: inline-flex;
+  gap: 0.3rem;
+}
+
+.image-annotate__tool {
+  border: 1px solid rgba(248, 250, 252, 0.25);
+  border-radius: 8px;
+  padding: 0.35rem 0.65rem;
+  background: transparent;
+  color: rgba(248, 250, 252, 0.85);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.image-annotate__tool.is-active {
+  background: rgba(248, 250, 252, 0.92);
+  border-color: transparent;
+  color: #0f172a;
+}
+
+.image-annotate__colors {
+  display: inline-flex;
+  gap: 0.35rem;
+}
+
+.image-annotate__color {
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.image-annotate__color.is-active {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+
+.image-annotate__undo {
+  margin-left: auto;
+  border: 1px solid rgba(248, 250, 252, 0.25);
+  border-radius: 8px;
+  padding: 0.35rem 0.65rem;
+  background: transparent;
+  color: rgba(248, 250, 252, 0.85);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.image-annotate__undo:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.image-annotate__stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.image-annotate__canvas {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 10px;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.image-annotate__status {
+  position: absolute;
+  margin: 0;
+  color: rgba(248, 250, 252, 0.8);
+  font-size: 0.85rem;
+}
+
+.image-annotate__footer {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.image-annotate__hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: rgba(248, 250, 252, 0.65);
+}
+
+.image-annotate__actions {
+  display: inline-flex;
+  gap: 0.45rem;
+}
+
+@media (max-width: 640px) {
+  .image-annotate {
+    padding: 0.6rem;
+  }
+
+  .image-annotate__footer {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+
+  .image-annotate__actions {
+    justify-content: stretch;
+  }
+
+  .image-annotate__actions .btn {
+    flex: 1;
+  }
 }
 
 .image-preview-modal__head {
@@ -538,10 +815,318 @@ a.help-quick-link:hover {
   left: 50%;
   bottom: 24px;
   transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: min(92vw, 34rem);
   padding: 12px 18px;
   border-radius: 999px;
   background: #14532d;
   color: #dcfce7;
   box-shadow: var(--shadow);
   z-index: 130;
+}
+
+.toast__action {
+  flex-shrink: 0;
+  padding: 0.25rem 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.toast__action:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* 카드 안 체크리스트 — 다음 조치의 단계별 진행 관리 */
+.card-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.6rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-muted, #f8fafc) 60%, var(--surface));
+}
+
+.card-checklist__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.card-checklist__label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.card-checklist__progress {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.card-checklist__progress.is-complete {
+  color: var(--done, #16a34a);
+}
+
+.card-checklist__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.card-checklist__item {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.card-checklist__check {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.card-checklist__check input[type='checkbox'] {
+  flex-shrink: 0;
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--done, #16a34a);
+  cursor: pointer;
+}
+
+.card-checklist__text {
+  font-size: 0.86rem;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.card-checklist__item.is-done .card-checklist__text {
+  color: var(--text-secondary);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--text-secondary) 60%, transparent);
+}
+
+.card-checklist__meta {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.card-checklist__remove {
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-size: 0.95rem;
+  line-height: 1;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.card-checklist__remove:hover {
+  background: color-mix(in srgb, var(--urgent, #dc2626) 10%, transparent);
+  color: var(--urgent, #dc2626);
+}
+
+.card-checklist__add {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.card-checklist__add input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.84rem;
+  background: var(--surface);
+}
+
+/* 사건 스레드 — 카드 모달의 관련 카드 묶음 */
+.card-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.card-thread__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card-thread__item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.card-thread__item.is-current {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+  background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+}
+
+.card-thread__row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  text-align: left;
+}
+
+.card-thread__row--link {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.card-thread__row--link:hover .card-thread__title {
+  text-decoration: underline;
+}
+
+.card-thread__status {
+  flex: none;
+  padding: 0.08rem 0.42rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.card-thread__status--done {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.card-thread__status--hold {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.card-thread__status--urgent {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.card-thread__status--progress {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.card-thread__no {
+  flex: none;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.card-thread__room {
+  flex: none;
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.card-thread__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-thread__date {
+  flex: none;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.card-thread__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.card-thread__unlink {
+  color: var(--text-muted);
+}
+
+.card-thread__picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.55rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.card-thread__picker input {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.84rem;
+  background: var(--surface);
+}
+
+.card-thread__candidates {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card-thread__candidate {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.card-thread__candidate:hover {
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+  background: color-mix(in srgb, var(--primary) 5%, var(--surface));
+}
+
+.card-thread__join {
+  flex: none;
+  margin-left: auto;
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: var(--primary);
 }
