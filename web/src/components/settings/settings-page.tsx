@@ -29,6 +29,7 @@ import { OtaAccountsSettingsPanel } from '@/components/settings/ota-accounts-set
 import { NavVisibilityPanel } from '@/components/settings/nav-visibility-panel';
 import { getNavPageMeta } from '@/lib/nav/page-meta';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
+import { closeOnOverlayClick } from '@/lib/ui/close-on-overlay-click';
 
 type SettingsTab = 'feedback' | 'staff' | 'checklist' | 'templates' | 'nav' | 'data';
 
@@ -107,7 +108,7 @@ function TemplateModal({ open, template, onClose, onSaved }: TemplateModalProps)
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={closeOnOverlayClick(onClose)}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <form onSubmit={handleSubmit} className="modal__form">
           <div className="modal__header">

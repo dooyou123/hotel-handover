@@ -1087,11 +1087,11 @@ export function CardModal({
               <button
                 type="button"
                 className="card-attachment__annotate"
-                title="사진 위에 동그라미·화살표 표시"
+                title="사진 위에 동그라미·화살표·글자 그리기"
                 onClick={() => setAnnotateTarget(attachment)}
                 disabled={attachmentLoading || saving}
               >
-                ✎ 주석
+                ✎ 그리기
               </button>
             ) : null}
           </div>
@@ -1186,7 +1186,7 @@ export function CardModal({
       {linkBlock}
       {card ? (
         <section className="drawer-section">
-          <h3 className="drawer-section__title">사건 스레드</h3>
+          <h3 className="drawer-section__title">연계 카드</h3>
           <CardThreadSection
             card={card}
             activeCards={activeCards}
@@ -1638,7 +1638,7 @@ export function CardModal({
             ) : null}
             {!card && createStep === 'form' && form.thread_id ? (
               <p className="card-draft-notice" role="status">
-                저장하면 이전 카드와 같은 사건 스레드로 연결됩니다.
+                저장하면 이전 카드와 연계 카드로 연결됩니다.
               </p>
             ) : null}
             <div className="drawer-panel__body">{panelBody}</div>

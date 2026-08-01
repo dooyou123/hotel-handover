@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { Card } from '@/lib/handover/types';
+import { closeOnOverlayClick } from '@/lib/ui/close-on-overlay-click';
 
 type HandoverCompleteModalProps = {
   open: boolean;
@@ -51,7 +52,7 @@ export function HandoverCompleteModal({
   const multiple = cards.length > 1;
 
   return (
-    <div className="modal-overlay" onClick={busy ? undefined : onClose}>
+    <div className="modal-overlay" onClick={closeOnOverlayClick(busy ? undefined : onClose)}>
       <div
         className="modal modal--review-action"
         onClick={(event) => event.stopPropagation()}

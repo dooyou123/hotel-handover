@@ -17,7 +17,7 @@ import {
   hasActiveCardComments,
 } from '@/lib/handover/card-utils';
 import { isTeamAckPending } from '@/lib/handover/card-acks';
-import type { Card } from '@/lib/handover/types';
+import type { Card, CardAttachment } from '@/lib/handover/types';
 import { formatComplaintRemedies, hasComplaintRemedies } from '@/lib/handover/complaint-remedies';
 import { ComplaintSlaBadge } from '@/components/handover/complaint-sla-badge';
 import { SearchHighlight } from '@/components/handover/search-highlight';
@@ -37,6 +37,9 @@ type HandoverListRowProjectProps = {
   onOpen: () => void;
   onOpenComments?: () => void;
   onAddComment?: (content: string) => Promise<void>;
+  onUpdateComment?: (commentId: string, content: string) => Promise<void>;
+  onDeleteComment?: (commentId: string) => Promise<void>;
+  onAnnotateAttachment?: (attachment: CardAttachment, file: File) => Promise<void>;
   staffName: string;
   commentDisabled?: boolean;
   onAcknowledge: () => void;
@@ -65,6 +68,9 @@ export function HandoverListRowProject({
   onOpen,
   onOpenComments,
   onAddComment,
+  onUpdateComment,
+  onDeleteComment,
+  onAnnotateAttachment,
   staffName,
   commentDisabled = false,
   onAcknowledge,
@@ -238,9 +244,9 @@ export function HandoverListRowProject({
                 {threadCount > 0 ? (
                   <span
                     className="project-list-row__badge project-list-row__badge--thread"
-                    title="사건 스레드로 연결된 카드 — 카드를 열면 전체 흐름이 보입니다"
+                    title="연계된 카드 — 카드를 열면 전체 흐름이 보입니다"
                   >
-                    🔗 사건{threadCount > 1 ? ` ${threadCount}` : ''}
+                    🔗 연결됨{threadCount > 1 ? ` ${threadCount}` : ''}
                   </span>
                 ) : null}
                 {card.checklist.length ? (
@@ -287,16 +293,12 @@ export function HandoverListRowProject({
               >
                 <HandoverListRowMoreMenu
                   cardTitle={card.title}
-                  canHold={canHold}
-                  canResume={canResume}
                   needsFirstResponse={needsFirstResponse}
                   canSnooze={canSnooze}
                   snoozed={snoozed}
                   canAssign={canAssign}
                   staffNames={staffNames}
                   assigneeName={card.assignee_name}
-                  onHold={onHold}
-                  onResume={onResume}
                   onRecordFirstResponse={onRecordFirstResponse}
                   onSnooze={onSnooze}
                   onUnsnooze={onUnsnooze}
@@ -348,6 +350,9 @@ export function HandoverListRowProject({
             staffName={staffName}
             disabled={commentDisabled}
             onAddComment={onAddComment}
+            onUpdateComment={onUpdateComment}
+            onDeleteComment={onDeleteComment}
+            onAnnotateAttachment={onAnnotateAttachment}
             onOpenComments={onOpenComments}
           />
         </div>
@@ -368,7 +373,8 @@ export function HandoverListRowProject({
             ) : needsMyAck ? null : teamAckPending ? (
               <span className="project-list-row__ack-done">내 확인 완료</span>
             ) : null}
-            {canComplete && !(isUrgent && teamAckPending) ? (
+            {/* 긴급 카드는 내 확인 전에만 완료를 막는다 — 확인 후엔 전원 확인을 기다리지 않고 완료 가능 */}
+            {canComplete && !needsMyAck ? (
               <button
                 type="button"
                 className="project-list-row__done project-list-row__done--primary"
@@ -384,13 +390,39 @@ export function HandoverListRowProject({
               <button
                 type="button"
                 className="project-list-row__followup"
-                title="객실·분류를 이어받은 새 카드를 만들고 이 카드와 같은 사건으로 연결합니다"
+                title="객실·분류를 이어받은 새 카드를 만들고 이 카드와 연계 카드로 연결합니다"
                 onClick={(event) => {
                   event.stopPropagation();
                   onCreateFollowUp();
                 }}
               >
                 이어쓰기
+              </button>
+            ) : null}
+            {/* 완료·이어쓰기보다 낮은 위계의 회색 버튼 — 보류 상태에선 재개로 바뀐다 */}
+            {canHold && !needsMyAck ? (
+              <button
+                type="button"
+                className="project-list-row__hold-btn"
+                title="지금 처리할 수 없는 건을 보류로 옮깁니다"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onHold();
+                }}
+              >
+                보류
+              </button>
+            ) : canResume ? (
+              <button
+                type="button"
+                className="project-list-row__hold-btn"
+                title="보류를 풀고 진행으로 되돌립니다"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onResume();
+                }}
+              >
+                재개
               </button>
             ) : null}
           </div>

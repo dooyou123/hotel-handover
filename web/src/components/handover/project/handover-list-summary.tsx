@@ -49,17 +49,50 @@ export function HandoverListSummary({
     includeUndatedOpenTodos: true,
   }).length;
 
+  const chips = (
+    <>
+      {unseenCount ? (
+        <span className="handover-list-summary__unseen">
+          <button
+            type="button"
+            className={`handover-list-summary__chip handover-list-summary__chip--unseen${unseenActive ? ' is-active' : ''}`}
+            onClick={onShowUnseen}
+            title="내 마지막 교대 기록 이후 다른 사람이 바꾼 카드만 봅니다"
+          >
+            <span className="handover-list-summary__unseen-dot" aria-hidden />안 본 변경 {unseenCount}건
+          </button>
+          <button type="button" className="handover-list-summary__clear" onClick={onClearUnseen}>
+            모두 확인
+          </button>
+        </span>
+      ) : unseenHint ? (
+        <span className="handover-list-summary__hint">
+          교대 시작을 눌러두면 자리 비운 사이 바뀐 카드를 모아 보여드려요
+        </span>
+      ) : null}
+
+      {todayWorkCount ? (
+        <Link href={buildWorkHubHref('schedule')} className="handover-list-summary__chip">
+          오늘 일정 {todayWorkCount}건
+        </Link>
+      ) : null}
+    </>
+  );
+
   return (
     <div className="handover-list-summary">
       {unacked.length ? (
         <div className="handover-list-summary__urgent">
           <div className="handover-list-summary__urgent-head">
             <span className="handover-list-summary__label">미확인 긴급 {unacked.length}</span>
-            {unacked.length > 2 ? (
-              <button type="button" className="handover-list-summary__link" onClick={onShowUnacked}>
-                전체 보기
-              </button>
-            ) : null}
+            <span className="handover-list-summary__head-side">
+              {unacked.length > 2 ? (
+                <button type="button" className="handover-list-summary__link" onClick={onShowUnacked}>
+                  전체 보기
+                </button>
+              ) : null}
+              {chips}
+            </span>
           </div>
           <ul className="handover-list-summary__urgent-list">
             {unacked.slice(0, 2).map((card) => (
@@ -80,34 +113,11 @@ export function HandoverListSummary({
           </ul>
         </div>
       ) : (
-        <span className="handover-list-summary__ok">미확인 긴급 없음</span>
+        <>
+          <span className="handover-list-summary__ok">미확인 긴급 없음</span>
+          {chips}
+        </>
       )}
-
-      {unseenCount ? (
-        <span className="handover-list-summary__unseen">
-          <button
-            type="button"
-            className={`handover-list-summary__chip handover-list-summary__chip--unseen${unseenActive ? ' is-active' : ''}`}
-            onClick={onShowUnseen}
-            title="내 마지막 교대 기록 이후 다른 사람이 바꾼 카드만 봅니다"
-          >
-            <span className="handover-list-summary__unseen-dot" aria-hidden />안 본 변경 {unseenCount}건
-          </button>
-          <button type="button" className="handover-list-summary__link" onClick={onClearUnseen}>
-            모두 확인
-          </button>
-        </span>
-      ) : unseenHint ? (
-        <span className="handover-list-summary__hint">
-          교대 시작을 눌러두면 자리 비운 사이 바뀐 카드를 모아 보여드려요
-        </span>
-      ) : null}
-
-      {todayWorkCount ? (
-        <Link href={buildWorkHubHref('schedule')} className="handover-list-summary__chip">
-          오늘 일정 {todayWorkCount}건
-        </Link>
-      ) : null}
     </div>
   );
 }

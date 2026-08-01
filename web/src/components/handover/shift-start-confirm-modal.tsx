@@ -2,6 +2,7 @@
 
 import { createPortal } from 'react-dom';
 import { getTodayLabel, type ShiftSummaryData } from '@/lib/handover/shift-summary';
+import { closeOnOverlayClick } from '@/lib/ui/close-on-overlay-click';
 
 type ShiftStartConfirmModalProps = {
   open: boolean;
@@ -66,7 +67,7 @@ export function ShiftStartConfirmModal({
   const metaLine = `${getTodayLabel()} · ${authorLabel || '근무자 미선택'}`;
 
   const dialog = (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={closeOnOverlayClick(onClose)}>
       <div className="modal modal--shift modal--shift-start" onClick={(event) => event.stopPropagation()}>
         <div className="shift-modal shift-modal--start">
           <div className="modal__header">

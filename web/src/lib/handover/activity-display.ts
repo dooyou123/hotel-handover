@@ -9,7 +9,8 @@ export const ENTITY_LABELS: Record<string, string> = {
 };
 
 export function activityTargetLabel(summary: string): string {
-  return summary.replace(/^(추가|수정|삭제|완료|댓글|이동|공지|보관|복원|휴지통 복원|영구 삭제|사건 연결 해제|사건 연결|고정 해제|고정):\s*/, '').trim();
+  // '사건 연결'은 과거 기록용 접두어 — 새 기록은 '카드 연결'로 남는다
+  return summary.replace(/^(추가|수정|삭제|완료|댓글|이동|공지|보관|복원|휴지통 복원|영구 삭제|카드 연결 해제|카드 연결|사건 연결 해제|사건 연결|고정 해제|고정):\s*/, '').trim();
 }
 
 export function activityBadgeLabel(log: ActivityLog): string {
@@ -64,9 +65,9 @@ export function formatActivityHeadline(log: ActivityLog): string {
       if (log.summary.startsWith('댓글:')) return '댓글을 남겼습니다';
       return `${entity} 내용을 수정했습니다`;
     case 'link':
-      return `다른 카드와 사건으로 연결했습니다 — ${target}`;
+      return `다른 카드와 연계로 연결했습니다 — ${target}`;
     case 'unlink':
-      return '사건 연결을 해제했습니다';
+      return '카드 연결을 해제했습니다';
     case 'pin':
       return '카드를 목록 상단에 고정했습니다';
     case 'unpin':

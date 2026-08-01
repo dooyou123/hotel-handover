@@ -6924,12 +6924,12 @@ textarea {
 
 .card-attachment {
   position: relative;
-  width: 120px;
+  width: 184px;
 }
 
 .card-attachment img {
-  width: 120px;
-  height: 90px;
+  width: 184px;
+  height: 138px;
   object-fit: cover;
   border-radius: 10px;
   border: 1px solid var(--border);
@@ -6937,28 +6937,40 @@ textarea {
 
 .card-attachment__delete {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  border: 0;
+  top: 6px;
+  right: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
   border-radius: 999px;
-  padding: 0.15rem 0.45rem;
-  background: rgba(15, 23, 42, 0.72);
+  padding: 0.28rem 0.65rem;
+  background: rgba(15, 23, 42, 0.82);
   color: #fff;
-  font-size: 0.68rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
   cursor: pointer;
+}
+
+.card-attachment__delete:hover {
+  background: rgba(185, 28, 28, 0.92);
 }
 
 .card-attachment__annotate {
   position: absolute;
-  bottom: 4px;
-  right: 4px;
-  border: 0;
+  bottom: 6px;
+  right: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
   border-radius: 999px;
-  padding: 0.15rem 0.45rem;
-  background: rgba(15, 23, 42, 0.72);
+  padding: 0.28rem 0.65rem;
+  background: rgba(15, 23, 42, 0.82);
   color: #fff;
-  font-size: 0.68rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
   cursor: pointer;
+}
+
+.card-attachment__annotate:hover:not(:disabled) {
+  background: rgba(37, 99, 235, 0.92);
 }
 
 .card-attachment__annotate:disabled {
@@ -11437,6 +11449,37 @@ textarea {
   border: 0;
   cursor: pointer;
   text-align: left;
+}
+
+/* 내 할 일 — 왼쪽 체크리스트, 오른쪽 내 메모, 가로·세로 모두 반반 */
+.todos-personal__split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: stretch;
+}
+
+/* schedule-panel이 이미 카드 상자이므로 안쪽 aside-card 상자는 벗겨낸다 */
+html[data-ui='project'] .todos-personal__memo .aside-card--memo {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+html[data-ui='project'] .todos-personal__memo .aside-card__title {
+  font-size: 1rem;
+}
+
+html[data-ui='project'] .todos-personal__memo .aside-memo__textarea {
+  min-height: 13rem;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 900px) {
+  .todos-personal__split {
+    grid-template-columns: 1fr;
+  }
 }
 
 .todos-page__filters {
@@ -20000,55 +20043,201 @@ textarea {
   color: var(--change, #6d28d9);
 }
 
-.work-hub-board-legend {
+/* —— 공지·변경 게시판 행 (2줄 카드형) —— */
+.notice-board-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem 0.85rem;
-  margin: 0 0 0.55rem;
-  padding: 0;
-  list-style: none;
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 650;
+  flex-direction: column;
+  gap: 0.3rem;
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
 }
 
-.work-hub-board-legend li {
+.notice-board-row:hover {
+  border-color: color-mix(in srgb, var(--border-strong) 55%, var(--border));
+  background: var(--surface-2);
+}
+
+.notice-board-row.is-reading {
+  border-color: var(--primary, #2563eb);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary, #2563eb) 30%, transparent);
+}
+
+.notice-board-row.is-done {
+  opacity: 0.62;
+}
+
+.notice-board-row__top {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.notice-board-row__type {
+  flex-shrink: 0;
+  padding: 0.14rem 0.45rem;
+  border-radius: 5px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.notice-board-row__type--announcement {
+  background: rgba(29, 78, 216, 0.1);
+  color: #1d4ed8;
+}
+
+.notice-board-row__type--change {
+  background: rgba(109, 40, 217, 0.1);
+  color: #6d28d9;
+}
+
+.notice-board-row__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.notice-board-row.is-done .notice-board-row__title {
+  text-decoration: line-through;
+}
+
+.notice-board-row__chip {
+  flex-shrink: 0;
+  padding: 0.12rem 0.42rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.notice-board-row__chip--unread {
+  background: rgba(220, 38, 38, 0.1);
+  color: #b91c1c;
+}
+
+.notice-board-row__chip--pin {
+  background: rgba(217, 119, 6, 0.12);
+  color: #b45309;
+}
+
+.notice-board-row__chip--done {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.notice-board-row__chip--warn {
+  background: rgba(220, 38, 38, 0.1);
+  color: #b91c1c;
+}
+
+/* 둘째 줄 — 내용 미리보기와 작성 정보를 제목 바로 아래 왼쪽 정렬로 */
+.notice-board-row__sub {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.notice-board-row__preview {
+  flex: 0 1 auto;
+  min-width: 0;
+  /* 화면 끝까지 채우지 않게 폭 제한 — 오른쪽 여백으로 밀도를 낮춘다 */
+  max-width: min(46rem, 68%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  color: color-mix(in srgb, var(--text-muted) 78%, var(--text));
+}
+
+.notice-board-row__meta {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  font-size: 0.74rem;
+  color: var(--text-muted);
 }
 
-.work-hub-board-legend i {
-  width: 0.55rem;
-  height: 0.55rem;
-  border-radius: 2px;
+/* 작성 조 배지 — 누가 올렸는지 조 단위로 한눈에 */
+.notice-board-row__group {
+  padding: 0.08rem 0.38rem;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.25;
 }
 
-.work-hub-board-legend i.is-announcement {
-  background: var(--announcement, #1d4ed8);
+.notice-board-row__group--a {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
 }
 
-.work-hub-board-legend i.is-change {
-  background: var(--change, #6d28d9);
+.notice-board-row__group--b {
+  background: rgba(13, 148, 136, 0.12);
+  color: #0f766e;
 }
 
-.work-hub-board-legend i.is-pin {
-  background: #d97706;
+.notice-board-row__group--c {
+  background: rgba(147, 51, 234, 0.12);
+  color: #7e22ce;
 }
 
-.work-hub-board-legend i.is-warn {
-  background: #dc2626;
+.notice-board-row__group--d {
+  background: rgba(234, 88, 12, 0.12);
+  color: #c2410c;
 }
 
+.notice-board-row__group--e {
+  background: rgba(219, 39, 119, 0.12);
+  color: #be185d;
+}
+
+/* 필독·고정 묶음 — 일반 글과 구분되는 연한 배경 */
 .work-hub-notices-pinned {
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
-  border: 0;
+  padding: 0.55rem;
+  border: 1px solid rgba(217, 119, 6, 0.22);
+  border-radius: 12px;
+  background: rgba(251, 191, 36, 0.07);
 }
 
 .work-hub-notices-pinned .work-hub-today__list {
   gap: 0.35rem;
+}
+
+.work-hub-notices-pinned .notice-board-row {
+  border-color: rgba(217, 119, 6, 0.18);
+}
+
+.work-hub-notices-pinned__more {
+  display: block;
+  width: 100%;
+  margin-top: 0.45rem;
+  padding: 0.4rem;
+  border: 1px dashed rgba(217, 119, 6, 0.35);
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #b45309;
+  cursor: pointer;
+}
+
+.work-hub-notices-pinned__more:hover {
+  background: rgba(251, 191, 36, 0.12);
 }
 
 .work-hub .todos-page--embedded {
@@ -20104,19 +20293,22 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.35rem 0.65rem;
+  padding: 0.42rem 0.75rem;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--surface);
   min-width: min(100%, 14rem);
+  flex: 1 1 16rem;
+  max-width: 30rem;
 }
 
 .work-hub__search input {
   border: 0;
   background: transparent;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   min-width: 0;
-  width: 10rem;
+  flex: 1;
+  width: auto;
   color: inherit;
 }
 
@@ -20399,17 +20591,127 @@ textarea {
   font-weight: 650;
 }
 
+/* —— 큰 달력 모드: 날짜 칸에 항목 제목 표시 —— */
+.work-hub-month-cal--detailed .work-hub-month-cal__day {
+  aspect-ratio: auto;
+  min-height: 5.4rem;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0.25rem;
+  padding: 0.3rem 0.3rem 0.35rem;
+  text-align: left;
+}
+
+.work-hub-month-cal--detailed .work-hub-month-cal__day-num {
+  text-align: left;
+  padding-left: 0.1rem;
+}
+
+/* 큰 달력에선 점 대신 제목을 보여준다 */
+.work-hub-month-cal--detailed .work-hub-month-cal__dots {
+  display: none;
+}
+
+.work-hub-month-cal__items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.16rem;
+  min-width: 0;
+}
+
+.work-hub-month-cal__item {
+  display: block;
+  padding: 0.12rem 0.32rem;
+  border-radius: 5px;
+  font-size: 0.68rem;
+  font-weight: 650;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.work-hub-month-cal__item.is-event {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+}
+
+.work-hub-month-cal__item.is-todo {
+  background: rgba(15, 118, 110, 0.12);
+  color: #0f766e;
+}
+
+.work-hub-month-cal__item.is-urgent {
+  background: rgba(220, 38, 38, 0.13);
+  color: #b91c1c;
+}
+
+.work-hub-month-cal__item.is-done {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+.work-hub-month-cal__item-more {
+  padding: 0 0.32rem;
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* 좁은 화면에선 제목 대신 다시 점 표시로 돌아간다 */
+@media (max-width: 640px) {
+  .work-hub-month-cal--detailed .work-hub-month-cal__day {
+    aspect-ratio: 1;
+    min-height: 0;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0.15rem 0.1rem 0.2rem;
+  }
+
+  .work-hub-month-cal--detailed .work-hub-month-cal__day-num {
+    text-align: center;
+    padding-left: 0;
+  }
+
+  .work-hub-month-cal--detailed .work-hub-month-cal__dots {
+    display: flex;
+  }
+
+  .work-hub-month-cal--detailed .work-hub-month-cal__items {
+    display: none;
+  }
+}
+
 .work-hub-month-cal__legend span {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
 }
 
+/* 왼쪽 큰 달력 | 오른쪽 내용 — 화면을 절반씩 나눈다 */
 .work-hub-schedule__split {
   display: grid;
-  grid-template-columns: minmax(15.5rem, 21rem) minmax(0, 1fr);
-  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1.25rem;
   align-items: start;
+}
+
+/* 검색창 폭을 아래 달력 열(왼쪽 절반)과 맞춘다 */
+.work-hub-schedule__toolbar-group {
+  flex: 1 1 100%;
+}
+
+.work-hub-schedule__toolbar-group .work-hub__search {
+  flex: 0 0 calc(50% - 0.625rem);
+  max-width: none;
+}
+
+@media (max-width: 900px) {
+  /* 달력이 1단으로 접히면 검색창도 전체 폭 */
+  .work-hub-schedule__toolbar-group .work-hub__search {
+    flex-basis: 100%;
+  }
 }
 
 .work-hub-schedule__cal {
@@ -22570,6 +22872,50 @@ textarea {
   gap: 0.4rem;
 }
 
+/* 붙여넣기 확인 모달 — 올리기 전에 미리보기와 변경 메모를 확인한다 */
+.schedules-paste-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  width: min(34rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 4rem);
+  padding: 1.1rem 1.2rem 1.2rem;
+  overflow-y: auto;
+}
+
+.schedules-paste-modal__head h2 {
+  margin: 0 0 0.3rem;
+  font-size: 1.05rem;
+}
+
+.schedules-paste-modal__head p {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--text-muted);
+}
+
+.schedules-paste-modal__preview {
+  display: flex;
+  justify-content: center;
+  max-height: 16rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.schedules-paste-modal__preview img {
+  max-width: 100%;
+  max-height: 16rem;
+  object-fit: contain;
+}
+
+.schedules-paste-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
 .schedules-page__note-field label {
   display: grid;
   gap: 0.2rem;
@@ -23317,6 +23663,15 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem;
+}
+
+.sched-versions__delete {
+  color: #b91c1c;
+}
+
+.sched-versions__delete:hover:not(:disabled) {
+  background: #fef2f2;
+  color: #991b1b;
 }
 
 .sched-versions__head {

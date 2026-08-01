@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { formatReviewGuestLabel } from '@/lib/reviews/identity';
 import type { GuestReview } from '@/lib/reviews/types';
+import { closeOnOverlayClick } from '@/lib/ui/close-on-overlay-click';
 
 type ReviewActionCompleteModalProps = {
   open: boolean;
@@ -37,7 +38,7 @@ export function ReviewActionCompleteModal({
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={closeOnOverlayClick(onClose)}>
       <div className="modal modal--review-action" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <form noValidate onSubmit={(e) => void handleSubmit(e)} className="modal__form">
           <div className="modal__header">

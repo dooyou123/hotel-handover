@@ -1499,6 +1499,91 @@ html[data-ui='project'] .daily-handover-welcome__secondary:focus-visible {
   outline-offset: 3px;
 }
 
+html[data-ui='project'] .daily-handover-welcome__primary:disabled {
+  opacity: 0.45;
+  cursor: default;
+  transform: none;
+}
+
+/* 질문의 답이 아닌 예외용(이름 변경) — 답 버튼 2개와 위계를 분리한 고스트 스타일 */
+html[data-ui='project'] .daily-handover-welcome__tertiary {
+  min-height: 2.75rem;
+  margin-top: 0.75rem;
+  padding: 0.55rem 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 0.7rem;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.78);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    color 0.16s ease,
+    border-color 0.16s ease,
+    background 0.16s ease;
+}
+
+html[data-ui='project'] .daily-handover-welcome__tertiary:hover {
+  border-color: rgba(255, 255, 255, 0.42);
+  background: rgba(10, 16, 24, 0.28);
+  color: #fff;
+}
+
+html[data-ui='project'] .daily-handover-welcome__tertiary:focus-visible {
+  outline: 3px solid rgba(255, 255, 255, 0.55);
+  outline-offset: 3px;
+}
+
+/* 근무자 변경 — 조·이름 선택 칩 */
+html[data-ui='project'] .daily-handover-welcome__picker {
+  display: grid;
+  gap: 0.7rem;
+  width: min(30rem, 100%);
+  margin: 1.4rem auto 0;
+}
+
+html[data-ui='project'] .daily-handover-welcome__chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+html[data-ui='project'] .daily-handover-welcome__chip {
+  min-height: 2.4rem;
+  padding: 0.4rem 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(10, 16, 24, 0.32);
+  color: rgba(255, 255, 255, 0.9);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 650;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
+}
+
+html[data-ui='project'] .daily-handover-welcome__chip:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+html[data-ui='project'] .daily-handover-welcome__chip.is-active {
+  border-color: #fff;
+  background: #fff;
+  color: #18212c;
+}
+
+html[data-ui='project'] .daily-handover-welcome__picker-note {
+  padding: 0.4rem 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+}
+
 @media (max-width: 640px) {
   html[data-ui='project'] .daily-handover-welcome {
     place-items: stretch;

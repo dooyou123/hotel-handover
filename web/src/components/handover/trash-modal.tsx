@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { formatRelativeTime } from '@/lib/handover/card-utils';
 import { useTrashedCards } from '@/lib/handover/use-cards';
 import type { Card } from '@/lib/handover/types';
+import { closeOnOverlayClick } from '@/lib/ui/close-on-overlay-click';
 
 /**
  * 휴지통 창 — 윈도우 휴지통처럼 삭제된 카드를 모아 보여주고,
@@ -32,6 +33,7 @@ type TrashModalProps = {
 export function TrashModal({ open, isManager, onClose, onRestore, onHardDelete }: TrashModalProps) {
   const { data, isLoading } = useTrashedCards(open);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const cards = data?.cards ?? [];
 
   if (!open) return null;
@@ -47,7 +49,7 @@ export function TrashModal({ open, isManager, onClose, onRestore, onHardDelete }
   }
 
   const dialog = (
-    <div className="modal-overlay modal-overlay--records" onClick={onClose}>
+    <div className="modal-overlay modal-overlay--records" onClick={closeOnOverlayClick(onClose)}>
       <div className="modal trash-window" onClick={(event) => event.stopPropagation()}>
         <div className="trash-window__titlebar">
           <span className="trash-window__title">
@@ -88,53 +90,122 @@ export function TrashModal({ open, isManager, onClose, onRestore, onHardDelete }
               {cards.map((card) => {
                 const deletedTime = card.deleted_at ? formatRelativeTime(card.deleted_at) : null;
                 const daysLeft = trashDaysLeft(card.deleted_at);
+                const expanded = expandedId === card.id;
+                const comments = card.card_comments.filter((comment) => !comment.deleted_at);
                 return (
-                  <li key={card.id} className="trash-window__item">
-                    <span className="trash-window__item-icon" aria-hidden>
-                      📄
-                    </span>
-                    <div className="trash-window__item-main">
-                      <p className="trash-window__item-title">
-                        {card.handover_no ? `#${card.handover_no} ` : ''}
-                        {card.room.trim() ? `[${card.room.trim()}] ` : ''}
-                        {card.title}
-                      </p>
-                      <p className="trash-window__item-meta">
-                        {card.deleted_by ? `${card.deleted_by} 삭제` : '삭제'}
-                        {deletedTime ? (
-                          <>
-                            {' · '}
-                            <time dateTime={deletedTime.iso} title={deletedTime.title}>
-                              {deletedTime.label}
-                            </time>
-                          </>
-                        ) : null}
-                        <span className={`trash-window__days${daysLeft <= 5 ? ' is-soon' : ''}`}>
-                          {' · '}
-                          {daysLeft}일 뒤 자동 삭제
-                        </span>
-                      </p>
-                    </div>
-                    <div className="trash-window__item-actions">
+                  <li key={card.id} className={`trash-window__item${expanded ? ' is-open' : ''}`}>
+                    <div className="trash-window__row">
+                      <span className="trash-window__item-icon" aria-hidden>
+                        📄
+                      </span>
                       <button
                         type="button"
-                        className="btn btn--ghost btn--small"
-                        disabled={busyId !== null}
-                        onClick={() => void run(card.id, () => onRestore(card))}
+                        className="trash-window__item-main"
+                        aria-expanded={expanded}
+                        onClick={() => setExpandedId(expanded ? null : card.id)}
                       >
-                        {busyId === card.id ? '복원 중…' : '복원'}
+                        <p className="trash-window__item-title">
+                          {card.handover_no ? `#${card.handover_no} ` : ''}
+                          {card.room.trim() ? `[${card.room.trim()}] ` : ''}
+                          {card.title}
+                        </p>
+                        <p className="trash-window__item-meta">
+                          {card.deleted_by ? `${card.deleted_by} 삭제` : '삭제'}
+                          {deletedTime ? (
+                            <>
+                              {' · '}
+                              <time dateTime={deletedTime.iso} title={deletedTime.title}>
+                                {deletedTime.label}
+                              </time>
+                            </>
+                          ) : null}
+                          <span className={`trash-window__days${daysLeft <= 5 ? ' is-soon' : ''}`}>
+                            {' · '}
+                            {daysLeft}일 뒤 자동 삭제
+                          </span>
+                        </p>
                       </button>
-                      {isManager ? (
+                      <span className="trash-window__chevron" aria-hidden>
+                        {expanded ? '▾' : '▸'}
+                      </span>
+                      <div className="trash-window__item-actions">
                         <button
                           type="button"
-                          className="btn btn--ghost btn--small trash-window__purge-btn"
+                          className="btn btn--ghost btn--small"
                           disabled={busyId !== null}
-                          onClick={() => void run(`purge-${card.id}`, () => onHardDelete([card]))}
+                          onClick={() => void run(card.id, () => onRestore(card))}
                         >
-                          {busyId === `purge-${card.id}` ? '삭제 중…' : '영구 삭제'}
+                          {busyId === card.id ? '복원 중…' : '복원'}
                         </button>
-                      ) : null}
+                        {isManager ? (
+                          <button
+                            type="button"
+                            className="btn btn--ghost btn--small trash-window__purge-btn"
+                            disabled={busyId !== null}
+                            onClick={() => void run(`purge-${card.id}`, () => onHardDelete([card]))}
+                          >
+                            {busyId === `purge-${card.id}` ? '삭제 중…' : '영구 삭제'}
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
+
+                    {expanded ? (
+                      <div className="trash-window__detail">
+                        <p className="trash-window__detail-meta">
+                          {card.author ? `작성 ${card.author}` : null}
+                          {card.author && card.created_at ? ' · ' : null}
+                          {card.created_at
+                            ? new Date(card.created_at).toLocaleDateString('ko-KR', {
+                                month: 'long',
+                                day: 'numeric',
+                              })
+                            : null}
+                          {card.category ? ` · ${card.category}` : null}
+                          {card.card_attachments.length
+                            ? ` · 사진 ${card.card_attachments.length}장`
+                            : null}
+                        </p>
+                        {card.details.trim() ? (
+                          <div className="trash-window__detail-block">
+                            <span className="trash-window__detail-label">상세</span>
+                            <p className="trash-window__detail-text">{card.details.trim()}</p>
+                          </div>
+                        ) : null}
+                        {card.resolution.trim() ? (
+                          <div className="trash-window__detail-block">
+                            <span className="trash-window__detail-label">처리 결과</span>
+                            <p className="trash-window__detail-text">{card.resolution.trim()}</p>
+                          </div>
+                        ) : null}
+                        {card.next_action.trim() ? (
+                          <div className="trash-window__detail-block">
+                            <span className="trash-window__detail-label">다음 조치</span>
+                            <p className="trash-window__detail-text">{card.next_action.trim()}</p>
+                          </div>
+                        ) : null}
+                        {comments.length ? (
+                          <div className="trash-window__detail-block">
+                            <span className="trash-window__detail-label">댓글 {comments.length}개</span>
+                            <ul className="trash-window__detail-comments">
+                              {comments.map((comment) => (
+                                <li key={comment.id}>
+                                  <strong>{comment.staff_name}</strong> {comment.content}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+                        {!card.details.trim() &&
+                        !card.resolution.trim() &&
+                        !card.next_action.trim() &&
+                        !comments.length ? (
+                          <p className="trash-window__detail-text trash-window__detail-text--empty">
+                            추가로 기록된 내용이 없습니다.
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </li>
                 );
               })}

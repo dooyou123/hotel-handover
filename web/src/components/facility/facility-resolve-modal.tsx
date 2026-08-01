@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { Card } from '@/lib/handover/types';
+import { closeOnOverlayClick } from '@/lib/ui/close-on-overlay-click';
 
 type FacilityResolveModalProps = {
   open: boolean;
@@ -51,7 +52,7 @@ export function FacilityResolveModal({ open, card, saving, onClose, onSubmit }: 
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={closeOnOverlayClick(onClose)}>
       <div className="modal modal--facility-resolve" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="facility-resolve-title">
         <form noValidate onSubmit={(e) => void handleSubmit(e)} className="modal__form facility-resolve-modal">
           <div className="modal__header">

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
+import { closeOnOverlayClick } from '@/lib/ui/close-on-overlay-click';
 import { getNavPageMeta } from '@/lib/nav/page-meta';
 import {
   attendingCount,
@@ -1785,7 +1786,10 @@ export function YearEndPartyPageClient() {
       ) : null}
 
       {venueModalOpen ? (
-        <div className="modal-overlay" onClick={() => setVenueModalOpen(false)}>
+        <div
+          className="modal-overlay"
+          onClick={closeOnOverlayClick(() => setVenueModalOpen(false))}
+        >
           <div className="modal modal--wide yp-venue-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal__header">
               <div>
@@ -1942,7 +1946,10 @@ export function YearEndPartyPageClient() {
       />
 
       {deleteAllOpen ? (
-        <div className="modal-overlay" onClick={() => setDeleteAllOpen(false)}>
+        <div
+          className="modal-overlay"
+          onClick={closeOnOverlayClick(() => setDeleteAllOpen(false))}
+        >
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal__header">
               <h2>직원 전체 삭제</h2>

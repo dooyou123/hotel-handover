@@ -1,5 +1,6 @@
 'use client';
 
+import { closeOnOverlayClick } from '@/lib/ui/close-on-overlay-click';
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { formatTime } from '@/lib/handover/card-utils';
@@ -41,7 +42,7 @@ export function ActivityLogModal({ open, onClose }: ActivityLogModalProps) {
   if (!open) return null;
 
   const dialog = (
-    <div className="modal-overlay modal-overlay--records" onClick={onClose}>
+    <div className="modal-overlay modal-overlay--records" onClick={closeOnOverlayClick(onClose)}>
       <div className="modal modal--activity" onClick={(event) => event.stopPropagation()}>
         <div className="activity-modal">
           <div className="modal__header">

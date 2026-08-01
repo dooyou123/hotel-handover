@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { WORK_GROUPS, formatWorkGroupLabel } from '@/lib/constants';
 import type { PersonalTask } from '@/lib/personal-tasks/types';
 import { TODO_PRIORITY_LABELS, type TodoPriority } from '@/lib/todos/types';
+import { closeOnOverlayClick } from '@/lib/ui/close-on-overlay-click';
 
 type PromotePersonalTaskModalProps = {
   open: boolean;
@@ -77,7 +78,7 @@ export function PromotePersonalTaskModal({
   if (!mounted || !open || !task) return null;
 
   return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={closeOnOverlayClick(onClose)}>
       <div className="modal modal--promote" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="promote-task-title">
         <form
           className="modal__form"

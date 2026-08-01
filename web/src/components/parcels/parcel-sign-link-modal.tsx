@@ -5,6 +5,7 @@ import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import type { Parcel } from '@/lib/parcels/types';
 import { normalizeParcel } from '@/lib/parcels/types';
 import { createClient } from '@/lib/supabase/client';
+import { closeOnOverlayClick } from '@/lib/ui/close-on-overlay-click';
 
 const POLL_MS = 3_000;
 
@@ -160,7 +161,7 @@ export function ParcelSignLinkModal({
 
   if (deliveredParcel) {
     return (
-      <div className="modal-overlay modal-overlay--parcel" onClick={onClose}>
+      <div className="modal-overlay modal-overlay--parcel" onClick={closeOnOverlayClick(onClose)}>
         <div
           className="modal modal--parcel-sign-link"
           onClick={(e) => e.stopPropagation()}
@@ -205,7 +206,7 @@ export function ParcelSignLinkModal({
   }
 
   return (
-    <div className="modal-overlay modal-overlay--parcel" onClick={onClose}>
+    <div className="modal-overlay modal-overlay--parcel" onClick={closeOnOverlayClick(onClose)}>
       <div
         className="modal modal--parcel-sign-link"
         onClick={(e) => e.stopPropagation()}

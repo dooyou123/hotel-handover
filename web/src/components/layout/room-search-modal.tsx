@@ -6,6 +6,7 @@ import { SearchHighlight } from '@/components/handover/search-highlight';
 import { searchGlobal, type GlobalSearchHit, type GlobalSearchHitKind } from '@/lib/room-search/api';
 import { formatRoomSearchAt } from '@/lib/room-search/format';
 import { loadRecentRoomSearches, rememberRoomSearch } from '@/lib/room-search/recent';
+import { closeOnOverlayClick } from '@/lib/ui/close-on-overlay-click';
 
 const KIND_LABELS: Record<GlobalSearchHitKind, string> = {
   handover: '인수인계',
@@ -141,7 +142,7 @@ export function RoomSearchModal({ open, onClose }: RoomSearchModalProps) {
   }
 
   return (
-    <div className="modal-overlay modal-overlay--room-search" onClick={onClose}>
+    <div className="modal-overlay modal-overlay--room-search" onClick={closeOnOverlayClick(onClose)}>
       <div
         className="modal modal--room-search"
         onClick={(e) => e.stopPropagation()}

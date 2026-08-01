@@ -5,26 +5,29 @@ import { createPortal } from 'react-dom';
 import { targetImageSize } from '@/lib/handover/image-compress';
 
 /**
- * 사진 주석 편집기 — 첨부 사진 위에 동그라미·화살표·펜으로 표시하고,
+ * 사진 그리기 편집기 — 첨부 사진 위에 동그라미·화살표·펜·글자를 그리고,
  * 저장하면 원본에 구워진(합성된) 한 장의 이미지가 된다.
- * 주석을 별도 데이터로 저장하지 않으므로 기존 미리보기·브리핑 화면에서 그대로 보인다.
+ * 그린 내용을 별도 데이터로 저장하지 않으므로 기존 미리보기·브리핑 화면에서 그대로 보인다.
  */
 
-type Tool = 'ellipse' | 'arrow' | 'pen';
+type Tool = 'ellipse' | 'arrow' | 'pen' | 'text';
 
 type Point = { x: number; y: number };
 
 type Shape = {
   tool: Tool;
   color: string;
-  /** pen은 전체 경로, ellipse/arrow는 [시작점, 끝점] */
+  /** pen은 전체 경로, ellipse/arrow는 [시작점, 끝점], text는 [기준점] */
   points: Point[];
+  /** text 전용 */
+  text?: string;
 };
 
 const TOOLS: { value: Tool; label: string }[] = [
   { value: 'ellipse', label: '○ 동그라미' },
   { value: 'arrow', label: '↗ 화살표' },
   { value: 'pen', label: '✎ 펜' },
+  { value: 'text', label: 'T 글자' },
 ];
 
 const COLORS = [
@@ -37,6 +40,25 @@ const MAX_CANVAS_EDGE = 2048;
 
 function drawShape(context: CanvasRenderingContext2D, shape: Shape, lineWidth: number) {
   const points = shape.points;
+  if (!points.length) return;
+
+  if (shape.tool === 'text') {
+    const text = shape.text?.trim();
+    if (!text) return;
+    const size = Math.round(lineWidth * 6.5);
+    context.font = `700 ${size}px 'Pretendard', 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif`;
+    context.textAlign = 'left';
+    context.textBaseline = 'middle';
+    // 사진 위에서도 읽히도록 흰 외곽선을 먼저 두른다
+    context.lineWidth = Math.max(2, Math.round(size / 7));
+    context.lineJoin = 'round';
+    context.strokeStyle = 'rgba(255, 255, 255, 0.92)';
+    context.strokeText(text, points[0].x, points[0].y);
+    context.fillStyle = shape.color;
+    context.fillText(text, points[0].x, points[0].y);
+    return;
+  }
+
   if (points.length < 2) return;
   context.strokeStyle = shape.color;
   context.lineWidth = lineWidth;
@@ -105,6 +127,16 @@ export function ImageAnnotateModal({ imageUrl, filename, onClose, onSave }: Imag
   const [tool, setTool] = useState<Tool>('ellipse');
   const [color, setColor] = useState(COLORS[0].value);
   const [shapeCount, setShapeCount] = useState(0);
+  // 글자 도구 — 클릭한 지점에 입력창을 띄우고, 확정하면 캔버스에 그린다
+  // (blur와 버튼 클릭이 겹쳐도 한 번만 확정되도록 ref를 진실의 원천으로 쓴다)
+  type TextDraft = { point: Point; left: number; top: number; value: string };
+  const textDraftRef = useRef<TextDraft | null>(null);
+  const [textDraft, setTextDraft] = useState<TextDraft | null>(null);
+
+  function updateTextDraft(next: TextDraft | null) {
+    textDraftRef.current = next;
+    setTextDraft(next);
+  }
 
   const redraw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -185,9 +217,37 @@ export function ImageAnnotateModal({ imageUrl, filename, onClose, onSave }: Imag
     };
   }
 
+  function commitTextDraft() {
+    const draft = textDraftRef.current;
+    updateTextDraft(null);
+    const text = draft?.value.trim();
+    if (!draft || !text) {
+      redraw();
+      return;
+    }
+    shapesRef.current = [...shapesRef.current, { tool: 'text', color, points: [draft.point], text }];
+    setShapeCount(shapesRef.current.length);
+    redraw();
+  }
+
   function handlePointerDown(event: React.PointerEvent<HTMLCanvasElement>) {
     if (!ready || saving) return;
     event.preventDefault();
+
+    if (tool === 'text') {
+      // 열려 있던 입력이 있으면 먼저 확정하고, 새 위치에 입력창을 연다
+      commitTextDraft();
+      const stage = event.currentTarget.closest('.image-annotate__stage');
+      const stageRect = stage?.getBoundingClientRect();
+      updateTextDraft({
+        point: canvasPoint(event),
+        left: stageRect ? event.clientX - stageRect.left : 0,
+        top: stageRect ? event.clientY - stageRect.top : 0,
+        value: '',
+      });
+      return;
+    }
+
     event.currentTarget.setPointerCapture(event.pointerId);
     const point = canvasPoint(event);
     draftRef.current = { tool, color, points: [point, point] };
@@ -229,6 +289,9 @@ export function ImageAnnotateModal({ imageUrl, filename, onClose, onSave }: Imag
   async function handleSave() {
     const canvas = canvasRef.current;
     if (!canvas || saving) return;
+    // 입력 중이던 글자가 있으면 저장 전에 확정한다
+    commitTextDraft();
+    if (!shapesRef.current.length) return;
     setSaving(true);
     setSaveError(null);
     try {
@@ -237,7 +300,7 @@ export function ImageAnnotateModal({ imageUrl, filename, onClose, onSave }: Imag
       );
       if (!blob) throw new Error('encode failed');
       const base = (filename || 'photo').replace(/\.[^.]+$/, '');
-      await onSave(new File([blob], `${base}-주석.jpg`, { type: 'image/jpeg' }));
+      await onSave(new File([blob], `${base}-그리기.jpg`, { type: 'image/jpeg' }));
     } catch {
       setSaveError('저장하지 못했습니다. 잠시 후 다시 시도해 주세요.');
       setSaving(false);
@@ -245,7 +308,7 @@ export function ImageAnnotateModal({ imageUrl, filename, onClose, onSave }: Imag
   }
 
   const dialog = (
-    <div className="image-annotate" role="dialog" aria-modal="true" aria-label="사진 주석 편집">
+    <div className="image-annotate" role="dialog" aria-modal="true" aria-label="사진에 그리기">
       <div className="image-annotate__toolbar">
         <div className="image-annotate__tools" role="group" aria-label="그리기 도구">
           {TOOLS.map((item) => (
@@ -297,13 +360,35 @@ export function ImageAnnotateModal({ imageUrl, filename, onClose, onSave }: Imag
               onPointerUp={handlePointerUp}
               onPointerCancel={handlePointerUp}
             />
+            {textDraft ? (
+              <input
+                className="image-annotate__text-input"
+                style={{ left: textDraft.left, top: textDraft.top, color }}
+                value={textDraft.value}
+                placeholder="내용 입력 후 Enter"
+                autoFocus
+                maxLength={60}
+                onChange={(event) => updateTextDraft({ ...textDraft, value: event.target.value })}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    commitTextDraft();
+                  } else if (event.key === 'Escape') {
+                    // 모달 닫힘(Escape)까지 번지지 않게 하고 입력만 취소한다
+                    event.stopPropagation();
+                    updateTextDraft(null);
+                  }
+                }}
+                onBlur={() => commitTextDraft()}
+              />
+            ) : null}
           </>
         )}
       </div>
 
       <div className="image-annotate__footer">
         <p className="image-annotate__hint">
-          {saveError ?? '저장하면 이 사진이 주석이 그려진 사진으로 바뀝니다.'}
+          {saveError ?? '저장하면 그린 내용이 사진에 합쳐져 저장됩니다.'}
         </p>
         <div className="image-annotate__actions">
           <button type="button" className="btn btn--ghost" onClick={onClose} disabled={saving}>
@@ -313,9 +398,9 @@ export function ImageAnnotateModal({ imageUrl, filename, onClose, onSave }: Imag
             type="button"
             className="btn btn--primary"
             onClick={handleSave}
-            disabled={!ready || !shapeCount || saving}
+            disabled={!ready || (!shapeCount && !textDraft?.value.trim()) || saving}
           >
-            {saving ? '저장 중…' : '주석 저장'}
+            {saving ? '저장 중…' : '그리기 저장'}
           </button>
         </div>
       </div>

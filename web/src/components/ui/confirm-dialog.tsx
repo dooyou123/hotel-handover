@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { closeOnOverlayClick } from '@/lib/ui/close-on-overlay-click';
 
 export type DialogTone = 'default' | 'warning' | 'danger';
 
@@ -104,7 +105,7 @@ export function ConfirmDialogProvider({ children }: { children: ReactNode }) {
       <div
         className="modal-overlay confirm-overlay"
         role="presentation"
-        onClick={() => close(dialog.kind === 'confirm' ? false : true)}
+        onClick={closeOnOverlayClick(() => close(dialog.kind === 'confirm' ? false : true))}
       >
         <div
           className={`modal modal--confirm confirm-dialog confirm-dialog--${tone}`}

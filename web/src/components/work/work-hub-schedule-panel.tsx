@@ -16,7 +16,11 @@ import {
   WorkHubToolbar,
   WorkHubToolbarGroup,
 } from '@/components/work/work-hub-list';
-import { WorkHubMonthCalendar, type WorkHubDayMarks } from '@/components/work/work-hub-month-calendar';
+import {
+  WorkHubMonthCalendar,
+  type WorkHubDayItem,
+  type WorkHubDayMarks,
+} from '@/components/work/work-hub-month-calendar';
 import { createClient } from '@/lib/supabase/client';
 import { useMonthEvents } from '@/lib/events/use-events';
 import type { HotelEvent, HotelEventInput } from '@/lib/events/types';
@@ -257,6 +261,44 @@ export function WorkHubSchedulePanel() {
     return marks;
   }, [filteredEvents, filteredTodos, month]);
 
+  // 달력 날짜 칸에 제목으로 표시할 항목들 — 긴급 먼저, 완료는 뒤로
+  const dayItems = useMemo(() => {
+    const map = new Map<string, WorkHubDayItem[]>();
+    function push(date: string, item: WorkHubDayItem) {
+      const list = map.get(date);
+      if (list) list.push(item);
+      else map.set(date, [item]);
+    }
+    filteredEvents.forEach((event) => {
+      eachEventDateInMonth(event, month).forEach((date) => {
+        push(date, {
+          id: `event-${event.id}-${date}`,
+          label: event.title,
+          tone: 'event',
+          done: Boolean(event.completed_at),
+        });
+      });
+    });
+    filteredTodos.forEach((todo) => {
+      if (!todo.due_date || !todo.due_date.startsWith(month)) return;
+      push(todo.due_date, {
+        id: `todo-${todo.id}`,
+        label: todo.title,
+        tone: todo.priority === 'urgent' && todo.status !== 'done' ? 'urgent' : 'todo',
+        done: todo.status === 'done',
+      });
+    });
+    const toneRank = (tone: WorkHubDayItem['tone']) =>
+      tone === 'urgent' ? 0 : tone === 'event' ? 1 : 2;
+    map.forEach((list) =>
+      list.sort(
+        (a, b) =>
+          Number(a.done ?? false) - Number(b.done ?? false) || toneRank(a.tone) - toneRank(b.tone),
+      ),
+    );
+    return map;
+  }, [filteredEvents, filteredTodos, month]);
+
   const selectedEvents = useMemo(
     () =>
       sortCalendarItemsByDone(
@@ -441,7 +483,7 @@ export function WorkHubSchedulePanel() {
     <>
       <WorkHubPanel>
         <WorkHubToolbar>
-          <WorkHubToolbarGroup>
+          <WorkHubToolbarGroup className="work-hub-schedule__toolbar-group">
             <WorkHubFilterTabs
               ariaLabel="업무 일정 필터"
               items={FILTERS.map((item) => ({
@@ -473,6 +515,7 @@ export function WorkHubSchedulePanel() {
                   month={month}
                   selectedDate={selectedDate}
                   dayMarks={dayMarks}
+                  dayItems={dayItems}
                   onMonthChange={setMonth}
                   onSelectDate={setSelectedDate}
                 />

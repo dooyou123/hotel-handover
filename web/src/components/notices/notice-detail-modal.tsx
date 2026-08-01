@@ -5,6 +5,7 @@ import { formatTime } from '@/lib/handover/card-utils';
 import { noticeTypeLabel } from '@/lib/handover/notice-utils';
 import type { Notice } from '@/lib/handover/types';
 import { LinkifiedText } from '@/components/ui/linkified-text';
+import { closeOnOverlayClick } from '@/lib/ui/close-on-overlay-click';
 
 type NoticeDetailModalProps = {
   notice: Notice | null;
@@ -18,7 +19,7 @@ export function NoticeDetailModal({ notice, onClose, onEdit }: NoticeDetailModal
   const expiry = formatExpiryLabel(notice.expires_at);
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={closeOnOverlayClick(onClose)}>
       <article
         className="modal modal--notice-read"
         onClick={(event) => event.stopPropagation()}

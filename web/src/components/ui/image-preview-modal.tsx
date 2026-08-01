@@ -13,6 +13,8 @@ type ImagePreviewModalProps = {
   index: number;
   onClose: () => void;
   onChangeIndex?: (index: number) => void;
+  /** 있으면 툴바에 "그리기" 버튼이 생긴다 — 현재 보고 있는 사진에 그리기 편집기를 연다 */
+  onAnnotate?: () => void;
 };
 
 export function ImagePreviewModal({
@@ -21,6 +23,7 @@ export function ImagePreviewModal({
   index,
   onClose,
   onChangeIndex,
+  onAnnotate,
 }: ImagePreviewModalProps) {
   const attachment = attachments[index];
   const hasMultiple = attachments.length > 1;
@@ -160,6 +163,16 @@ export function ImagePreviewModal({
         <span className="image-preview-lightbox__zoom-hint">
           {zoomed ? '드래그로 이동 · 클릭해 축소' : '클릭해 확대'}
         </span>
+        {onAnnotate ? (
+          <button
+            type="button"
+            className="image-preview-lightbox__annotate"
+            title="이 사진 위에 동그라미·화살표·글자 그리기"
+            onClick={onAnnotate}
+          >
+            ✎ 그리기
+          </button>
+        ) : null}
       </div>
 
       <div className="image-preview-lightbox__stage" onClick={(event) => event.stopPropagation()}>

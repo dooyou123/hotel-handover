@@ -57,12 +57,12 @@ test('monthDateRange uses last day of month', () => {
   assert.deepEqual(monthDateRange('2026-02'), { start: '2026-02-01', end: '2026-02-28' });
 });
 
-test('daily handover welcome key is scoped by local date and worker', () => {
+test('daily handover welcome key is scoped by local date and name (group-agnostic)', () => {
   const now = new Date(2026, 6, 30, 7, 45);
   assert.equal(localDateKey(now), '2026-07-30');
   assert.equal(
-    dailyHandoverWelcomeKey({ group: 'B', name: '강두훈' }, now),
-    'handover-daily-welcome-v1:2026-07-30:B:%EA%B0%95%EB%91%90%ED%9B%88',
+    dailyHandoverWelcomeKey('강두훈', now),
+    'handover-daily-welcome-v2:2026-07-30:%EA%B0%95%EB%91%90%ED%9B%88',
   );
 });
 

@@ -7,6 +7,7 @@ import { isCardOverdue } from '@/lib/handover/card-utils';
 import { buildShiftSummaryData, getTodayLabel } from '@/lib/handover/shift-summary';
 import { fetchChecklistIncomplete, logShiftHandover } from '@/lib/handover/use-activity-logs';
 import type { Card, Notice, WorkSession } from '@/lib/handover/types';
+import { closeOnOverlayClick } from '@/lib/ui/close-on-overlay-click';
 
 type ShiftHandoverModalProps = {
   open: boolean;
@@ -116,7 +117,7 @@ export function ShiftHandoverModal({
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={closeOnOverlayClick(onClose)}>
       <div className="modal modal--shift" onClick={(event) => event.stopPropagation()}>
         <div className="shift-modal">
           <div className="modal__header">

@@ -1,5 +1,6 @@
 'use client';
 
+import { closeOnOverlayClick } from '@/lib/ui/close-on-overlay-click';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -66,7 +67,7 @@ export function HandoverRecordsModal({
   if (!open) return null;
 
   const dialog = (
-    <div className="modal-overlay modal-overlay--records" onClick={onClose}>
+    <div className="modal-overlay modal-overlay--records" onClick={closeOnOverlayClick(onClose)}>
       <div className="modal modal--activity" onClick={(event) => event.stopPropagation()}>
         <div className="activity-modal">
           <div className="modal__header">

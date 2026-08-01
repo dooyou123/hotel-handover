@@ -569,6 +569,79 @@ export async function uploadScheduleBoardImage(
   return withUrl(data as Omit<ScheduleBoardImage, 'url'>);
 }
 
+/**
+ * 개별 버전 하나만 삭제합니다 (매니저 전용).
+ * 삭제한 버전이 현재 버전이면 남은 버전 중 최신으로 포인터를 되돌리고,
+ * 남은 버전이 없으면 이 달 이미지 레코드도 지웁니다.
+ */
+export async function deleteScheduleBoardVersion(
+  monthKey: string,
+  versionId: string,
+): Promise<void> {
+  if (!isValidMonthKey(monthKey)) throw new Error('올바른 연·월을 선택해 주세요.');
+  const month = monthKey.trim();
+  const supabase = createClient();
+  await assertScheduleManager(supabase);
+
+  const { data: target, error: targetError } = await supabase
+    .from('schedule_board_versions')
+    .select('id, storage_path')
+    .eq('hotel_id', DEFAULT_HOTEL_ID)
+    .eq('id', versionId)
+    .maybeSingle();
+  if (targetError) throw targetError;
+  if (!target) throw new Error('이미 삭제된 버전입니다.');
+
+  const { error: deleteError } = await supabase
+    .from('schedule_board_versions')
+    .delete()
+    .eq('hotel_id', DEFAULT_HOTEL_ID)
+    .eq('id', versionId);
+  if (deleteError) throw deleteError;
+
+  const storagePath = String((target as { storage_path: string }).storage_path ?? '');
+  if (storagePath) {
+    await supabase.storage.from(BUCKET).remove([storagePath]).catch(() => undefined);
+  }
+
+  // 남은 버전 중 최신을 현재 이미지로 유지한다
+  const { data: latest, error: latestError } = await supabase
+    .from('schedule_board_versions')
+    .select(VERSION_SELECT)
+    .eq('hotel_id', DEFAULT_HOTEL_ID)
+    .eq('month_key', month)
+    .order('version', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (latestError) throw latestError;
+
+  if (!latest) {
+    const { error: imgError } = await supabase
+      .from('schedule_board_images')
+      .delete()
+      .eq('hotel_id', DEFAULT_HOTEL_ID)
+      .eq('month_key', month);
+    if (imgError) throw imgError;
+    return;
+  }
+
+  const latestRow = latest as Omit<ScheduleBoardVersion, 'url'>;
+  const { error: imgError } = await supabase
+    .from('schedule_board_images')
+    .update({
+      storage_path: latestRow.storage_path,
+      filename: latestRow.filename,
+      note: latestRow.note,
+      current_version: latestRow.version,
+      updated_at: latestRow.created_at,
+      updated_by: latestRow.created_by,
+      updated_by_label: latestRow.created_by_label,
+    })
+    .eq('hotel_id', DEFAULT_HOTEL_ID)
+    .eq('month_key', month);
+  if (imgError) throw imgError;
+}
+
 export async function clearScheduleBoardImage(monthKey: string): Promise<void> {
   if (!isValidMonthKey(monthKey)) throw new Error('올바른 연·월을 선택해 주세요.');
   const month = monthKey.trim();

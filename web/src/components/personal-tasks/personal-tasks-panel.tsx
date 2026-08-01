@@ -162,7 +162,9 @@ export function PersonalTasksPanel({ variant = 'page', onToast, onPromoteToCard 
             ? '오늘 마감인 할 일이 없습니다.'
             : showDone
               ? '할 일이 없습니다.'
-              : '미완료 할 일이 없습니다.'}
+              : compact
+                ? '미완료 할 일이 없습니다.'
+                : '아직 카드로 만들 정도는 아니지만 잊으면 안 되는 것들을 적어두세요 — 예: 내일 김주임에게 물어보기'}
         </p>
       ) : (
         <ul className="personal-tasks__list">
@@ -228,10 +230,9 @@ export function PersonalTasksPanel({ variant = 'page', onToast, onPromoteToCard 
       ) : null}
 
       {!compact && doneTasks.length ? (
-        <label className="personal-tasks__show-done">
-          <input type="checkbox" checked={showDone} onChange={(event) => setShowDone(event.target.checked)} />
-          완료 항목 포함 ({doneTasks.length})
-        </label>
+        <button type="button" className="personal-tasks__toggle-done" onClick={() => setShowDone((v) => !v)}>
+          {showDone ? '미완료만 보기 ▴' : `완료 ${doneTasks.length}건 보기 ▾`}
+        </button>
       ) : null}
 
       <PromotePersonalTaskModal

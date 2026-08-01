@@ -14,10 +14,23 @@ export type WorkHubDayMarks = {
   urgent: boolean;
 };
 
+/** 날짜 칸 안에 제목으로 표시되는 개별 항목 */
+export type WorkHubDayItem = {
+  id: string;
+  label: string;
+  tone: 'event' | 'todo' | 'urgent';
+  done?: boolean;
+};
+
+/** 날짜 칸에 제목으로 보여줄 최대 개수 — 넘치면 +N으로 접는다 */
+const DAY_ITEM_LIMIT = 3;
+
 type WorkHubMonthCalendarProps = {
   month: string;
   selectedDate: string;
   dayMarks: Map<string, WorkHubDayMarks>;
+  /** 있으면 큰 달력 모드 — 날짜 칸에 항목 제목을 직접 표시 (좁은 화면에선 점으로 대체) */
+  dayItems?: Map<string, WorkHubDayItem[]>;
   onMonthChange: (month: string) => void;
   onSelectDate: (date: string) => void;
 };
@@ -26,6 +39,7 @@ export function WorkHubMonthCalendar({
   month,
   selectedDate,
   dayMarks,
+  dayItems,
   onMonthChange,
   onSelectDate,
 }: WorkHubMonthCalendarProps) {
@@ -33,7 +47,7 @@ export function WorkHubMonthCalendar({
   const cells = buildCalendarCells(month);
 
   return (
-    <div className="work-hub-month-cal">
+    <div className={`work-hub-month-cal${dayItems ? ' work-hub-month-cal--detailed' : ''}`}>
       <div className="work-hub-month-cal__head">
         <div className="work-hub-month-cal__nav">
           <button
@@ -78,6 +92,7 @@ export function WorkHubMonthCalendar({
           const isPast = cell.date < today;
           const marks = dayMarks.get(cell.date);
           const hasItems = Boolean(marks?.todo || marks?.event);
+          const items = dayItems?.get(cell.date) ?? [];
           const labelParts = [
             `${cell.day}일`,
             marks?.event ? '일정' : '',
@@ -116,6 +131,24 @@ export function WorkHubMonthCalendar({
               ) : (
                 <span className="work-hub-month-cal__dots is-empty" aria-hidden />
               )}
+              {items.length ? (
+                <span className="work-hub-month-cal__items" aria-hidden>
+                  {items.slice(0, DAY_ITEM_LIMIT).map((item) => (
+                    <span
+                      key={item.id}
+                      className={`work-hub-month-cal__item is-${item.tone}${item.done ? ' is-done' : ''}`}
+                      title={item.label}
+                    >
+                      {item.label}
+                    </span>
+                  ))}
+                  {items.length > DAY_ITEM_LIMIT ? (
+                    <span className="work-hub-month-cal__item-more">
+                      +{items.length - DAY_ITEM_LIMIT}건 더
+                    </span>
+                  ) : null}
+                </span>
+              ) : null}
             </button>
           );
         })}

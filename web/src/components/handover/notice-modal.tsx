@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { SHIFTS } from '@/lib/constants';
 import type { Notice, NoticeInput, NoticeType } from '@/lib/handover/types';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
+import { closeOnOverlayClick } from '@/lib/ui/close-on-overlay-click';
 
 type NoticeModalProps = {
   open: boolean;
@@ -103,7 +104,7 @@ export function NoticeModal({
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={closeOnOverlayClick(onClose)}>
       <div className="modal" onClick={(event) => event.stopPropagation()}>
         <form noValidate onSubmit={handleSubmit} className="modal__form">
           <div className="modal__header">

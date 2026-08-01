@@ -117,7 +117,7 @@ export function CardThreadSection({
         </ol>
       ) : (
         <p className="drawer-section__hint">
-          누수 신고 → 업체 방문 → 보상 처리처럼 이어지는 건을 한 사건으로 묶어 흐름을 볼 수 있습니다.
+          누수 신고 → 업체 방문 → 보상 처리처럼 이어지는 건을 연계 카드로 묶어 흐름을 볼 수 있습니다.
         </p>
       )}
 
@@ -127,7 +127,7 @@ export function CardThreadSection({
             type="button"
             className="btn btn--ghost btn--small"
             onClick={() => void onCreateFollowUp()}
-            title="객실·분류를 이어받은 새 카드를 만들고 이 카드와 같은 사건으로 연결합니다"
+            title="객실·분류를 이어받은 새 카드를 만들고 이 카드와 연계 카드로 연결합니다"
           >
             이어쓰기
           </button>
@@ -147,7 +147,7 @@ export function CardThreadSection({
             className="btn btn--ghost btn--small card-thread__unlink"
             disabled={busy}
             onClick={() => void runUnlink()}
-            title="이 카드만 사건에서 분리합니다. 나머지 카드들의 연결은 유지됩니다."
+            title="이 카드만 연계에서 분리합니다. 나머지 카드들의 연결은 유지됩니다."
           >
             연결 해제
           </button>

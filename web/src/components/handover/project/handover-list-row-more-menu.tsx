@@ -2,20 +2,15 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 
 type HandoverListRowMoreMenuProps = {
   cardTitle: string;
-  canHold: boolean;
-  canResume: boolean;
   needsFirstResponse: boolean;
   canSnooze: boolean;
   snoozed: boolean;
   canAssign: boolean;
   staffNames: string[];
   assigneeName: string | null;
-  onHold: () => void;
-  onResume: () => void;
   onRecordFirstResponse?: () => void;
   onSnooze?: () => void;
   onUnsnooze?: () => void;
@@ -58,16 +53,12 @@ function getMenuItems(root: HTMLElement | null): HTMLElement[] {
 
 export function HandoverListRowMoreMenu({
   cardTitle,
-  canHold,
-  canResume,
   needsFirstResponse,
   canSnooze,
   snoozed,
   canAssign,
   staffNames,
   assigneeName,
-  onHold,
-  onResume,
   onRecordFirstResponse,
   onSnooze,
   onUnsnooze,
@@ -75,7 +66,6 @@ export function HandoverListRowMoreMenu({
   pinned = false,
   onTogglePin,
 }: HandoverListRowMoreMenuProps) {
-  const { confirm } = useConfirmDialog();
   const [open, setOpen] = useState(false);
   const [menuStyle, setMenuStyle] = useState<CSSProperties>(() => ({ position: 'fixed', visibility: 'hidden' }));
   const rootRef = useRef<HTMLDivElement>(null);
@@ -83,8 +73,6 @@ export function HandoverListRowMoreMenu({
   const menuRef = useRef<HTMLDivElement>(null);
 
   const hasMenuItems =
-    canHold ||
-    canResume ||
     needsFirstResponse ||
     canSnooze ||
     Boolean(onTogglePin) ||
@@ -108,7 +96,7 @@ export function HandoverListRowMoreMenu({
     updatePosition();
     const items = getMenuItems(menuRef.current);
     items[0]?.focus();
-  }, [open, updatePosition, canHold, canResume, needsFirstResponse, canSnooze, canAssign, staffNames.length]);
+  }, [open, updatePosition, needsFirstResponse, canSnooze, canAssign, staffNames.length]);
 
   useEffect(() => {
     if (!open) return;
@@ -193,41 +181,6 @@ export function HandoverListRowMoreMenu({
           }}
         >
           {pinned ? '고정 해제' : '📌 상단 고정'}
-        </button>
-      ) : null}
-      {canHold ? (
-        <button
-          type="button"
-          role="menuitem"
-          className="project-list-row__more-item"
-          onClick={async (event) => {
-            event.stopPropagation();
-            closeMenu();
-            const ok = await confirm({
-              title: '보류 처리',
-              message: '이 카드를 보류함으로 옮길까요?',
-              detail: cardTitle,
-              confirmLabel: '보류',
-              tone: 'warning',
-            });
-            if (ok) onHold();
-          }}
-        >
-          보류
-        </button>
-      ) : null}
-      {canResume ? (
-        <button
-          type="button"
-          role="menuitem"
-          className="project-list-row__more-item"
-          onClick={(event) => {
-            event.stopPropagation();
-            closeMenu();
-            onResume();
-          }}
-        >
-          재개
         </button>
       ) : null}
       {needsFirstResponse ? (

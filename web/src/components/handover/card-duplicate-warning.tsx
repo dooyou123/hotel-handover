@@ -50,7 +50,7 @@ export function CardDuplicateWarning({
                     type="button"
                     className="card-duplicate-warning__action is-linked"
                     onClick={() => onUnlinkThread?.()}
-                    title="사건 연결을 취소합니다"
+                    title="카드 연결을 취소합니다"
                   >
                     ✓ 연결됨 · 해제
                   </button>
@@ -59,9 +59,9 @@ export function CardDuplicateWarning({
                     type="button"
                     className="card-duplicate-warning__action"
                     onClick={() => onLinkThread(item)}
-                    title="저장하면 이 카드와 같은 사건 스레드로 묶입니다"
+                    title="저장하면 이 카드와 연계 카드로 묶입니다"
                   >
-                    같은 사건으로 연결
+                    연계 카드로 연결
                   </button>
                 )
               ) : null}

@@ -64,7 +64,7 @@ export const ACTION_LABELS: Record<string, string> = {
   clear_done: '완료칸 비우기',
   archive_done: '완료 보관',
   restore_archive: '보관 복원',
-  link: '사건 연결',
+  link: '카드 연결',
   unlink: '연결 해제',
   pin: '고정',
   unpin: '고정 해제',

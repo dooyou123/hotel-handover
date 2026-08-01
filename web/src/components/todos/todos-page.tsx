@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { PersonalTasksPanel } from '@/components/personal-tasks/personal-tasks-panel';
+import { AsideMemoPad } from '@/components/handover/project/aside-memo-pad';
 import { EventModal } from '@/components/events/event-modal';
 import { createClient } from '@/lib/supabase/client';
 import { useMonthEvents } from '@/lib/events/use-events';
@@ -341,9 +342,16 @@ export function TodosPageClient({ embedded = false, forceScope }: TodosPageClien
         )}
 
         {activeScope === 'personal' ? (
-          <article className="schedule-panel">
-            <PersonalTasksPanel variant="page" onToast={showToast} />
-          </article>
+          <div className="todos-personal__split">
+            <article className="schedule-panel">
+              <PersonalTasksPanel variant="page" onToast={showToast} />
+            </article>
+            {session.name ? (
+              <article className="schedule-panel todos-personal__memo">
+                <AsideMemoPad staffName={session.name} />
+              </article>
+            ) : null}
+          </div>
         ) : null}
 
         {activeScope === 'team' && !embedded ? (

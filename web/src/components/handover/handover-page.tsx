@@ -791,7 +791,7 @@ export function HandoverPage() {
     try {
       const plan = await linkThread.mutateAsync({ source, target });
       if (plan.kind === 'none') {
-        showToast('이미 같은 사건으로 연결되어 있습니다.');
+        showToast('이미 연결되어 있습니다.');
         return;
       }
       await logActivityBatch([
@@ -800,7 +800,7 @@ export function HandoverPage() {
           entityId: source.id,
           action: 'link',
           audit: audit(),
-          summary: `사건 연결: ${cardSummaryLabel(target.room, target.title)}`,
+          summary: `카드 연결: ${cardSummaryLabel(target.room, target.title)}`,
           details: { withCardId: target.id },
         },
         {
@@ -808,12 +808,12 @@ export function HandoverPage() {
           entityId: target.id,
           action: 'link',
           audit: audit(),
-          summary: `사건 연결: ${cardSummaryLabel(source.room, source.title)}`,
+          summary: `카드 연결: ${cardSummaryLabel(source.room, source.title)}`,
           details: { withCardId: source.id },
         },
       ]);
       refreshActivityLogs();
-      showToast('사건으로 연결했습니다.');
+      showToast('연계 카드로 연결했습니다.');
     } catch {
       showToast('카드 연결에 실패했습니다. 다시 시도해 주세요.');
     }
@@ -828,10 +828,10 @@ export function HandoverPage() {
         entityId: card.id,
         action: 'unlink',
         audit: audit(),
-        summary: `사건 연결 해제: ${cardSummaryLabel(card.room, card.title)}`,
+        summary: `카드 연결 해제: ${cardSummaryLabel(card.room, card.title)}`,
       });
       refreshActivityLogs();
-      showToast('사건 연결을 해제했습니다.');
+      showToast('카드 연결을 해제했습니다.');
     } catch {
       showToast('연결 해제에 실패했습니다. 다시 시도해 주세요.');
     }
@@ -879,7 +879,7 @@ export function HandoverPage() {
       await updateCard.mutateAsync({ id: target.id, input: { thread_id: threadId } });
       return threadId;
     } catch {
-      showToast('사건 스레드 연결에 실패했습니다. 다시 시도해 주세요.');
+      showToast('카드 연결에 실패했습니다. 다시 시도해 주세요.');
       return null;
     }
   }
@@ -1488,7 +1488,7 @@ export function HandoverPage() {
 
   async function handleAnnotateAttachment(attachment: CardAttachment, file: File) {
     await annotateAttachment.mutateAsync({ attachment, file });
-    showToast('사진에 주석이 저장되었습니다.');
+    showToast('사진에 그린 내용을 저장했습니다.');
   }
 
   async function handleDeleteAttachment(attachment: CardAttachment) {
@@ -1620,6 +1620,9 @@ export function HandoverPage() {
           onOpenCard={openEditModal}
           onOpenCardComments={openCommentsModal}
           onAddComment={handleAddComment}
+          onUpdateComment={handleUpdateComment}
+          onDeleteComment={handleDeleteComment}
+          onAnnotateAttachment={handleAnnotateAttachment}
           staffNames={staffNames}
           staffName={session.name}
           commentDisabled={!session.name}

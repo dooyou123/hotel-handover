@@ -1,5 +1,6 @@
 'use client';
 
+import { closeOnOverlayClick } from '@/lib/ui/close-on-overlay-click';
 import { useEffect, useState } from 'react';
 import {
   emptyBallotRanks,
@@ -265,7 +266,7 @@ export function PartyBallotModal({
   const controlsDisabled = !canEdit;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={closeOnOverlayClick(onClose)}>
       <div
         className="modal yp-vote-modal yp-ballot-modal"
         onClick={(e) => e.stopPropagation()}

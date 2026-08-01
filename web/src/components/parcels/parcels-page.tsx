@@ -32,6 +32,7 @@ import { formatSupabaseClientError } from '@/lib/supabase/env';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ParcelFormModal } from '@/components/parcels/parcel-form-modal';
 import { ParcelSignLinkModal } from '@/components/parcels/parcel-sign-link-modal';
+import { closeOnOverlayClick } from '@/lib/ui/close-on-overlay-click';
 
 function formatReceivedAt(value: string): string {
   const date = new Date(value);
@@ -471,7 +472,7 @@ export function ParcelsPageClient() {
       />
 
       {detailParcel ? (
-        <div className="modal-overlay modal-overlay--parcel" onClick={closeDetail}>
+        <div className="modal-overlay modal-overlay--parcel" onClick={closeOnOverlayClick(closeDetail)}>
           <div className="modal modal--parcel-detail" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
             <div className="modal__header">
               <h2>상세</h2>

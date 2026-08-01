@@ -19,6 +19,7 @@ import { usePinnedScheduleMonth } from '@/lib/schedules/use-schedule-alerts';
 import { useIsManager } from '@/lib/handover/use-cards';
 import { useWorkSession } from '@/lib/handover/use-work-session';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
+import { closeOnOverlayClick } from '@/lib/ui/close-on-overlay-click';
 
 function formatAbsoluteTime(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -106,8 +107,18 @@ export function SchedulesPage() {
   const { pinnedMonth, pinMonth } = usePinnedScheduleMonth();
   const [monthKey, setMonthKey] = useState(currentMonthKey);
   const monthBootstrapped = useRef(false);
-  const { image, isLoading, versions, reads, months, staffNames, upload, clear, markRead } =
-    useScheduleBoardImage(monthKey);
+  const {
+    image,
+    isLoading,
+    versions,
+    reads,
+    months,
+    staffNames,
+    upload,
+    clear,
+    deleteVersion,
+    markRead,
+  } = useScheduleBoardImage(monthKey);
   const { confirm } = useConfirmDialog();
   const { session, authorLabel, requireSession } = useWorkSession();
   const { data: isManager = false } = useIsManager();
@@ -126,9 +137,14 @@ export function SchedulesPage() {
   const compareScrollRightRef = useRef<HTMLDivElement>(null);
   const compareScrollLock = useRef(false);
   const [publishOpen, setPublishOpen] = useState(false);
+  // 붙여넣거나 선택한 사진 — 바로 올리지 않고 변경 메모를 쓸 수 있는 확인 모달을 거친다
+  const [pendingUpload, setPendingUpload] = useState<{
+    file: File;
+    source: 'file' | 'paste';
+  } | null>(null);
   const [sideTab, setSideTab] = useState<'confirm' | 'versions'>('confirm');
   const monthInputRef = useRef<HTMLInputElement>(null);
-  const busy = upload.isPending || clear.isPending;
+  const busy = upload.isPending || clear.isPending || deleteVersion.isPending;
   const monthLabel = formatMonthLabel(monthKey);
   const isPinned = pinnedMonth === monthKey;
 
@@ -199,7 +215,7 @@ export function SchedulesPage() {
     });
   }
 
-  async function uploadFile(file: File, source: 'file' | 'paste') {
+  async function uploadFile(file: File, source: 'file' | 'paste'): Promise<boolean> {
     setError(null);
     setMessage(null);
     try {
@@ -211,16 +227,21 @@ export function SchedulesPage() {
           ? `${monthLabel} 스케줄 새 버전을 붙여넣기로 올렸습니다.`
           : `${monthLabel} 스케줄 새 버전을 올렸습니다.`,
       );
+      return true;
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '업로드에 실패했습니다.');
+      return false;
     } finally {
       if (inputRef.current) inputRef.current.value = '';
     }
   }
 
-  async function onFilePicked(file: File | null) {
+  function onFilePicked(file: File | null) {
     if (!file) return;
-    await uploadFile(file, 'file');
+    // 바로 올리지 않는다 — 미리보기 + 변경 메모 확인 모달을 띄운다
+    setPendingUpload({ file, source: 'file' });
+    // 모달에서 취소해도 같은 파일을 다시 고를 수 있게 입력값을 비워둔다
+    if (inputRef.current) inputRef.current.value = '';
   }
 
   async function onClear() {
@@ -241,6 +262,29 @@ export function SchedulesPage() {
       await clear.mutateAsync();
       setPublishOpen(false);
       setMessage(`${monthLabel} 스케줄을 삭제했습니다.`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '삭제에 실패했습니다.');
+    }
+  }
+
+  async function onDeleteVersion(version: ScheduleBoardVersion) {
+    if (!isManager) {
+      setError('매니저만 스케줄 사진을 삭제할 수 있습니다.');
+      return;
+    }
+    const ok = await confirm({
+      title: '버전 삭제',
+      message: `${monthLabel} 스케줄 v${version.version} 사진을 삭제할까요?\n확인 기록도 함께 지워지며 되돌릴 수 없습니다.`,
+      confirmLabel: '삭제',
+      tone: 'danger',
+    });
+    if (!ok) return;
+    setError(null);
+    setMessage(null);
+    try {
+      await deleteVersion.mutateAsync(version.id);
+      if (selectedVersionId === version.id) setSelectedVersionId(null);
+      setMessage(`${monthLabel} 스케줄 v${version.version}을 삭제했습니다.`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '삭제에 실패했습니다.');
     }
@@ -327,11 +371,38 @@ export function SchedulesPage() {
       const file = fileFromClipboard(event);
       if (!file) return;
       event.preventDefault();
-      void uploadFile(file, 'paste');
+      // 바로 올리지 않는다 — 미리보기 + 변경 메모 확인 모달을 띄운다
+      setPendingUpload({ file, source: 'paste' });
     }
     window.addEventListener('paste', onPaste);
     return () => window.removeEventListener('paste', onPaste);
   });
+
+  const pendingPreviewUrl = useMemo(
+    () => (pendingUpload ? URL.createObjectURL(pendingUpload.file) : null),
+    [pendingUpload],
+  );
+  useEffect(() => {
+    return () => {
+      if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl);
+    };
+  }, [pendingPreviewUrl]);
+
+  useEffect(() => {
+    if (!pendingUpload) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') setPendingUpload(null);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [pendingUpload]);
+
+  async function confirmPendingUpload() {
+    if (!pendingUpload) return;
+    const ok = await uploadFile(pendingUpload.file, pendingUpload.source);
+    // 실패하면 모달을 유지해 메모를 잃지 않고 다시 시도할 수 있게 한다
+    if (ok) setPendingUpload(null);
+  }
 
   useEffect(() => {
     if (!fullscreen && !compareOpen) return;
@@ -488,7 +559,7 @@ export function SchedulesPage() {
             type="file"
             accept="image/*"
             hidden
-            onChange={(e) => void onFilePicked(e.target.files?.[0] ?? null)}
+            onChange={(e) => onFilePicked(e.target.files?.[0] ?? null)}
           />
           <div className="schedules-page__publish-head">
             <h2>새 버전 올리기</h2>
@@ -560,7 +631,7 @@ export function SchedulesPage() {
           type="file"
           accept="image/*"
           hidden
-          onChange={(e) => void onFilePicked(e.target.files?.[0] ?? null)}
+          onChange={(e) => onFilePicked(e.target.files?.[0] ?? null)}
         />
       ) : null}
 
@@ -815,6 +886,16 @@ export function SchedulesPage() {
                             비교
                           </button>
                         ) : null}
+                        {isManager ? (
+                          <button
+                            type="button"
+                            className="btn btn--ghost btn--small sched-versions__delete"
+                            disabled={busy}
+                            onClick={() => void onDeleteVersion(v)}
+                          >
+                            삭제
+                          </button>
+                        ) : null}
                       </div>
                     </li>
                   );
@@ -1004,6 +1085,88 @@ export function SchedulesPage() {
                   style={{ width: `${compareZoom * 100}%` }}
                 />
               </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {pendingUpload && pendingPreviewUrl ? (
+        <div className="modal-overlay" onClick={closeOnOverlayClick(() => setPendingUpload(null))}>
+          <div
+            className="modal schedules-paste-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="schedules-paste-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="schedules-paste-modal__head">
+              <h2 id="schedules-paste-title">
+                {pendingUpload.source === 'paste'
+                  ? '붙여넣은 사진으로 새 버전 올리기'
+                  : '선택한 사진으로 새 버전 올리기'}
+              </h2>
+              <p>
+                {monthLabel} 스케줄의 새 버전으로 올라갑니다. 올리기 전에 변경 메모와 @호명을
+                남길 수 있습니다.
+              </p>
+            </div>
+
+            <div className="schedules-paste-modal__preview">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={pendingPreviewUrl} alt="올릴 스케줄 사진 미리보기" />
+            </div>
+
+            <div className="schedules-page__note-field">
+              <label>
+                <span>변경 메모 (선택)</span>
+                <textarea
+                  value={note}
+                  placeholder={
+                    '예) 야간 근무 조정했습니다.\n@홍길동 8/14 근무로 변경되었으니 꼭 확인해 주세요.'
+                  }
+                  rows={3}
+                  maxLength={1000}
+                  autoFocus
+                  onChange={(e) => setNote(e.target.value)}
+                />
+              </label>
+              {staffNames.length ? (
+                <div className="schedules-page__mention-row" aria-label="직원 호명">
+                  <span>호명</span>
+                  {staffNames.map((staffName) => {
+                    const on = note.includes(`@${staffName}`);
+                    return (
+                      <button
+                        key={staffName}
+                        type="button"
+                        className={`schedules-page__mention-chip${on ? ' is-on' : ''}`}
+                        onClick={() => toggleMention(staffName)}
+                      >
+                        @{staffName}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="schedules-paste-modal__actions">
+              <button
+                type="button"
+                className="btn btn--outline"
+                disabled={upload.isPending}
+                onClick={() => setPendingUpload(null)}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="btn btn--primary"
+                disabled={upload.isPending}
+                onClick={() => void confirmPendingUpload()}
+              >
+                {upload.isPending ? '올리는 중…' : '새 버전 올리기'}
+              </button>
             </div>
           </div>
         </div>

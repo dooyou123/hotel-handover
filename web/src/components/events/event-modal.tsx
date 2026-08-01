@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { normalizeEventEndDate } from '@/lib/events/event-dates';
 import { EVENT_CATEGORIES, type HotelEvent, type HotelEventInput } from '@/lib/events/types';
+import { closeOnOverlayClick } from '@/lib/ui/close-on-overlay-click';
 
 type EventModalProps = {
   open: boolean;
@@ -96,7 +97,7 @@ export function EventModal({ open, event, defaultDate, authorLabel, onClose, onS
   }
 
   const dialog = (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={closeOnOverlayClick(onClose)}>
       <div className="modal" onClick={(ev) => ev.stopPropagation()}>
         <form noValidate onSubmit={handleSubmit} className="modal__form">
           <div className="modal__header">

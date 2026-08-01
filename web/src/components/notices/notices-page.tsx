@@ -7,7 +7,7 @@ import { logActivity } from '@/lib/handover/activity';
 import { markNoticeRead, pinnedNotices as getPinnedNotices, unreadPinnedCount } from '@/lib/notices/reads';
 import { useInvalidateNoticeReads, useNoticeReads } from '@/lib/notices/use-notice-reads';
 import { formatTime } from '@/lib/handover/card-utils';
-import { noticeListTitle, noticeTypeShort } from '@/lib/handover/notice-utils';
+import { noticeBodyWithoutTitle, noticeListTitle, noticeTypeShort } from '@/lib/handover/notice-utils';
 import { formatExpiryLabel } from '@/lib/handover/shift-summary';
 import { useNotices } from '@/lib/handover/use-notices';
 import { useIsManager } from '@/lib/handover/use-cards';
@@ -30,7 +30,6 @@ import {
   WorkHubFilterTabs,
   WorkHubList,
   WorkHubPanel,
-  WorkHubRow,
   WorkHubSearch,
   WorkHubSection,
   WorkHubToolbar,
@@ -42,6 +41,26 @@ type NoticesPageClientProps = {
   /** 팀 소식·일정 허브 안에 임베드 */
   embedded?: boolean;
 };
+
+/** 필독·고정 묶음에서 접기 전 기본으로 보여줄 개수 */
+const PINNED_VISIBLE_LIMIT = 3;
+
+/** 미리보기에서 긴 URL을 짧은 표식으로 치환 */
+function noticePreviewText(content: string): string {
+  return noticeBodyWithoutTitle(content)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join(' ')
+    .replace(/https?:\/\/\S+/g, '🔗 링크');
+}
+
+/** "B조 · 강두훈" 형태의 작성자에서 조 배지와 이름을 분리 */
+function splitAuthorGroup(author: string): { group: string | null; rest: string } {
+  const match = /^\s*([A-E])조\s*·\s*(.+)$/.exec(author);
+  if (!match) return { group: null, rest: author };
+  return { group: match[1], rest: match[2] };
+}
 
 function NoticeExpiryBadge({ expiresAt }: { expiresAt: string | null }) {
   const expiry = formatExpiryLabel(expiresAt);
@@ -77,6 +96,7 @@ export function NoticesPageClient({ embedded = false }: NoticesPageClientProps) 
   const [defaultType, setDefaultType] = useState<NoticeType>('announcement');
   const [toast, setToast] = useState<string | null>(null);
   const [staffNames, setStaffNames] = useState<string[]>([]);
+  const [pinnedExpanded, setPinnedExpanded] = useState(false);
   const recordedReadRef = useRef(new Set<string>());
 
   const allPinned = useMemo(
@@ -86,6 +106,13 @@ export function NoticesPageClient({ embedded = false }: NoticesPageClientProps) 
   const pinnedIds = useMemo(() => allPinned.map((n) => n.id), [allPinned]);
   const { data: noticeReads = [] } = useNoticeReads(pinnedIds);
   const myUnreadPinned = unreadPinnedCount(allPinned, noticeReads, session.name);
+  const myReadNoticeIds = useMemo(() => {
+    const name = session.name.trim();
+    if (!name) return new Set<string>();
+    return new Set(
+      noticeReads.filter((read) => read.staff_name === name).map((read) => read.notice_id),
+    );
+  }, [noticeReads, session.name]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -128,40 +155,62 @@ export function NoticesPageClient({ embedded = false }: NoticesPageClientProps) 
     const isDone = isNoticeCompleted(notice);
     const expiry = formatExpiryLabel(notice.expires_at);
     const showPinChip = options?.showPinChip ?? notice.is_pinned;
+    const preview = noticePreviewText(notice.content);
+    const authorParts = splitAuthorGroup(notice.author || '—');
+    const unreadByMe =
+      notice.is_pinned && !isDone && Boolean(session.name.trim()) && !myReadNoticeIds.has(notice.id);
     return (
-      <WorkHubRow
-        key={notice.id}
-        tone={notice.type === 'change' ? 'change' : 'announcement'}
-        kind={noticeTypeShort(notice.type)}
-        title={<LinkifiedText text={noticeListTitle(notice.content)} />}
-        meta={
-          <>
+      <li key={notice.id}>
+        <button
+          type="button"
+          className={[
+            'notice-board-row',
+            `notice-board-row--${notice.type}`,
+            activeNotice?.id === notice.id ? 'is-reading' : '',
+            isDone ? 'is-done' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          onClick={() => openRead(notice)}
+        >
+          <span className="notice-board-row__top">
+            <span className={`notice-board-row__type notice-board-row__type--${notice.type}`}>
+              {noticeTypeShort(notice.type)}
+            </span>
+            <span className="notice-board-row__title">
+              <LinkifiedText text={noticeListTitle(notice.content)} />
+            </span>
+            {unreadByMe ? (
+              <span className="notice-board-row__chip notice-board-row__chip--unread">미확인</span>
+            ) : null}
             {showPinChip ? (
-              <span className="work-hub-today__chip work-hub-today__chip--pin">고정</span>
+              <span className="notice-board-row__chip notice-board-row__chip--pin">📌 고정</span>
             ) : null}
             {isDone ? (
-              <span className="work-hub-today__chip work-hub-today__chip--done">완료</span>
+              <span className="notice-board-row__chip notice-board-row__chip--done">완료</span>
             ) : null}
             {expiry?.soon ? (
-              <span className="work-hub-today__chip work-hub-today__chip--warn">{expiry.text}</span>
+              <span className="notice-board-row__chip notice-board-row__chip--warn">{expiry.text}</span>
             ) : null}
-            <span>
-              {notice.author || '—'}
+          </span>
+          <span className="notice-board-row__sub">
+            {preview ? <span className="notice-board-row__preview">{preview}</span> : null}
+            <span className="notice-board-row__meta">
+              {authorParts.group ? (
+                <span
+                  className={`notice-board-row__group notice-board-row__group--${authorParts.group.toLowerCase()}`}
+                >
+                  {authorParts.group}조
+                </span>
+              ) : null}
+              {authorParts.rest}
               {' · '}
               {formatTime(notice.updated_at || notice.created_at)}
               {expiry && !expiry.soon ? ` · ${expiry.text}` : ''}
             </span>
-          </>
-        }
-        rowClassName={[
-          notice.is_pinned ? 'is-pinned' : '',
-          activeNotice?.id === notice.id ? 'is-reading' : '',
-          isDone ? 'is-done' : '',
-        ]
-          .filter(Boolean)
-          .join(' ') || undefined}
-        onClick={() => openRead(notice)}
-      />
+          </span>
+        </button>
+      </li>
     );
   }
 
@@ -372,37 +421,30 @@ export function NoticesPageClient({ embedded = false }: NoticesPageClientProps) 
 
           {filtered.length ? (
             <>
-              <ul className="work-hub-board-legend" aria-label="표시 안내">
-                <li>
-                  <i className="is-announcement" aria-hidden />
-                  공지
-                </li>
-                <li>
-                  <i className="is-change" aria-hidden />
-                  변경
-                </li>
-                <li>
-                  <i className="is-pin" aria-hidden />
-                  고정
-                </li>
-                <li>
-                  <i className="is-warn" aria-hidden />
-                  만료 임박
-                </li>
-              </ul>
-
               {pinnedNotices.length ? (
                 <WorkHubSection
                   id="work-hub-notices-pinned"
-                  title="고정"
+                  title="📌 필독 · 고정"
                   aside={<span className="work-hub__count">{pinnedNotices.length}건</span>}
                 >
                   <div className="work-hub-notices-pinned">
                     <WorkHubList>
-                      {pinnedNotices.map((notice) =>
-                        renderWorkHubNoticeRow(notice, { showPinChip: false }),
-                      )}
+                      {(pinnedExpanded
+                        ? pinnedNotices
+                        : pinnedNotices.slice(0, PINNED_VISIBLE_LIMIT)
+                      ).map((notice) => renderWorkHubNoticeRow(notice, { showPinChip: false }))}
                     </WorkHubList>
+                    {pinnedNotices.length > PINNED_VISIBLE_LIMIT ? (
+                      <button
+                        type="button"
+                        className="work-hub-notices-pinned__more"
+                        onClick={() => setPinnedExpanded((prev) => !prev)}
+                      >
+                        {pinnedExpanded
+                          ? '접기 ▴'
+                          : `고정 글 ${pinnedNotices.length - PINNED_VISIBLE_LIMIT}건 더보기 ▾`}
+                      </button>
+                    ) : null}
                   </div>
                 </WorkHubSection>
               ) : null}

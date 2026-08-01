@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { buildProjectListSections, isActiveHandoverCard, isBulkArchivableCard, pinnedFirst } from '@/lib/handover/card-utils';
-import { buildThreadCounts, groupCardsByThread } from '@/lib/handover/card-thread';
+import { buildThreadCounts, groupCardsByThread, sortThreadCards } from '@/lib/handover/card-thread';
 import { isToday } from '@/lib/handover/shift-summary';
-import type { Card, QuickFilter } from '@/lib/handover/types';
+import type { Card, CardAttachment, QuickFilter } from '@/lib/handover/types';
 import { HandoverListRowProject } from './handover-list-row-project';
 import { HandoverStatusTabs, type HandoverStatusTab } from './handover-status-tabs';
 
@@ -24,6 +24,9 @@ type HandoverListProjectProps = {
   onOpenCard: (card: Card) => void;
   onOpenCardComments: (card: Card) => void;
   onAddComment: (cardId: string, content: string) => Promise<void>;
+  onUpdateComment?: (cardId: string, commentId: string, content: string) => Promise<void>;
+  onDeleteComment?: (cardId: string, commentId: string) => Promise<void>;
+  onAnnotateAttachment?: (attachment: CardAttachment, file: File) => Promise<void>;
   staffName: string;
   commentDisabled?: boolean;
   onAcknowledge: (cardId: string) => void;
@@ -97,6 +100,9 @@ export function HandoverListProject({
   onOpenCard,
   onOpenCardComments,
   onAddComment,
+  onUpdateComment,
+  onDeleteComment,
+  onAnnotateAttachment,
   staffName,
   commentDisabled = false,
   onAcknowledge,
@@ -491,23 +497,44 @@ export function HandoverListProject({
         {activeCards.length ? (
           <div className="project-list__rows">
             {groupCardsByThread(activeCards).map((group) => {
-              const rows = group.cards.map((card) => {
+              // 그룹 묶음 자체의 위치는 첫 등장 위치(미확인 긴급 우선)를 따르되,
+              // 묶음 안에서는 사건의 흐름대로 발생 순서(작성 시각)로 보여준다: ① → ②
+              const isGrouped = Boolean(group.threadId) && group.cards.length > 1;
+              const groupCards = isGrouped ? sortThreadCards(group.cards) : group.cards;
+              const threadOrder = isGrouped
+                ? new Map(groupCards.map((card, index) => [card.id, index + 1]))
+                : null;
+              const rows = groupCards.map((card) => {
                 const selectable = isActiveHandoverCard(card) || isBulkArchivableCard(card);
 
-                return (
+                const row = (
                   <HandoverListRowProject
                     key={card.id}
                     card={card}
                     searchQuery={searchQuery}
                     staffNames={staffNames}
                     unseen={unseenCardIds?.has(card.id) ?? false}
-                    threadCount={card.thread_id ? threadCounts.get(card.thread_id) ?? 1 : 0}
+                    threadCount={
+                      // 그룹으로 묶여 보일 때는 배지가 중복 정보라 숨긴다
+                      isGrouped ? 0 : card.thread_id ? threadCounts.get(card.thread_id) ?? 1 : 0
+                    }
                     bulkMode={bulkMode && selectable}
                     selected={selectedIds.includes(card.id)}
                     onToggleSelect={() => toggleCardSelection(card.id)}
                     onOpen={() => onOpenCard(card)}
                     onOpenComments={() => onOpenCardComments(card)}
                     onAddComment={(content) => onAddComment(card.id, content)}
+                    onUpdateComment={
+                      onUpdateComment
+                        ? (commentId, content) => onUpdateComment(card.id, commentId, content)
+                        : undefined
+                    }
+                    onDeleteComment={
+                      onDeleteComment
+                        ? (commentId) => onDeleteComment(card.id, commentId)
+                        : undefined
+                    }
+                    onAnnotateAttachment={onAnnotateAttachment}
                     staffName={staffName}
                     commentDisabled={commentDisabled}
                     onAcknowledge={() => onAcknowledge(card.id)}
@@ -522,13 +549,32 @@ export function HandoverListProject({
                     onTogglePin={onTogglePin ? () => onTogglePin(card) : undefined}
                   />
                 );
+
+                if (!threadOrder) return row;
+                return (
+                  <div key={card.id} className="project-list__thread-item">
+                    <span
+                      className="project-list__thread-order"
+                      title={`이 연계에서 ${threadOrder.get(card.id)}번째로 작성된 카드`}
+                    >
+                      {threadOrder.get(card.id)}
+                    </span>
+                    {row}
+                  </div>
+                );
               });
 
-              if (group.threadId && group.cards.length > 1) {
+              if (isGrouped) {
+                // 사건의 시작(가장 먼저 작성된 카드)을 대표 제목으로 보여준다
+                const originCard = sortThreadCards(group.cards)[0];
                 return (
                   <div key={`thread-${group.threadId}`} className="project-list__thread-group">
                     <p className="project-list__thread-group-head">
-                      <span aria-hidden>🔗</span> 같은 사건 {group.cards.length}건
+                      <span aria-hidden>🔗</span> 연결된 인계 {group.cards.length}건
+                      <span className="project-list__thread-group-title">
+                        {originCard.room ? `[${originCard.room}] ` : ''}
+                        {originCard.title}
+                      </span>
                     </p>
                     {rows}
                   </div>

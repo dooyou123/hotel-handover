@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import {
   clearScheduleBoardImage,
+  deleteScheduleBoardVersion,
   fetchScheduleBoardImage,
   fetchScheduleBoardReads,
   listActiveStaff,
@@ -87,6 +88,11 @@ export function useScheduleBoardImage(monthKey: string) {
     },
   });
 
+  const deleteVersion = useMutation({
+    mutationFn: (versionId: string) => deleteScheduleBoardVersion(monthKey, versionId),
+    onSuccess: () => invalidateMonth(),
+  });
+
   const markRead = useMutation({
     mutationFn: (input: { versionId: string; staffName: string; shift?: string }) =>
       markScheduleBoardRead({ ...input, monthKey }),
@@ -106,6 +112,7 @@ export function useScheduleBoardImage(monthKey: string) {
     staffNames: staffQuery.data ?? [],
     upload,
     clear,
+    deleteVersion,
     markRead,
   };
 }

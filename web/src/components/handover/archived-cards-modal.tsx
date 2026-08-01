@@ -5,6 +5,7 @@ import { formatArchiveTime, formatAssigneeLabel, formatTime } from '@/lib/handov
 import { formatComplaintRemedies } from '@/lib/handover/complaint-remedies';
 import type { Card } from '@/lib/handover/types';
 import { LinkifiedText } from '@/components/ui/linkified-text';
+import { closeOnOverlayClick } from '@/lib/ui/close-on-overlay-click';
 
 type ArchivedCardsModalProps = {
   open: boolean;
@@ -49,7 +50,7 @@ export function ArchivedCardsModal({
   if (!open) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={closeOnOverlayClick(onClose)}>
       <div className="modal modal--activity" onClick={(event) => event.stopPropagation()}>
         <div className="activity-modal">
           <div className="modal__header">

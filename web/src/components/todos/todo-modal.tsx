@@ -1,5 +1,6 @@
 'use client';
 
+import { closeOnOverlayClick } from '@/lib/ui/close-on-overlay-click';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -150,7 +151,7 @@ export function TodoModal({
   }
 
   const dialog = (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={closeOnOverlayClick(onClose)}>
       <div className="modal" onClick={(ev) => ev.stopPropagation()}>
         <form noValidate onSubmit={handleSubmit} className="modal__form">
           <div className="modal__header">

@@ -3,6 +3,7 @@
 import { formatTime } from '@/lib/handover/card-utils';
 import type { ShiftHandover } from '@/lib/handover/types';
 import { useShiftHandovers } from '@/lib/handover/use-activity-logs';
+import { closeOnOverlayClick } from '@/lib/ui/close-on-overlay-click';
 
 type ShiftHandoverLogModalProps = {
   open: boolean;
@@ -47,7 +48,7 @@ export function ShiftHandoverLogModal({ open, onClose }: ShiftHandoverLogModalPr
   if (!open) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={closeOnOverlayClick(onClose)}>
       <div className="modal modal--activity" onClick={(event) => event.stopPropagation()}>
         <div className="activity-modal">
           <div className="modal__header">

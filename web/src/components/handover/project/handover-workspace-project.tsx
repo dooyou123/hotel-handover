@@ -4,7 +4,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { HandoverRecordsTab } from '@/lib/handover/records';
 import { isToday, type ShiftSummaryData } from '@/lib/handover/shift-summary';
-import type { Card, HandoverViewMode, QuickFilter, WorkSession } from '@/lib/handover/types';
+import type {
+  Card,
+  CardAttachment,
+  HandoverViewMode,
+  QuickFilter,
+  WorkSession,
+} from '@/lib/handover/types';
 import type { HotelEvent } from '@/lib/events/types';
 import type { TodayAlertItem } from '@/lib/today/alerts';
 import type { Todo } from '@/lib/todos/types';
@@ -64,6 +70,9 @@ type HandoverWorkspaceProjectProps = {
   onOpenCard: (card: Card) => void;
   onOpenCardComments: (card: Card) => void;
   onAddComment: (cardId: string, content: string) => Promise<void>;
+  onUpdateComment?: (cardId: string, commentId: string, content: string) => Promise<void>;
+  onDeleteComment?: (cardId: string, commentId: string) => Promise<void>;
+  onAnnotateAttachment?: (attachment: CardAttachment, file: File) => Promise<void>;
   staffNames: string[];
   staffName: string;
   commentDisabled?: boolean;
@@ -140,6 +149,9 @@ export function HandoverWorkspaceProject({
   onOpenCard,
   onOpenCardComments,
   onAddComment,
+  onUpdateComment,
+  onDeleteComment,
+  onAnnotateAttachment,
   staffNames,
   staffName,
   commentDisabled = false,
@@ -350,6 +362,9 @@ export function HandoverWorkspaceProject({
                 onOpenCard={onOpenCard}
                 onOpenCardComments={onOpenCardComments}
                 onAddComment={onAddComment}
+                onUpdateComment={onUpdateComment}
+                onDeleteComment={onDeleteComment}
+                onAnnotateAttachment={onAnnotateAttachment}
                 staffName={staffName}
                 commentDisabled={commentDisabled}
                 onAcknowledge={onAcknowledge}
