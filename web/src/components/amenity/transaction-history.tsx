@@ -19,6 +19,7 @@ import {
   type AmenityTransactionDisplayType,
 } from '@/lib/amenity/transaction-display';
 import { AMENITY_WORKSPACE_TABS } from '@/lib/amenity/copy';
+import { resolveAmenityUnit } from '@/lib/amenity/units';
 
 const PAGE_SIZE_EMBEDDED = 20;
 const PAGE_SIZE_FULL = 50;
@@ -246,7 +247,12 @@ export function AmenityTransactionHistory({
                               {displayType}
                             </span>
                             <label className="amenity-history__inline-field">
-                              <span>수량</span>
+                              <span>
+                                수량
+                                {tx.amenities
+                                  ? ` (${resolveAmenityUnit(tx.amenities)})`
+                                  : ''}
+                              </span>
                               <input
                                 type="text"
                                 inputMode="numeric"

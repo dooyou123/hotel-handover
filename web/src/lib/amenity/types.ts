@@ -7,6 +7,8 @@ export interface Amenity {
   box_size: number;
   unit_size: number;
   sort_order: number;
+  /** 재고 단위. 기본 '개', 커피 원두는 '봉'. */
+  unit: string;
 }
 
 export interface AmenityInventoryRow {
@@ -29,7 +31,7 @@ export interface AmenityTransaction {
   memo: string;
   audit_before?: number | null;
   audit_after?: number | null;
-  amenities?: Pick<Amenity, 'name'>;
+  amenities?: Pick<Amenity, 'name' | 'unit'>;
 }
 
 export interface InventoryItem extends Amenity {

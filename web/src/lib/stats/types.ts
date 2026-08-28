@@ -14,6 +14,7 @@ export type DayCount = {
 export type AmenityItemUsage = {
   amenityId: number;
   name: string;
+  unit: string;
   totalItems: number;
   transactionCount: number;
 };

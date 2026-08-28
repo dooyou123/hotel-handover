@@ -1,5 +1,6 @@
 import { DEFAULT_HOTEL_ID, SHIFTS } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
+import { resolveAmenityUnit } from '@/lib/amenity/units';
 import type {
   AmenityDayUsage,
   AmenityItemUsage,
@@ -142,7 +143,7 @@ function aggregateAmenityByItem(
   rows: {
     amenity_id: number;
     total_items: number;
-    amenities: { name: string } | { name: string }[] | null;
+    amenities: { name: string; unit?: string | null } | { name: string; unit?: string | null }[] | null;
   }[],
 ): AmenityItemUsage[] {
   const map = new Map<number, AmenityItemUsage>();
@@ -150,6 +151,7 @@ function aggregateAmenityByItem(
   for (const row of rows) {
     const amenity = Array.isArray(row.amenities) ? row.amenities[0] : row.amenities;
     const name = amenity?.name ?? `품목 ${row.amenity_id}`;
+    const unit = resolveAmenityUnit(amenity ? { name, unit: amenity.unit } : { name });
     const existing = map.get(row.amenity_id);
     if (existing) {
       existing.totalItems += row.total_items;
@@ -158,6 +160,7 @@ function aggregateAmenityByItem(
       map.set(row.amenity_id, {
         amenityId: row.amenity_id,
         name,
+        unit,
         totalItems: row.total_items,
         transactionCount: 1,
       });
@@ -339,7 +342,7 @@ export async function fetchStatsData(period: StatsPeriod): Promise<StatsData> {
       .lte('created_at', endIso),
     supabase
       .from('amenity_transactions')
-      .select('created_at, total_items, amenity_id, author, amenities(name)')
+      .select('created_at, total_items, amenity_id, author, amenities(name, unit)')
       .eq('hotel_id', DEFAULT_HOTEL_ID)
       .eq('type', '출고')
       .gte('created_at', startIso)

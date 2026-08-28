@@ -6,6 +6,13 @@ import { AMENITY_MODE_HINTS } from '@/lib/amenity/copy';
 import { orderBoxItemCount } from '@/lib/amenity/reorder';
 import type { AmenityTransactionType, InventoryItem } from '@/lib/amenity/types';
 import { getStockStatus, STOCK_BADGE_CLASS, STOCK_LABELS } from '@/lib/amenity/ui';
+import {
+  amenityShowsPackCount,
+  bagQtyPresets,
+  formatAmenityQty,
+  isBagAmenityUnit,
+  resolveAmenityUnit,
+} from '@/lib/amenity/units';
 
 type PanelMode = AmenityTransactionType | '실사';
 
@@ -72,6 +79,9 @@ export function AmenityTransactionPanel({
   }
 
   const status = getStockStatus(selected.quantity, selected.box_size);
+  const unit = resolveAmenityUnit(selected);
+  const bagUnit = isBagAmenityUnit(unit);
+  const qtyLabel = (n: number) => formatAmenityQty(n, unit);
   const isStockInsufficient = mode === '출고' && quantity > selected.quantity;
   const orderFillQty = orderBoxItemCount(selected.orderBoxes, selected.box_size);
   const countDelta = isCountMode && quantity >= 0 ? quantity - selected.quantity : 0;
@@ -100,6 +110,7 @@ export function AmenityTransactionPanel({
           currentQuantity: selected!.quantity,
           author,
           memo,
+          unit,
         });
         setMemo('');
         onSuccess();
@@ -116,7 +127,7 @@ export function AmenityTransactionPanel({
       return;
     }
     if (isStockInsufficient) {
-      onError(`재고가 부족합니다. (현재 ${selected!.quantity.toLocaleString()}개)`);
+      onError(`재고가 부족합니다. (현재 ${qtyLabel(selected!.quantity)})`);
       return;
     }
 
@@ -145,9 +156,9 @@ export function AmenityTransactionPanel({
       ? countDelta === 0
         ? '재고 맞추기'
         : countDelta > 0
-          ? `입고 ${countDelta.toLocaleString()}개 맞추기`
-          : `출고 ${Math.abs(countDelta).toLocaleString()}개 맞추기`
-      : `${mode} ${quantity >= 1 ? quantity.toLocaleString() : '0'}개`;
+          ? `입고 ${qtyLabel(countDelta)} 맞추기`
+          : `출고 ${qtyLabel(Math.abs(countDelta))} 맞추기`
+      : `${mode} ${quantity >= 1 ? qtyLabel(quantity) : formatAmenityQty(0, unit)}`;
 
   return (
     <aside className="amenity-side-panel schedule-panel amenity-side-panel--compact">
@@ -159,10 +170,12 @@ export function AmenityTransactionPanel({
           </span>
         </div>
         <p className="amenity-side-panel__stock-line">
-          재고 <strong>{selected.quantity.toLocaleString()}개</strong>
-          <span>· {selected.remainingBoxes}박스</span>
+          재고 <strong>{qtyLabel(selected.quantity)}</strong>
+          {amenityShowsPackCount(selected) ? <span>· {selected.remainingBoxes}박스</span> : null}
           {selected.orderBoxes > 0 ? (
-            <span className="amenity-side-panel__order-hint">· 발주 {selected.orderBoxes}박스</span>
+            <span className="amenity-side-panel__order-hint">
+              · 발주 {bagUnit ? qtyLabel(orderFillQty) : `${selected.orderBoxes}박스`}
+            </span>
           ) : null}
         </p>
       </div>
@@ -190,7 +203,7 @@ export function AmenityTransactionPanel({
         <p className="amenity-side-panel__mode-hint">{AMENITY_MODE_HINTS[mode]}</p>
 
         <label className="field">
-          <span>{isCountMode ? '실제 개수' : '수량 (개)'}</span>
+          <span>{isCountMode ? `실제 수량 (${unit})` : `수량 (${unit})`}</span>
           <input
             type="text"
             inputMode="numeric"
@@ -205,47 +218,63 @@ export function AmenityTransactionPanel({
                 setQuantityText('1');
               }
             }}
-            placeholder={isCountMode ? '실사한 개수' : '숫자 입력'}
+            placeholder={isCountMode ? `실사한 ${unit} 수` : '숫자 입력'}
             disabled={busy || submitting}
           />
         </label>
 
-        {!isCountMode && mode === '입고' && selected.orderBoxes > 0 ? (
+        {!isCountMode && bagUnit ? (
+          <div className="amenity-side-panel__quick-row">
+            {bagQtyPresets(mode === '입고' ? selected.box_size : undefined).map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                className="btn btn--ghost btn--small amenity-side-panel__quick"
+                disabled={busy || submitting}
+                onClick={() => setQuantity(preset)}
+              >
+                {formatAmenityQty(preset, unit)}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {!isCountMode && !bagUnit && mode === '입고' && selected.orderBoxes > 0 ? (
           <button
             type="button"
             className="btn btn--ghost btn--small amenity-side-panel__quick"
             disabled={busy || submitting}
             onClick={() => setQuantity(orderFillQty)}
           >
-            발주 권장량 ({orderFillQty.toLocaleString()}개)
+            발주 권장량 ({qtyLabel(orderFillQty)})
           </button>
         ) : null}
 
-        {!isCountMode && mode === '입고' ? (
+        {!isCountMode && !bagUnit && mode === '입고' ? (
           <button
             type="button"
             className="btn btn--ghost btn--small amenity-side-panel__quick"
             disabled={busy || submitting}
             onClick={() => setQuantity(selected.box_size)}
           >
-            1발주박스 ({selected.box_size.toLocaleString()}개)
+            1발주박스 ({qtyLabel(selected.box_size)})
           </button>
         ) : null}
 
-        {!isCountMode && mode === '출고' ? (
+        {!isCountMode && !bagUnit && mode === '출고' ? (
           <button
             type="button"
             className="btn btn--ghost btn--small amenity-side-panel__quick"
             disabled={busy || submitting}
             onClick={() => setQuantity(selected.unit_size)}
           >
-            1박스 ({selected.unit_size.toLocaleString()}개)
+            1박스 ({qtyLabel(selected.unit_size)})
           </button>
         ) : null}
 
         {isCountMode && countDelta !== 0 && quantity >= 0 ? (
           <p className={`amenity-adjust-panel__delta${countDelta > 0 ? ' is-plus' : ' is-minus'}`}>
-            시스템 {selected.quantity.toLocaleString()}개 → 실사 {quantity.toLocaleString()}개
+            시스템 {qtyLabel(selected.quantity)} → 실사 {qtyLabel(quantity)}
           </p>
         ) : null}
 

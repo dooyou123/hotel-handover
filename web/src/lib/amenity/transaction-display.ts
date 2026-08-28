@@ -1,4 +1,5 @@
 import type { AmenityTransaction } from '@/lib/amenity/types';
+import { formatAmenityQty, resolveAmenityUnit } from '@/lib/amenity/units';
 
 export type AmenityTransactionDisplayType = '입고' | '출고' | '실사';
 
@@ -25,7 +26,8 @@ export function matchesAmenityTransactionFilter(
 
 export function formatAmenityTransactionQuantity(tx: AmenityTransaction): string {
   const displayType = resolveAmenityTransactionDisplayType(tx);
-  const qty = `${tx.total_items.toLocaleString()}개`;
+  const unit = resolveAmenityUnit(tx.amenities);
+  const qty = formatAmenityQty(tx.total_items, unit);
 
   if (displayType !== '실사') return qty;
 

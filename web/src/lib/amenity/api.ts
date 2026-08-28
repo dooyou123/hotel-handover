@@ -9,6 +9,7 @@ import {
   type AmenityTransactionType,
   type InventoryItem,
 } from '@/lib/amenity/types';
+import { DEFAULT_AMENITY_UNIT, formatAmenityQty, resolveAmenityUnit } from '@/lib/amenity/units';
 
 function monthlyUsageStartIso(): string {
   const date = new Date();
@@ -30,7 +31,7 @@ export async function fetchAmenityInventoryData(hotelId = DEFAULT_HOTEL_ID) {
     supabase.from('amenity_inventory').select('*').eq('hotel_id', hotelId),
     supabase
       .from('amenity_transactions')
-      .select('*, amenities(name)')
+      .select('*, amenities(name, unit)')
       .eq('hotel_id', hotelId)
       .order('created_at', { ascending: false })
       .limit(100),
@@ -67,6 +68,7 @@ export async function fetchAmenityInventoryData(hotelId = DEFAULT_HOTEL_ID) {
     const monthlyUsage = monthlyUsageMap.get(amenity.id) ?? 0;
     return {
       ...amenity,
+      unit: resolveAmenityUnit(amenity),
       quantity,
       minQuantity,
       monthlyUsage,
@@ -89,7 +91,7 @@ export async function fetchAllAmenityTransactions(hotelId = DEFAULT_HOTEL_ID) {
   while (true) {
     const { data, error } = await supabase
       .from('amenity_transactions')
-      .select('*, amenities(name)')
+      .select('*, amenities(name, unit)')
       .eq('hotel_id', hotelId)
       .order('created_at', { ascending: false })
       .range(from, from + AMENITY_TRANSACTION_PAGE_SIZE - 1);
@@ -177,6 +179,7 @@ export async function adjustAmenityInventory(params: {
   currentQuantity: number;
   author: string;
   memo?: string;
+  unit?: string;
   hotelId?: string;
 }) {
   const actual = Math.max(0, Math.floor(params.actualQuantity));
@@ -184,9 +187,10 @@ export async function adjustAmenityInventory(params: {
 
   const supabase = createClient();
   const hotelId = params.hotelId ?? DEFAULT_HOTEL_ID;
+  const unit = params.unit || DEFAULT_AMENITY_UNIT;
   const note =
     params.memo?.trim() ||
-    `재고조정 — 실사 ${actual.toLocaleString()}개 (시스템 ${params.currentQuantity.toLocaleString()}개)`;
+    `재고조정 — 실사 ${formatAmenityQty(actual, unit)} (시스템 ${formatAmenityQty(params.currentQuantity, unit)})`;
 
   const { data, error } = await supabase.rpc('add_amenity_audit_transaction', {
     p_hotel_id: hotelId,

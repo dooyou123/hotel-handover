@@ -5,7 +5,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ShiftBriefContent } from '@/components/handover/shift-brief-content';
 import { cardSummaryLabel } from '@/lib/handover/activity';
 import { fetchAmenityInventoryData } from '@/lib/amenity/api';
+import { orderBoxItemCount } from '@/lib/amenity/reorder';
 import { getStockStatus } from '@/lib/amenity/ui';
+import { resolveAmenityUnit } from '@/lib/amenity/units';
 import { DEFAULT_HOTEL_ID } from '@/lib/constants';
 import { fetchHousekeepingReport } from '@/lib/housekeeping/api';
 import {
@@ -125,6 +127,8 @@ export function HandoverShiftBriefProject({
         quantity: item.quantity,
         monthlyUsage: item.monthlyUsage,
         orderBoxes: item.orderBoxes,
+        orderQty: orderBoxItemCount(item.orderBoxes, item.box_size),
+        unit: resolveAmenityUnit(item),
       }));
   }, [amenityData]);
 

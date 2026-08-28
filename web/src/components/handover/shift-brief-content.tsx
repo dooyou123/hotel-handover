@@ -18,6 +18,7 @@ import { TODO_PRIORITY_LABELS, type Todo } from '@/lib/todos/types';
 import { transportStatusLabel, type TransportBooking } from '@/lib/transport/types';
 import { formatEventTimeRange, mergeWorkScheduleItems, type WorkScheduleItem } from '@/lib/work-items/merge';
 import { LinkifiedText } from '@/components/ui/linkified-text';
+import { formatAmenityQty, isBagAmenityUnit } from '@/lib/amenity/units';
 import { ReviewActionCompleteModal } from '@/components/reviews/review-action-complete-modal';
 import { briefChipJumpTarget, type BriefListJump } from '@/lib/handover/brief-navigate';
 
@@ -27,6 +28,8 @@ export type AmenityBriefAlert = {
   quantity: number;
   monthlyUsage: number;
   orderBoxes: number;
+  orderQty: number;
+  unit: string;
 };
 
 export type ShiftBriefContentProps = {
@@ -879,9 +882,15 @@ export function ShiftBriefContent({
                     <article key={item.id} className="brief-item">
                       <p className="brief-item__title">{item.name}</p>
                       <p className="brief-item__sub">
-                        재고 {item.quantity.toLocaleString()}개 · 30일 사용{' '}
-                        {item.monthlyUsage.toLocaleString()}개
-                        {item.orderBoxes > 0 ? ` · 발주 권장 ${item.orderBoxes}박스` : ''}
+                        재고 {formatAmenityQty(item.quantity, item.unit)} · 30일 사용{' '}
+                        {formatAmenityQty(item.monthlyUsage, item.unit)}
+                        {item.orderBoxes > 0
+                          ? ` · 발주 권장 ${
+                              isBagAmenityUnit(item.unit)
+                                ? formatAmenityQty(item.orderQty, item.unit)
+                                : `${item.orderBoxes}박스`
+                            }`
+                          : ''}
                       </p>
                     </article>
                   ))}

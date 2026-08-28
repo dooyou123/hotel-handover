@@ -1,5 +1,6 @@
 import { orderBoxItemCount } from '@/lib/amenity/reorder';
 import type { InventoryItem } from '@/lib/amenity/types';
+import { formatAmenityQty, isBagAmenityUnit, resolveAmenityUnit } from '@/lib/amenity/units';
 
 export type AmenityOrderLine = {
   id: number;
@@ -9,6 +10,7 @@ export type AmenityOrderLine = {
   orderBoxes: number;
   boxSize: number;
   orderItems: number;
+  unit: string;
 };
 
 export function buildAmenityOrderLines(items: InventoryItem[]): AmenityOrderLine[] {
@@ -22,6 +24,7 @@ export function buildAmenityOrderLines(items: InventoryItem[]): AmenityOrderLine
       orderBoxes: item.orderBoxes,
       boxSize: item.box_size,
       orderItems: orderBoxItemCount(item.orderBoxes, item.box_size),
+      unit: resolveAmenityUnit(item),
     }))
     .sort((a, b) => b.orderBoxes - a.orderBoxes || a.name.localeCompare(b.name, 'ko'));
 }
@@ -37,10 +40,13 @@ export function buildAmenityOrderText(lines: AmenityOrderLine[], issuedAt = new 
   if (!lines.length) {
     return [...header, '발주 권장 품목이 없습니다. (최근 30일 출고 대비 재고 충분)'].join('\n');
   }
-  const body = lines.map(
-    (line, index) =>
-      `${index + 1}. ${line.name}\n   권장 ${line.orderBoxes}박스 (${line.boxSize}개/박스) · 합계 ${line.orderItems}개\n   현재고 ${line.quantity}개 · 최근 30일 출고 ${line.monthlyUsage}개`,
-  );
+  const body = lines.map((line, index) => {
+    const qty = (n: number) => formatAmenityQty(n, line.unit);
+    if (isBagAmenityUnit(line.unit)) {
+      return `${index + 1}. ${line.name}\n   권장 ${qty(line.orderItems)}\n   현재고 ${qty(line.quantity)} · 최근 30일 출고 ${qty(line.monthlyUsage)}`;
+    }
+    return `${index + 1}. ${line.name}\n   권장 ${line.orderBoxes}박스 (${line.boxSize}개/박스) · 합계 ${qty(line.orderItems)}\n   현재고 ${qty(line.quantity)} · 최근 30일 출고 ${qty(line.monthlyUsage)}`;
+  });
   return [...header, `총 ${lines.length}품목`, '', ...body].join('\n');
 }
 
@@ -65,11 +71,11 @@ export function buildAmenityOrderPrintHtml(lines: AmenityOrderLine[], issuedAt =
           (line) => `
       <tr>
         <td>${escapeHtml(line.name)}</td>
-        <td class="num">${line.quantity}</td>
-        <td class="num">${line.monthlyUsage}</td>
-        <td class="num"><strong>${line.orderBoxes}</strong></td>
-        <td class="num">${line.boxSize}</td>
-        <td class="num">${line.orderItems}</td>
+        <td class="num">${formatAmenityQty(line.quantity, line.unit)}</td>
+        <td class="num">${formatAmenityQty(line.monthlyUsage, line.unit)}</td>
+        <td class="num"><strong>${isBagAmenityUnit(line.unit) ? formatAmenityQty(line.orderItems, line.unit) : `${line.orderBoxes}박스`}</strong></td>
+        <td class="num">${isBagAmenityUnit(line.unit) ? '—' : `${line.boxSize}개`}</td>
+        <td class="num">${formatAmenityQty(line.orderItems, line.unit)}</td>
       </tr>`,
         )
         .join('')

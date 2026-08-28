@@ -7622,6 +7622,17 @@ textarea {
   justify-content: center;
 }
 
+.amenity-side-panel__quick-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.amenity-side-panel__quick-row .amenity-side-panel__quick {
+  width: auto;
+  flex: 1 1 4.5rem;
+}
+
 .amenity-side-panel__submit {
   width: 100%;
   margin-top: 0.15rem;

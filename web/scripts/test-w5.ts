@@ -18,6 +18,16 @@ import { buildTodayAlerts } from '@/lib/today/alerts';
 import type { Card, CardComment } from '@/lib/handover/types';
 import { buildAmenityOrderLines, buildAmenityOrderText } from '@/lib/amenity/order-sheet';
 import { buildAmenityTransactionsCsv, getAmenityTransactionsExportFilename } from '@/lib/amenity/export';
+import {
+  formatAmenityTransactionQuantity,
+} from '@/lib/amenity/transaction-display';
+import {
+  amenityShowsPackCount,
+  bagQtyPresets,
+  BAG_AMENITY_NAME,
+  formatAmenityQty,
+  resolveAmenityUnit,
+} from '@/lib/amenity/units';
 import { getKoreanHoliday, getKoreanHolidaysInMonth } from '@/lib/calendar/korean-holidays';
 import { monthDateRange } from '@/lib/events/month-range';
 import {
@@ -122,6 +132,7 @@ test('buildAmenityOrderLines includes only items needing reorder', () => {
       box_size: 50,
       unit_size: 10,
       sort_order: 0,
+      unit: '개',
       quantity: 20,
       minQuantity: 10,
       monthlyUsage: 80,
@@ -135,6 +146,7 @@ test('buildAmenityOrderLines includes only items needing reorder', () => {
       box_size: 40,
       unit_size: 8,
       sort_order: 1,
+      unit: '개',
       quantity: 200,
       minQuantity: 10,
       monthlyUsage: 30,
@@ -145,6 +157,65 @@ test('buildAmenityOrderLines includes only items needing reorder', () => {
   assert.equal(lines.length, 1);
   assert.equal(lines[0]?.name, '샴푸');
   assert.match(buildAmenityOrderText(lines), /샴푸/);
+  assert.match(buildAmenityOrderText(lines), /20개/);
+});
+
+test('coffee beans order lines use bag units', () => {
+  const lines = buildAmenityOrderLines([
+    {
+      id: 16,
+      hotel_id: 'h',
+      name: BAG_AMENITY_NAME,
+      box_size: 5,
+      unit_size: 1,
+      sort_order: 13,
+      unit: '봉',
+      quantity: 2,
+      minQuantity: 3,
+      monthlyUsage: 12,
+      remainingBoxes: 2,
+      orderBoxes: 2,
+    },
+  ]);
+  assert.equal(lines.length, 1);
+  assert.equal(lines[0]?.unit, '봉');
+  assert.equal(lines[0]?.orderItems, 10);
+  const text = buildAmenityOrderText(lines);
+  assert.match(text, /커피 원두/);
+  assert.match(text, /권장 10봉/);
+  assert.match(text, /현재고 2봉/);
+  assert.match(text, /최근 30일 출고 12봉/);
+  assert.doesNotMatch(text, /박스/);
+});
+
+test('resolveAmenityUnit defaults to 개 and maps coffee beans to 봉', () => {
+  assert.equal(resolveAmenityUnit({ name: '샴푸', unit: '개' }), '개');
+  assert.equal(resolveAmenityUnit({ name: BAG_AMENITY_NAME, unit: '봉' }), '봉');
+  assert.equal(resolveAmenityUnit({ name: BAG_AMENITY_NAME }), '봉');
+  assert.equal(formatAmenityQty(2, '봉'), '2봉');
+  assert.equal(formatAmenityQty(20, '개'), '20개');
+  assert.equal(amenityShowsPackCount({ name: BAG_AMENITY_NAME, unit: '봉', unit_size: 1 }), false);
+  assert.equal(amenityShowsPackCount({ name: '샴푸', unit: '개', unit_size: 10 }), true);
+  assert.deepEqual(bagQtyPresets(), [1, 2, 3]);
+  assert.deepEqual(bagQtyPresets(5), [1, 2, 3, 5]);
+});
+
+test('formatAmenityTransactionQuantity uses amenity unit', () => {
+  assert.equal(
+    formatAmenityTransactionQuantity({
+      id: 'tx-bean',
+      hotel_id: 'h',
+      created_at: '2026-06-08T09:30:00.000Z',
+      type: '출고',
+      amenity_id: 16,
+      box_count: 2,
+      total_items: 2,
+      author: 'A조 · 홍길동',
+      memo: '',
+      amenities: { name: BAG_AMENITY_NAME, unit: '봉' },
+    }),
+    '2봉',
+  );
 });
 
 test('buildAmenityTransactionsCsv includes headers and escaped memo', () => {
@@ -159,13 +230,13 @@ test('buildAmenityTransactionsCsv includes headers and escaped memo', () => {
       total_items: 20,
       author: 'A조 · 홍길동',
       memo: '3층, "비치"',
-      amenities: { name: '샴푸' },
+      amenities: { name: '샴푸', unit: '개' },
     },
   ]);
 
   assert.match(csv, /^\uFEFF/);
-  assert.match(csv, /"일시","구분","품목","수량\(개\)","박스수","작성자","메모"/);
-  assert.match(csv, /"출고","샴푸","20","2"/);
+  assert.match(csv, /"일시","구분","품목","수량","단위","박스수","작성자","메모"/);
+  assert.match(csv, /"출고","샴푸","20","개","2"/);
   assert.match(csv, /3층, ""비치"""/);
 });
 

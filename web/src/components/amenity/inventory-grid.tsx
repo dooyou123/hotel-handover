@@ -2,12 +2,14 @@
 
 import { useMemo } from 'react';
 import type { InventoryItem } from '@/lib/amenity/types';
+import { getStockStatus, STOCK_BADGE_CLASS, STOCK_CARD_CLASS, STOCK_LABELS } from '@/lib/amenity/ui';
 import {
-  getStockStatus,
-  STOCK_BADGE_CLASS,
-  STOCK_CARD_CLASS,
-  STOCK_LABELS,
-} from '@/lib/amenity/ui';
+  amenityShowsPackCount,
+  formatAmenityQty,
+  isBagAmenityUnit,
+  resolveAmenityUnit,
+} from '@/lib/amenity/units';
+import { orderBoxItemCount } from '@/lib/amenity/reorder';
 
 interface InventoryGridProps {
   items: InventoryItem[];
@@ -104,6 +106,9 @@ export function AmenityInventoryGrid({
             {sorted.map((item) => {
               const status = getStockStatus(item.quantity, item.box_size);
               const isSelected = item.id === selectedId;
+              const unit = resolveAmenityUnit(item);
+              const bagUnit = isBagAmenityUnit(unit);
+              const orderQty = orderBoxItemCount(item.orderBoxes, item.box_size);
               return (
                 <button
                   key={item.id}
@@ -116,20 +121,22 @@ export function AmenityInventoryGrid({
                       {STOCK_LABELS[status]}
                     </span>
                     {item.orderBoxes > 0 ? (
-                      <span className="amenity-grid-card__order">발주 {item.orderBoxes}박스</span>
+                      <span className="amenity-grid-card__order">
+                        발주 {bagUnit ? formatAmenityQty(orderQty, unit) : `${item.orderBoxes}박스`}
+                      </span>
                     ) : null}
                   </div>
                   <h4 className="amenity-grid-card__name">{item.name}</h4>
                   <p className="amenity-grid-card__stock">
-                    <strong>{item.quantity.toLocaleString()}</strong>개
-                    <span>· {item.remainingBoxes}박스</span>
+                    <strong>{item.quantity.toLocaleString()}</strong>{unit}
+                    {amenityShowsPackCount(item) ? <span>· {item.remainingBoxes}박스</span> : null}
                     {item.minQuantity > 0 ? <span>· 최소 {item.minQuantity}</span> : null}
                   </p>
                   {item.minQuantity > 0 && item.quantity <= item.minQuantity ? (
                     <p className="amenity-grid-card__low">재고 부족 알림</p>
                   ) : null}
                   <p className="amenity-grid-card__usage">
-                    30일 <strong>{item.monthlyUsage.toLocaleString()}</strong>개
+                    30일 <strong>{item.monthlyUsage.toLocaleString()}</strong>{unit}
                   </p>
                 </button>
               );

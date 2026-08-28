@@ -206,7 +206,7 @@ export function StatsPageClient() {
                 ) : (
                   <StatBarChart
                     items={data.amenityByItem.slice(0, 8).map((item) => ({
-                      label: item.name,
+                      label: item.unit && item.unit !== '개' ? `${item.name} (${item.unit})` : item.name,
                       count: item.totalItems,
                     }))}
                     labelKey="label"

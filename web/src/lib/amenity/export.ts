@@ -1,5 +1,6 @@
 import { formatAmenityDateTime, type AmenityTransaction } from '@/lib/amenity/types';
 import { resolveAmenityTransactionDisplayType } from '@/lib/amenity/transaction-display';
+import { resolveAmenityUnit } from '@/lib/amenity/units';
 
 function csvCell(value: string | number): string {
   return `"${String(value).replace(/"/g, '""')}"`;
@@ -15,12 +16,13 @@ export function getAmenityTransactionsExportFilename(date = new Date()): string 
 }
 
 export function buildAmenityTransactionsCsv(transactions: AmenityTransaction[]): string {
-  const headers = ['일시', '구분', '품목', '수량(개)', '박스수', '작성자', '메모'];
+  const headers = ['일시', '구분', '품목', '수량', '단위', '박스수', '작성자', '메모'];
   const rows = transactions.map((tx) => [
     formatAmenityDateTime(tx.created_at),
     resolveAmenityTransactionDisplayType(tx),
     tx.amenities?.name ?? '',
     tx.total_items,
+    resolveAmenityUnit(tx.amenities),
     tx.box_count,
     tx.author,
     tx.memo,

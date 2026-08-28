@@ -9,6 +9,7 @@ import {
 } from '@/lib/amenity/order-sheet';
 import { AMENITY_ORDER_SHEET_HINT } from '@/lib/amenity/copy';
 import type { InventoryItem } from '@/lib/amenity/types';
+import { formatAmenityQty, isBagAmenityUnit } from '@/lib/amenity/units';
 
 type AmenityOrderSheetProps = {
   items: InventoryItem[];
@@ -89,12 +90,16 @@ export function AmenityOrderSheet({ items, onToast, onCreateTodo, createTodoBusy
                 {lines.map((line: AmenityOrderLine) => (
                   <tr key={line.id}>
                     <td>{line.name}</td>
-                    <td>{line.quantity}</td>
-                    <td>{line.monthlyUsage}</td>
+                    <td>{formatAmenityQty(line.quantity, line.unit)}</td>
+                    <td>{formatAmenityQty(line.monthlyUsage, line.unit)}</td>
                     <td>
-                      <strong>{line.orderBoxes}</strong>
+                      <strong>
+                        {isBagAmenityUnit(line.unit)
+                          ? formatAmenityQty(line.orderItems, line.unit)
+                          : `${line.orderBoxes}박스`}
+                      </strong>
                     </td>
-                    <td>{line.orderItems}</td>
+                    <td>{formatAmenityQty(line.orderItems, line.unit)}</td>
                   </tr>
                 ))}
               </tbody>
