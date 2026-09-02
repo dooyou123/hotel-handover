@@ -91,7 +91,7 @@ export function buildLiveBoardFeed(input: {
   pushSummary('hold-long', '보류 오래됨', holdLong.length, 'warn');
   pushSummary('notice-expiry', '공지 만료', expiringNotices.length, 'warn');
   pushSummary('taxi-input', '택시 입력', taxiNeedsInput.length, 'urgent');
-  pushSummary('parcels', '픽업 미인도', parcelsOverdue.length, 'warn');
+  pushSummary('parcels', '픽업 미전달', parcelsOverdue.length, 'warn');
 
   for (const card of unacked) {
     items.push({
@@ -159,7 +159,7 @@ export function buildLiveBoardFeed(input: {
   for (const parcel of parcelsOverdue) {
     items.push({
       id: `parcel-${parcel.id}`,
-      label: '픽업 장기 미인도',
+      label: '픽업 장기 미전달',
       body: `${parcelPrimaryLabel(parcel)}${parcel.guest_name ? ` · ${parcel.guest_name}` : ''}${parcel.description ? ` · ${parcel.description}` : ''}`,
       tone: 'warn',
       href: '/parcels',

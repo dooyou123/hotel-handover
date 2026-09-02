@@ -100,7 +100,7 @@ export const APP_NAV = [
   { href: '/guest-notices', label: '고객 안내', description: '투숙객 안내문 작성·출력, 로고·상용구 관리.', category: 'ops' as const },
   { href: '/local-guides', label: '퀵가이드', description: '지하철·편의점·맛집 등 손님 질문에 바로 보여주거나 인쇄합니다.', category: 'ops' as const },
   { href: '/transport', label: '택시 예약', description: '픽업 예약과 기사님 확인증을 관리합니다.', category: 'ops' as const },
-  { href: '/parcels', label: '물건 픽업 장부', description: '보관 물품의 인도·서명을 기록합니다.', category: 'ops' as const },
+  { href: '/parcels', label: '물건 픽업 장부', description: '보관 물품의 전달·서명을 기록합니다.', category: 'ops' as const },
   { href: '/facility', label: '시설 현황', description: '시설 이슈와 루틴 점검을 카드로 추적합니다.', category: 'ops' as const },
   { href: '/rate-confirm', label: '객실료 컨펌', description: 'TL 예약과 PMS 데이터를 대조합니다.', category: 'ops' as const },
   { href: '/year-end-party', label: '연말 회식', description: '직원 명단·장소 투표·일정 조율·예산·초청장을 한곳에서 관리합니다.', category: 'ops' as const },

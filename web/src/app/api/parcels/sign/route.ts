@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ok: true, delivered_at: now });
   } catch (error) {
-    const message = error instanceof Error ? error.message : '인도 처리에 실패했습니다.';
+    const message = error instanceof Error ? error.message : '전달 처리에 실패했습니다.';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -13,7 +13,7 @@ export const PARCEL_BOARD_TABS: { id: ParcelBoardTab; label: string }[] = [
 export const PARCEL_ACTIVE_STATUS_FILTERS: { id: ParcelActiveStatusFilter; label: string }[] = [
   { id: 'all', label: '전체' },
   { id: 'stored', label: '보관 중' },
-  { id: 'overdue', label: '장기 미인도' },
+  { id: 'overdue', label: '장기 미전달' },
 ];
 
 /** @deprecated 완료 항목은 활성 탭에서 즉시 숨김. 완료 탭에서만 표시. */

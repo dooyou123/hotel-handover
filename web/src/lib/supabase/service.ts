@@ -5,7 +5,7 @@ export function createServiceClient() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!serviceKey) {
     throw new Error(
-      'SUPABASE_SERVICE_ROLE_KEY가 없습니다. 물건 인도 서명 업로드에 필요합니다. web/.env.local에 추가하세요.',
+      'SUPABASE_SERVICE_ROLE_KEY가 없습니다. 물건 전달 서명 업로드에 필요합니다. web/.env.local에 추가하세요.',
     );
   }
 

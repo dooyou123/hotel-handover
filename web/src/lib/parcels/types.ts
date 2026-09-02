@@ -46,7 +46,7 @@ export type ParcelInput = {
 
 export const PARCEL_STATUS_LABELS: Record<ParcelStatus, string> = {
   stored: '보관 중',
-  delivered: '인도 완료',
+  delivered: '전달 완료',
   returned: '반송',
 };
 

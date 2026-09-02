@@ -148,7 +148,7 @@ export function ParcelSignLinkModal({
     if (!signUrl) return;
     try {
       await navigator.clipboard.writeText(signUrl);
-      onToast?.('인도 링크를 복사했습니다.');
+      onToast?.('전달 링크를 복사했습니다.');
     } catch {
       onToast?.('복사에 실패했습니다.');
     }
@@ -170,7 +170,7 @@ export function ParcelSignLinkModal({
         >
           <div className="modal__header">
             <div>
-              <h2>인도 완료</h2>
+              <h2>전달 완료</h2>
               <p className="parcel-sign-link__subtitle">
                 {deliveredParcel.room_number ? `${deliveredParcel.room_number}호` : '객실 미지정'}
                 {deliveredParcel.guest_name ? ` · ${deliveredParcel.guest_name}` : ''}
@@ -215,7 +215,7 @@ export function ParcelSignLinkModal({
       >
         <div className="modal__header">
           <div>
-            <h2>인도 서명 받기</h2>
+            <h2>전달 서명 받기</h2>
             <p className="parcel-sign-link__subtitle">
               {parcel.room_number ? `${parcel.room_number}호` : '객실 미지정'}
               {parcel.guest_name ? ` · ${parcel.guest_name}` : ''}
@@ -237,7 +237,7 @@ export function ParcelSignLinkModal({
               </p>
 
               <div className="parcel-sign-link__qr-wrap">
-                <img src={qrSrc} alt="인도 서명 QR 코드" className="parcel-sign-link__qr" width={220} height={220} />
+                <img src={qrSrc} alt="전달 서명 QR 코드" className="parcel-sign-link__qr" width={220} height={220} />
               </div>
 
               <div className="parcel-sign-link__url">

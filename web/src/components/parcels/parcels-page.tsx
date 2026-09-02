@@ -98,13 +98,13 @@ export function ParcelsPageClient() {
   }
 
   function openSign(parcel: Parcel) {
-    if (!requireSession('인도 서명')) return;
+    if (!requireSession('전달 서명')) return;
     if (parcel.status === 'delivered' || parcel.status === 'returned') {
       showToast('이미 처리된 항목입니다.');
       return;
     }
     if (parcel.direction !== 'out_to_room') {
-      showToast('OUT TO ROOM 항목만 서명 인도할 수 있습니다.');
+      showToast('OUT TO ROOM 항목만 서명 전달할 수 있습니다.');
       return;
     }
     setSignParcel(parcel);
@@ -199,12 +199,12 @@ export function ParcelsPageClient() {
               {deliveryMessage}
             </span>
           ) : null}
-          {overdue ? <span className="parcel-card__status-bar-warn">3일+ 미인도</span> : null}
+          {overdue ? <span className="parcel-card__status-bar-warn">3일+ 미전달</span> : null}
           {!completed && parcel.direction === 'out_to_room' ? (
-            <span className="parcel-card__status-bar-hint">서명 후 인도</span>
+            <span className="parcel-card__status-bar-hint">서명 후 전달</span>
           ) : null}
           {!completed && parcel.direction === 'room_to_out' ? (
-            <span className="parcel-card__status-bar-hint">픽업·인도 처리</span>
+            <span className="parcel-card__status-bar-hint">픽업·전달 처리</span>
           ) : null}
         </div>
 
@@ -268,10 +268,10 @@ export function ParcelsPageClient() {
           <dt>접수</dt>
           <dd className="parcel-card__time">{formatReceivedAt(parcel.received_at)}</dd>
         </dl>
-        {overdue ? <p className="parcel-card__overdue">3일 이상 미인도</p> : null}
+        {overdue ? <p className="parcel-card__overdue">3일 이상 미전달</p> : null}
         {completed ? (
           <p className="parcel-card__delivered">
-            {parcel.status === 'returned' ? '반송 처리' : '인도 완료'}
+            {parcel.status === 'returned' ? '반송 처리' : '전달 완료'}
             {parcel.recipient_name ? ` · ${parcel.recipient_name}` : ''}
             {parcel.delivered_at ? ` · ${formatReceivedAt(parcel.delivered_at)}` : ''}
           </p>
@@ -282,26 +282,26 @@ export function ParcelsPageClient() {
             <div className="parcel-card__actions-primary">
               {parcel.direction === 'out_to_room' ? (
                 <button type="button" className="btn btn--primary btn--small" onClick={() => openSign(parcel)}>
-                  인도 서명
+                  전달 서명
                 </button>
               ) : (
                 <button
                   type="button"
                   className="btn btn--primary btn--small"
                   onClick={async () => {
-                    if (!requireSession('인도 완료')) return;
+                    if (!requireSession('전달 완료')) return;
                     try {
                       await updateParcel.mutateAsync({
                         id: parcel.id,
                         input: { status: 'delivered', updated_by: authorLabel },
                       });
-                      showToast('인도 완료 · 완료 탭에서 확인할 수 있습니다.');
+                      showToast('전달 완료 · 완료 탭에서 확인할 수 있습니다.');
                     } catch (caught) {
                       showToast(formatSupabaseClientError(caught));
                     }
                   }}
                 >
-                  인도 완료
+                  전달 완료
                 </button>
               )}
             </div>
@@ -338,7 +338,7 @@ export function ParcelsPageClient() {
       </header>
 
       <p className="parcels-page__hint" role="note">
-        인도·반송 완료 항목은 <strong>완료</strong> 탭에서만 볼 수 있습니다. 오늘 처리한 항목은{' '}
+        전달·반송 완료 항목은 <strong>완료</strong> 탭에서만 볼 수 있습니다. 오늘 처리한 항목은{' '}
         <strong>오늘 완료</strong> 섹션에 모입니다.
       </p>
 
@@ -466,7 +466,7 @@ export function ParcelsPageClient() {
         staffName={authorLabel || session.name}
         onClose={() => setSignParcel(null)}
         onDelivered={(parcel) => {
-          showToast(`${parcelPrimaryLabel(parcel)} 인도 완료 · 완료 탭에서 확인할 수 있습니다.`);
+          showToast(`${parcelPrimaryLabel(parcel)} 전달 완료 · 완료 탭에서 확인할 수 있습니다.`);
         }}
         onToast={showToast}
       />
@@ -538,8 +538,8 @@ export function ParcelsPageClient() {
 
               {signatureUrl ? (
                 <div className="parcel-detail__signature">
-                  <h3>인도 서명</h3>
-                  <img src={signatureUrl} alt="인도 서명" />
+                  <h3>전달 서명</h3>
+                  <img src={signatureUrl} alt="전달 서명" />
                 </div>
               ) : null}
             </div>
