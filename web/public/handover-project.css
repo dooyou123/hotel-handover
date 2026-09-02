@@ -2514,9 +2514,9 @@ html[data-ui='project'] .project-list__status-tab--done.is-active {
 }
 
 html[data-ui='project'] .project-list__status-tab--archive.is-active {
-  background: #f5f3ff;
-  color: #5b21b6;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #c4b5fd 60%, var(--border));
+  background: #eef3f7;
+  color: #2f4f64;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--card-accent-archive) 40%, var(--border));
 }
 
 html[data-ui='project'] .project-list__status-count {
@@ -2922,7 +2922,7 @@ html[data-ui='project'] .project-list-row--ticket.is-done {
 }
 
 html[data-ui='project'] .project-list-row--ticket.is-archived {
-  --row-accent: #8b5cf6;
+  --row-accent: var(--card-accent-archive);
 }
 
 html[data-ui='project'] .project-list-row--ticket.is-urgent-priority:not(.is-done):not(.is-hold):not(.is-archived) {
@@ -3009,8 +3009,8 @@ html[data-ui='project'] .project-list-row__stub-status--warn {
 }
 
 html[data-ui='project'] .project-list-row__stub-status--archive {
-  background: #f5f3ff;
-  color: #6d28d9;
+  background: #eef3f7;
+  color: #3d5f78;
 }
 
 /* 스텁의 각 칸은 라벨을 달아 의미를 고정한다 (보딩패스의 SEAT/GATE) */
@@ -3437,8 +3437,8 @@ html[data-ui='project'] .project-list-row__status--done {
 }
 
 html[data-ui='project'] .project-list-row__status--archive {
-  background: color-mix(in srgb, #ddd6fe 50%, var(--surface));
-  color: #5b21b6;
+  background: color-mix(in srgb, var(--card-accent-archive) 14%, var(--surface));
+  color: #2f4f64;
 }
 
 html[data-ui='project'] .project-list-row__status--hold {
@@ -4558,50 +4558,150 @@ html[data-ui='project'] .project-archive__empty-lead {
 
 /* 보관함 월별 그룹 */
 html[data-ui='project'] .project-archive__month {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--card-accent-archive) 22%, var(--border));
+  border-left: 3px solid color-mix(in srgb, var(--card-accent-archive) 70%, var(--border));
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 4%, transparent);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+html[data-ui='project'] .project-archive__month.is-expanded {
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--text) 4%, transparent),
+    0 6px 18px color-mix(in srgb, var(--card-accent-archive) 12%, transparent);
+}
+
+html[data-ui='project'] .project-archive__month.is-collapsed {
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 4%, transparent);
 }
 
 html[data-ui='project'] .project-archive__month + .project-archive__month {
-  margin-top: 0.9rem;
+  margin-top: 0;
 }
 
 html[data-ui='project'] .project-archive__month-head {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  justify-content: space-between;
+  gap: 0.75rem;
   width: 100%;
-  padding: 0.75rem 0.9rem;
-  border: 1px solid var(--border, rgba(0, 0, 0, 0.08));
-  border-radius: 10px;
-  background: var(--surface-2, rgba(0, 0, 0, 0.04));
+  padding: 0.62rem 0.85rem;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: color-mix(in srgb, var(--card-accent-archive) 7%, var(--surface-2));
   color: var(--text);
-  font-size: 1rem;
-  font-weight: 800;
-  text-align: left;
   cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-html[data-ui='project'] .project-archive__month-head:hover {
-  background: var(--surface-3, rgba(0, 0, 0, 0.07));
+html[data-ui='project'] .project-archive__month.is-expanded .project-archive__month-head {
+  border-bottom-color: color-mix(in srgb, var(--card-accent-archive) 18%, var(--border));
+  background: color-mix(in srgb, var(--card-accent-archive) 4%, var(--surface));
+}
+
+html[data-ui='project'] .project-archive__month.is-collapsed .project-archive__month-head {
+  border-bottom-color: transparent;
+}
+
+html[data-ui='project'] .project-archive__month.is-expanded .project-archive__month-head:hover,
+html[data-ui='project'] .project-archive__month.is-collapsed .project-archive__month-head:hover {
+  background: color-mix(in srgb, var(--card-accent-archive) 11%, var(--surface-2));
+}
+
+html[data-ui='project'] .project-archive__month-head-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
 }
 
 html[data-ui='project'] .project-archive__month-chevron {
-  font-size: 0.85rem;
-  color: var(--text-muted);
+  width: 1.35rem;
+  height: 1.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--card-accent-archive) 28%, var(--border));
+  border-radius: 0.4rem;
+  background: color-mix(in srgb, var(--card-accent-archive) 8%, var(--surface));
+}
+
+html[data-ui='project'] .project-archive__month-chevron::before {
+  content: '';
+  width: 0.38rem;
+  height: 0.38rem;
+  border-right: 2px solid var(--card-accent-archive);
+  border-bottom: 2px solid var(--card-accent-archive);
+  transform: rotate(45deg) translateY(-1px);
   transition: transform 0.15s ease;
 }
 
-html[data-ui='project'] .project-archive__month-chevron.is-collapsed {
-  transform: rotate(-90deg);
+html[data-ui='project'] .project-archive__month-chevron.is-collapsed::before {
+  transform: rotate(-45deg) translate(1px, 0);
+}
+
+html[data-ui='project'] .project-archive__month-label {
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text);
 }
 
 html[data-ui='project'] .project-archive__month-count {
-  margin-left: auto;
-  font-size: 0.84rem;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding: 0 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+html[data-ui='project'] .project-archive__month-count::after {
+  content: '건';
+  margin-left: 0.08rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+html[data-ui='project'] .project-archive__month-body .project-list__rows {
+  gap: 0.55rem;
+  padding: 0.65rem;
+  background: color-mix(in srgb, var(--card-accent-archive) 3%, var(--surface));
+}
+
+/* 펼침 시 월 그룹 안 카드 — 바깥 카드 안에 여백·구분 있는 목록 */
+html[data-ui='project'] .project-archive__month.is-expanded .project-list-row {
+  border: 1px solid color-mix(in srgb, var(--card-accent-archive) 18%, var(--border));
+  border-radius: calc(var(--radius) - 2px);
+  box-shadow: none;
+  background: var(--surface);
+}
+
+html[data-ui='project'] .project-archive__month.is-expanded .project-list-row:hover {
+  background: color-mix(in srgb, var(--card-accent-archive) 5%, var(--surface));
+}
+
+html[data-ui='project'] .project-archive__month .project-list-row.is-archived {
+  background: color-mix(in srgb, var(--card-accent-archive) 4%, var(--surface));
+}
+
+html[data-ui='project'] .project-archive__month .project-list-row--ticket.is-archived {
+  --row-accent: var(--card-accent-archive);
+}
+
+html[data-ui='project'] .project-archive__month.is-expanded .project-list-row.is-archived:hover {
+  background: color-mix(in srgb, var(--card-accent-archive) 8%, var(--surface));
 }
 
 /* 보관함 "이전 기록 더 보기" */

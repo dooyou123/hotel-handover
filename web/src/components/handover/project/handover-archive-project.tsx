@@ -274,20 +274,30 @@ export function HandoverArchiveProject({
             // 검색 중에는 결과가 가려지지 않도록 모두 펼친다
             const isCollapsed = searchActive ? false : !expandedMonths.has(group.key);
             return (
-              <section key={group.key} className="project-archive__month">
+              <section
+                key={group.key}
+                className={`project-archive__month${isCollapsed ? ' is-collapsed' : ' is-expanded'}`}
+              >
                 <button
                   type="button"
                   className="project-archive__month-head"
                   aria-expanded={!isCollapsed}
                   onClick={() => toggleMonth(group.key)}
                 >
-                  <span className={`project-archive__month-chevron${isCollapsed ? ' is-collapsed' : ''}`} aria-hidden>
-                    ▾
+                  <span className="project-archive__month-head-main">
+                    <span
+                      className={`project-archive__month-chevron${isCollapsed ? ' is-collapsed' : ''}`}
+                      aria-hidden
+                    />
+                    <span className="project-archive__month-label">{group.label}</span>
                   </span>
-                  <span className="project-archive__month-label">{group.label}</span>
-                  <span className="project-archive__month-count">{group.cards.length}건</span>
+                  <span className="project-archive__month-count">{group.cards.length}</span>
                 </button>
-                {!isCollapsed ? <div className="project-list__rows">{group.cards.map(renderRow)}</div> : null}
+                {!isCollapsed ? (
+                  <div className="project-archive__month-body">
+                    <div className="project-list__rows">{group.cards.map(renderRow)}</div>
+                  </div>
+                ) : null}
               </section>
             );
           })
