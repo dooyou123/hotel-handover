@@ -20,6 +20,9 @@ import { useIsManager } from '@/lib/handover/use-cards';
 import { useWorkSession } from '@/lib/handover/use-work-session';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { closeOnOverlayClick } from '@/lib/ui/close-on-overlay-click';
+import { ScheduleOvertimePanel } from '@/components/schedules/schedule-overtime-panel';
+import { ScheduleLeavePanel } from '@/components/schedules/schedule-leave-panel';
+import { useScheduleLeaveRecords, useScheduleOvertimeRecords } from '@/lib/schedules/use-schedule-work-records';
 
 function formatAbsoluteTime(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -142,11 +145,15 @@ export function SchedulesPage() {
     file: File;
     source: 'file' | 'paste';
   } | null>(null);
-  const [sideTab, setSideTab] = useState<'confirm' | 'versions'>('confirm');
+  const [sideTab, setSideTab] = useState<'confirm' | 'versions' | 'overtime' | 'leave'>('confirm');
   const monthInputRef = useRef<HTMLInputElement>(null);
   const busy = upload.isPending || clear.isPending || deleteVersion.isPending;
   const monthLabel = formatMonthLabel(monthKey);
   const isPinned = pinnedMonth === monthKey;
+  const overtimeQuery = useScheduleOvertimeRecords(monthKey);
+  const leaveQuery = useScheduleLeaveRecords(monthKey);
+  const overtimeCount = overtimeQuery.listQuery.data?.length ?? 0;
+  const leaveCount = leaveQuery.listQuery.data?.length ?? 0;
 
   const latestVersion = versions[0] ?? null;
   const previousVersion = versions[1] ?? null;
@@ -732,9 +739,47 @@ export function SchedulesPage() {
               버전
               {versions.length ? <em>{versions.length}</em> : null}
             </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={sideTab === 'overtime'}
+              className={sideTab === 'overtime' ? 'is-active' : undefined}
+              onClick={() => setSideTab('overtime')}
+            >
+              연장근무
+              {overtimeCount ? <em>{overtimeCount}</em> : null}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={sideTab === 'leave'}
+              className={sideTab === 'leave' ? 'is-active' : undefined}
+              onClick={() => setSideTab('leave')}
+            >
+              연차
+              {leaveCount ? <em>{leaveCount}</em> : null}
+            </button>
           </div>
 
-          {sideTab === 'confirm' ? (
+          {sideTab === 'overtime' ? (
+            <ScheduleOvertimePanel
+              key={monthKey}
+              monthKey={monthKey}
+              monthLabel={monthLabel}
+              staffNames={staffNames}
+              authorLabel={authorLabel}
+              requireSession={requireSession}
+            />
+          ) : sideTab === 'leave' ? (
+            <ScheduleLeavePanel
+              key={monthKey}
+              monthKey={monthKey}
+              monthLabel={monthLabel}
+              staffNames={staffNames}
+              authorLabel={authorLabel}
+              requireSession={requireSession}
+            />
+          ) : sideTab === 'confirm' ? (
             latestVersion ? (
               <section
                 className={`sched-read sched-read--side${meMentioned && !meConfirmed ? ' is-attention' : ''}`}

@@ -32,7 +32,18 @@ import {
 } from '@/lib/rate-confirm/parse';
 import { RateConfirmHistoryPanel } from '@/components/rate-confirm/rate-confirm-history-panel';
 import { RateConfirmGuestPinSettings } from '@/components/rate-confirm/rate-confirm-guest-pin-settings';
+import {
+  RateConfirmBlacklistAlertModal,
+  RateConfirmBlacklistPanel,
+} from '@/components/rate-confirm/rate-confirm-blacklist-panel';
 import { RateConfirmResolutionForm } from '@/components/rate-confirm/rate-confirm-resolution-form';
+import {
+  buildBlacklistHitsByOta,
+  findBlacklistHits,
+  type BlacklistHit,
+} from '@/lib/rate-confirm/blacklist-match';
+import { useRateConfirmBlacklist } from '@/lib/rate-confirm/use-rate-confirm-blacklist';
+import { useGuestRateConfirmBlacklist } from '@/lib/rate-confirm/use-rate-confirm-guest-blacklist';
 import {
   ReconcileErrorsTable,
   ReconcileMatchesTable,
@@ -144,7 +155,13 @@ function RateCompareRow({ tl, pms, missing }: RateCompareRowProps) {
   );
 }
 
-function ReconcileErrorCard({ record }: { record: ReconcileRecord }) {
+function ReconcileErrorCard({
+  record,
+  blacklistHits,
+}: {
+  record: ReconcileRecord;
+  blacklistHits?: BlacklistHit[];
+}) {
   const [copied, setCopied] = useState(false);
   const meta = getRecordRateMeta(record);
   const { missing, statusDiff, dateDiff, accDiff, rateMismatch, delta } = meta;
@@ -175,6 +192,11 @@ function ReconcileErrorCard({ record }: { record: ReconcileRecord }) {
       </header>
 
       <div className="rc-card__tags">
+        {blacklistHits?.length ? (
+          <span className="rc-tag rc-tag--blacklist" title={blacklistHits.map((hit) => hit.entry.reason).join(' · ')}>
+            ⚠ 블랙리스트
+          </span>
+        ) : null}
         {record.errors.map((err) => (
           <span key={err} className={`rc-tag rc-tag--${tagClass(err)}`}>
             {ERROR_LABELS[err]}
@@ -271,7 +293,7 @@ function formatTodayGuide(now = new Date()) {
   };
 }
 
-type PageTab = 'reconcile' | 'history';
+type PageTab = 'reconcile' | 'history' | 'blacklist';
 
 type RateConfirmPageClientProps = {
   mode?: 'staff' | 'guest';
@@ -313,8 +335,11 @@ export function RateConfirmPageClient({ mode = 'staff' }: RateConfirmPageClientP
   });
   const [search, setSearch] = useState('');
   const [resultView, setResultView] = useState<'table' | 'cards'>('table');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const staffBlacklist = useRateConfirmBlacklist(!isGuest);
+  const guestBlacklist = useGuestRateConfirmBlacklist(isGuest);
+  const blacklistEntries = isGuest ? guestBlacklist.listQuery.data ?? [] : staffBlacklist.listQuery.data ?? [];
+  const [blacklistModalOpen, setBlacklistModalOpen] = useState(false);
+  const blacklistAlertShownRef = useRef<string | null>(null);
 
   const result = useMemo(() => {
     if (!tlSheet || !pmsSheet || !mappingComplete(tlMapping) || !mappingComplete(pmsMapping)) {
@@ -324,6 +349,18 @@ export function RateConfirmPageClient({ mode = 'staff' }: RateConfirmPageClientP
   }, [tlSheet, pmsSheet, tlMapping, pmsMapping]);
 
   const query = search.trim().toLowerCase();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const blacklistHits = useMemo(() => {
+    if (!result || !blacklistEntries.length) return [];
+    return findBlacklistHits([...result.errors, ...result.matches], blacklistEntries);
+  }, [result, blacklistEntries]);
+
+  const blacklistHitsByOta = useMemo(() => buildBlacklistHitsByOta(blacklistHits), [blacklistHits]);
+  const reconcileKey =
+    tlSheet && pmsSheet ? `${tlSheet.fileName}:${pmsSheet.fileName}:${blacklistHits.length}` : null;
+
   const filteredErrors = useMemo(() => {
     if (!result) return [];
     if (!query) return result.errors;
@@ -361,7 +398,16 @@ export function RateConfirmPageClient({ mode = 'staff' }: RateConfirmPageClientP
   function resetSavedSession() {
     setActiveSessionId(null);
     autoSaveStartedRef.current = false;
+    blacklistAlertShownRef.current = null;
+    setBlacklistModalOpen(false);
   }
+
+  useEffect(() => {
+    if (!result || !blacklistHits.length || !reconcileKey) return;
+    if (blacklistAlertShownRef.current === reconcileKey) return;
+    blacklistAlertShownRef.current = reconcileKey;
+    setBlacklistModalOpen(true);
+  }, [result, blacklistHits, reconcileKey]);
 
   useEffect(() => {
     if (!result || !tlSheet || !pmsSheet || activeSessionId || autoSaveStartedRef.current) return;
@@ -566,6 +612,17 @@ export function RateConfirmPageClient({ mode = 'staff' }: RateConfirmPageClientP
         >
           이력
         </button>
+        {!isGuest ? (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={pageTab === 'blacklist'}
+            className={`rc-page__tab${pageTab === 'blacklist' ? ' is-active' : ''}`}
+            onClick={() => setPageTab('blacklist')}
+          >
+            블랙리스트
+          </button>
+        ) : null}
       </div>
 
       {pageTab === 'history' ? (
@@ -576,6 +633,10 @@ export function RateConfirmPageClient({ mode = 'staff' }: RateConfirmPageClientP
           activeSessionId={activeSessionId}
           onOpenSession={(id) => setActiveSessionId(id)}
         />
+      ) : null}
+
+      {pageTab === 'blacklist' && !isGuest ? (
+        <RateConfirmBlacklistPanel authorLabel={authorLabel} />
       ) : null}
 
       {pageTab === 'reconcile' ? (
@@ -732,6 +793,15 @@ export function RateConfirmPageClient({ mode = 'staff' }: RateConfirmPageClientP
             <p className="rc-banner rc-banner--ok">모든 예약이 일치합니다.</p>
           )}
 
+          {blacklistHits.length > 0 ? (
+            <p className="rc-banner rc-banner--blacklist">
+              ⚠ 블랙리스트 고객 <strong>{blacklistHits.length}</strong>건이 발견되었습니다.{' '}
+              <button type="button" className="rc-banner__link" onClick={() => setBlacklistModalOpen(true)}>
+                경고 다시 보기
+              </button>
+            </p>
+          ) : null}
+
           <div className="rc-toolbar">
             <input
               type="search"
@@ -768,6 +838,7 @@ export function RateConfirmPageClient({ mode = 'staff' }: RateConfirmPageClientP
                 <ReconcileErrorsTable
                   records={filteredErrors}
                   itemsByOta={activeSessionId ? itemsByOta : undefined}
+                  blacklistHitsByOta={blacklistHitsByOta}
                   renderResolution={
                     activeSessionId
                       ? (item) => (
@@ -797,7 +868,11 @@ export function RateConfirmPageClient({ mode = 'staff' }: RateConfirmPageClientP
               ) : (
                 <div className="rc-card-list">
                   {filteredErrors.map((record) => (
-                    <ReconcileErrorCard key={record.ota} record={record} />
+                    <ReconcileErrorCard
+                      key={record.ota}
+                      record={record}
+                      blacklistHits={blacklistHitsByOta.get(record.ota)}
+                    />
                   ))}
                 </div>
               )}
@@ -810,7 +885,10 @@ export function RateConfirmPageClient({ mode = 'staff' }: RateConfirmPageClientP
             <details className="rc-matches" open={resultView === 'table'}>
               <summary>일치 예약 ({filteredMatches.length})</summary>
               {resultView === 'table' ? (
-                <ReconcileMatchesTable records={filteredMatches} />
+                <ReconcileMatchesTable
+                  records={filteredMatches}
+                  blacklistHitsByOta={blacklistHitsByOta}
+                />
               ) : (
                 <ul className="rc-matches__list">
                   {filteredMatches.map((record) => (
@@ -835,6 +913,10 @@ export function RateConfirmPageClient({ mode = 'staff' }: RateConfirmPageClientP
         <p className="rc-status">예약번호·객실료 열을 선택하면 대조가 시작됩니다.</p>
       ) : null}
         </>
+      ) : null}
+
+      {blacklistModalOpen && blacklistHits.length ? (
+        <RateConfirmBlacklistAlertModal hits={blacklistHits} onClose={() => setBlacklistModalOpen(false)} />
       ) : null}
 
       {toast ? <div className="toast">{toast}</div> : null}

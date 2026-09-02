@@ -580,6 +580,59 @@ test('reconcile engine sums TL multi-room and detects rate mismatch', () => {
   assert.equal(normalizeRate(result.errors[0]?.tl?.rate ?? 0), 2062236);
 });
 
+import {
+  findBlacklistHits,
+  guestNameMatchesBlacklist,
+  tokenizeGuestName,
+} from '@/lib/rate-confirm/blacklist-match';
+import type { RateConfirmGuestBlacklistEntry } from '@/lib/rate-confirm/blacklist-types';
+
+function mockBlacklistEntry(guestName: string): RateConfirmGuestBlacklistEntry {
+  return {
+    id: `bl-${guestName}`,
+    hotel_id: 'hotel',
+    guest_name: guestName,
+    name_tokens: tokenizeGuestName(guestName),
+    reason: '테스트 사유',
+    history_note: '이전 투숙 기록',
+    phone: '',
+    email: '',
+    notes: '',
+    created_by: 'tester',
+    active: true,
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+  };
+}
+
+test('guest blacklist name tokens match order and middle names', () => {
+  const tokens = tokenizeGuestName('AAA BBB');
+  assert.deepEqual(tokens, ['aaa', 'bbb']);
+  assert.equal(guestNameMatchesBlacklist(tokens, 'BBB AAA'), true);
+  assert.equal(guestNameMatchesBlacklist(tokens, 'AAA CCC BBB'), true);
+  assert.equal(guestNameMatchesBlacklist(tokens, 'AAA'), false);
+  assert.equal(guestNameMatchesBlacklist(tokens, 'AAA DDD'), false);
+});
+
+test('findBlacklistHits scans reconcile records', () => {
+  const blacklist = [mockBlacklistEntry('AAA BBB')];
+  const hits = findBlacklistHits(
+    [
+      {
+        ota: '123',
+        guestName: 'AAA CCC BBB',
+        errors: [],
+        tl: null,
+        pms: null,
+      },
+    ],
+    blacklist,
+  );
+  assert.equal(hits.length, 1);
+  assert.equal(hits[0]?.record.ota, '123');
+  assert.equal(hits[0]?.entry.guest_name, 'AAA BBB');
+});
+
 test('status and date normalization', () => {
   assert.equal(isStatusEqual('예약', 'RR'), true);
   assert.equal(normalizeDate('2026.05.20(수)'), '2026-05-20');

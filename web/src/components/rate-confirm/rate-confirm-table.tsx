@@ -2,8 +2,18 @@
 
 import { Fragment, useState, type ReactNode } from 'react';
 import { ERROR_LABELS, type ReconcileError, type ReconcileRecord } from '@/lib/rate-confirm/compare-engine';
+import type { BlacklistHit } from '@/lib/rate-confirm/blacklist-match';
 import { RESOLUTION_STATUS_LABELS, type RateConfirmItem } from '@/lib/rate-confirm/history-types';
 import { getRecordRateMeta } from '@/lib/rate-confirm/record-meta';
+
+function BlacklistTag({ hits }: { hits?: BlacklistHit[] }) {
+  if (!hits?.length) return null;
+  return (
+    <span className="rc-tag rc-tag--blacklist" title={hits.map((hit) => hit.entry.reason).join(' · ')}>
+      ⚠ 블랙리스트
+    </span>
+  );
+}
 
 function tagClass(error: ReconcileError): string {
   const map: Record<ReconcileError, string> = {
@@ -47,12 +57,14 @@ function ErrorTags({ errors }: { errors: ReconcileError[] }) {
 type ReconcileErrorsTableProps = {
   records: ReconcileRecord[];
   itemsByOta?: Map<string, RateConfirmItem>;
+  blacklistHitsByOta?: Map<string, BlacklistHit[]>;
   renderResolution?: (item: RateConfirmItem) => ReactNode;
 };
 
 export function ReconcileErrorsTable({
   records,
   itemsByOta,
+  blacklistHitsByOta,
   renderResolution,
 }: ReconcileErrorsTableProps) {
   const [expandedOta, setExpandedOta] = useState<string | null>(null);
@@ -103,7 +115,10 @@ export function ReconcileErrorsTable({
                   <td>
                     <CopyOtaButton ota={record.ota} />
                   </td>
-                  <td className="rc-table__guest">{record.guestName}</td>
+                  <td className="rc-table__guest">
+                    <span className="rc-table__guest-name">{record.guestName}</span>
+                    <BlacklistTag hits={blacklistHitsByOta?.get(record.ota)} />
+                  </td>
                   <td>
                     <ErrorTags errors={record.errors} />
                   </td>
@@ -212,9 +227,10 @@ export function ReconcileErrorsTable({
 
 type ReconcileMatchesTableProps = {
   records: ReconcileRecord[];
+  blacklistHitsByOta?: Map<string, BlacklistHit[]>;
 };
 
-export function ReconcileMatchesTable({ records }: ReconcileMatchesTableProps) {
+export function ReconcileMatchesTable({ records, blacklistHitsByOta }: ReconcileMatchesTableProps) {
   if (!records.length) return null;
 
   return (
@@ -237,7 +253,10 @@ export function ReconcileMatchesTable({ records }: ReconcileMatchesTableProps) {
               <td>
                 <CopyOtaButton ota={record.ota} />
               </td>
-              <td className="rc-table__guest">{record.guestName}</td>
+              <td className="rc-table__guest">
+                <span className="rc-table__guest-name">{record.guestName}</span>
+                <BlacklistTag hits={blacklistHitsByOta?.get(record.ota)} />
+              </td>
               <td className="rc-table__ota-name">{record.tl?.account || '—'}</td>
               <td className="rc-table__num rc-table__match-rate">
                 {record.tl?.rateDisplay ?? '—'}원
