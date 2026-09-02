@@ -13853,9 +13853,16 @@ html[data-ui='project'] .todos-personal__memo .aside-memo__textarea {
 .ota-accounts-list__head,
 .ota-accounts-list__main {
   display: grid;
-  grid-template-columns: minmax(8rem, 11rem) minmax(0, 1.4fr) minmax(0, 1.2fr) auto;
+  grid-template-columns: minmax(8rem, 11rem) minmax(0, 1.2fr) minmax(0, 1fr) minmax(6rem, 1fr) auto;
   gap: 0.55rem 0.85rem;
+}
+
+.ota-accounts-list__head {
   align-items: center;
+}
+
+.ota-accounts-list__main {
+  align-items: start;
 }
 
 .ota-accounts-list__head {
@@ -13921,6 +13928,48 @@ html[data-ui='project'] .todos-personal__memo .aside-memo__textarea {
   justify-content: flex-end;
 }
 
+.ota-accounts-list__memo-field {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+}
+
+.ota-accounts-list__memo {
+  width: 100%;
+  min-height: 1.75rem;
+  margin: 0;
+  padding: 0.15rem 0.35rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font: inherit;
+  font-size: 0.86rem;
+  line-height: 1.35;
+  color: var(--text);
+  resize: none;
+  overflow: hidden;
+  field-sizing: content;
+}
+
+.ota-accounts-list__memo:hover {
+  border-color: var(--border);
+  background: var(--surface-2);
+}
+
+.ota-accounts-list__memo:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+  background: var(--surface);
+}
+
+.ota-accounts-list__memo::placeholder {
+  color: var(--text-muted);
+}
+
+.ota-accounts-list__memo:disabled {
+  opacity: 0.65;
+}
+
 .ota-accounts-list__note {
   grid-column: 1 / -1;
   margin: 0;
@@ -13940,7 +13989,8 @@ html[data-ui='project'] .todos-personal__memo .aside-memo__textarea {
     grid-template-areas:
       'site actions'
       'id id'
-      'pw pw';
+      'pw pw'
+      'memo memo';
     gap: 0.25rem 0.45rem;
   }
 
@@ -13954,6 +14004,19 @@ html[data-ui='project'] .todos-personal__memo .aside-memo__textarea {
 
   .ota-accounts-list__value:nth-of-type(2) {
     grid-area: pw;
+  }
+
+  .ota-accounts-list__memo-field {
+    grid-area: memo;
+  }
+
+  .ota-accounts-list__memo-field::before {
+    display: inline-block;
+    width: 3.25rem;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    content: '메모';
   }
 
   .ota-accounts-list__actions {

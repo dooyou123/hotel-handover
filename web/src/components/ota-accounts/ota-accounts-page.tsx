@@ -1,9 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getNavPageMeta } from '@/lib/nav/page-meta';
+import { otaAccountKey } from '@/lib/ota-accounts/account-key';
 import { refreshOtaAccounts, useOtaAccounts } from '@/lib/ota-accounts/use-ota-accounts';
+import { useOtaAccountMemos } from '@/lib/ota-accounts/use-ota-account-memos';
+import { useWorkSession } from '@/lib/handover/use-work-session';
 import type { OtaAccount } from '@/lib/ota-accounts/types';
 
 function formatFetchedAt(value: string): string {
@@ -27,12 +30,75 @@ async function copyText(value: string, onCopied: (message: string) => void, labe
   }
 }
 
+function OtaAccountMemoField({
+  account,
+  value,
+  saving,
+  onSave,
+}: {
+  account: OtaAccount;
+  value: string;
+  saving: boolean;
+  onSave: (memo: string) => Promise<void>;
+}) {
+  const [draft, setDraft] = useState(value);
+  const lastSavedRef = useRef(value);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    setDraft(value);
+    lastSavedRef.current = value;
+  }, [value, account.id]);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${textarea.scrollHeight + 2}px`;
+  }, [draft, value]);
+
+  async function commit() {
+    const next = draft.trim();
+    if (next === lastSavedRef.current.trim()) return;
+    await onSave(next);
+    lastSavedRef.current = next;
+  }
+
+  return (
+    <div className="ota-accounts-list__memo-field">
+      <textarea
+        ref={textareaRef}
+        className="ota-accounts-list__memo"
+        value={draft}
+        rows={1}
+        placeholder="메모"
+        aria-label={`${account.site || 'OTA'} 메모`}
+        disabled={saving}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => void commit()}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            event.currentTarget.blur();
+          }
+        }}
+      />
+    </div>
+  );
+}
+
 function OtaAccountsList({
   accounts,
+  memos = {},
+  savingKey,
   onCopied,
+  onSaveMemo,
 }: {
   accounts: OtaAccount[];
+  memos: Record<string, string>;
+  savingKey: string | null;
   onCopied: (message: string) => void;
+  onSaveMemo: (account: OtaAccount, memo: string) => Promise<void>;
 }) {
   return (
     <div className="ota-accounts-list-panel">
@@ -40,11 +106,14 @@ function OtaAccountsList({
         <span>OTA</span>
         <span>아이디</span>
         <span>비밀번호</span>
+        <span>메모</span>
         <span>복사</span>
       </div>
       <ul className="ota-accounts-list">
-        {accounts.map((account) => (
-          <li key={account.id} className="ota-accounts-list__row">
+        {accounts.map((account) => {
+          const key = otaAccountKey(account);
+          return (
+            <li key={account.id} className="ota-accounts-list__row">
             <div className="ota-accounts-list__main">
               <span className="ota-accounts-list__site">{account.site || '—'}</span>
               <button
@@ -63,6 +132,12 @@ function OtaAccountsList({
               >
                 {account.password || '없음'}
               </button>
+              <OtaAccountMemoField
+                account={account}
+                value={memos[key] ?? ''}
+                saving={savingKey === key}
+                onSave={(memo) => onSaveMemo(account, memo)}
+              />
               <div className="ota-accounts-list__actions">
                 <button
                   type="button"
@@ -82,8 +157,9 @@ function OtaAccountsList({
                 </button>
               </div>
             </div>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
@@ -92,9 +168,20 @@ function OtaAccountsList({
 export function OtaAccountsPageClient() {
   const meta = getNavPageMeta('/ota-accounts');
   const { data, error, isLoading, isFetching, refetch } = useOtaAccounts();
+  const { listQuery: memosQuery, saveMemo } = useOtaAccountMemos();
+  const { authorLabel, requireSession } = useWorkSession();
   const [query, setQuery] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  const memosByKey = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const [key, row] of Object.entries(memosQuery.data ?? {})) {
+      map[key] = row.memo;
+    }
+    return map;
+  }, [memosQuery.data]);
 
   useEffect(() => {
     setMounted(true);
@@ -107,16 +194,35 @@ export function OtaAccountsPageClient() {
     const accounts = data?.accounts ?? [];
     const q = query.trim().toLowerCase();
     if (!q) return accounts;
-    return accounts.filter((account) =>
-      [account.site, account.loginId, account.password].join(' ').toLowerCase().includes(q),
-    );
-  }, [data?.accounts, query]);
+    return accounts.filter((account) => {
+      const key = otaAccountKey(account);
+      const memo = memosByKey[key] ?? '';
+      return [account.site, account.loginId, account.password, memo].join(' ').toLowerCase().includes(q);
+    });
+  }, [data?.accounts, query, memosByKey]);
 
   const sheetUrl = data?.sheetUrl?.trim() ?? '';
 
   function showToast(message: string) {
     setToast(message);
     window.setTimeout(() => setToast(null), 2200);
+  }
+
+  async function handleSaveMemo(account: OtaAccount, memo: string) {
+    if (!requireSession('OTA 메모 저장')) return;
+    const key = otaAccountKey(account);
+    setSavingKey(key);
+    try {
+      await saveMemo.mutateAsync({
+        accountKey: key,
+        memo,
+        updatedBy: authorLabel,
+      });
+    } catch (caught) {
+      showToast(caught instanceof Error ? caught.message : '메모 저장에 실패했습니다.');
+    } finally {
+      setSavingKey(null);
+    }
   }
 
   async function handleRefresh() {
@@ -194,7 +300,13 @@ export function OtaAccountsPageClient() {
       ) : null}
 
       {!showLoading && !error && filtered.length ? (
-        <OtaAccountsList accounts={filtered} onCopied={showToast} />
+        <OtaAccountsList
+          accounts={filtered}
+          memos={memosByKey}
+          savingKey={savingKey}
+          onCopied={showToast}
+          onSaveMemo={handleSaveMemo}
+        />
       ) : null}
 
       {!showLoading && !error && data && !filtered.length ? (
