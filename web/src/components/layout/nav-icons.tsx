@@ -116,6 +116,14 @@ export function NavIcon({ href, className }: NavIconProps) {
           <path d="M12 13v6.5" stroke="currentColor" strokeWidth="1.75" />
         </IconShell>
       );
+    case '/procurement':
+      return (
+        <IconShell className={className}>
+          <path d="M5 7h14v12H5V7Z" stroke="currentColor" strokeWidth="1.75" strokeLinejoin="round" />
+          <path d="M9 7V5a3 3 0 0 1 6 0v2" stroke="currentColor" strokeWidth="1.75" strokeLinejoin="round" />
+          <path d="M9 12h6M9 15h4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+        </IconShell>
+      );
     case '/facility':
       return (
         <IconShell className={className}>

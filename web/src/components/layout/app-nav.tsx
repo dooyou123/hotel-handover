@@ -6,6 +6,7 @@ import { useMemo } from 'react';
 import { NAV_CATEGORIES, NAV_CATEGORY_LABELS } from '@/lib/constants';
 import { useIsManager } from '@/lib/handover/use-cards';
 import { useNavBadges } from '@/lib/nav/use-nav-badges';
+import { isNavItemNew } from '@/lib/nav/nav-new';
 import { useNavItemsForUser, type NavDisplayItem } from '@/lib/settings/nav-visibility';
 import type { NavBadge } from '@/lib/nav/nav-badges';
 import { useMobileNav } from '@/components/layout/mobile-nav';
@@ -93,6 +94,11 @@ function NavLink({
       onClick={onNavigate}
     >
       <span className="nav-btn__label">{item.label}</span>
+      {isNavItemNew(item.href) ? (
+        <span className="nav-btn__new" aria-label="새 메뉴" title="새로 추가된 메뉴">
+          NEW
+        </span>
+      ) : null}
       {badge && badge.count > 0 ? (
         <span
           className={`nav-btn__badge nav-btn__badge--${badge.tone}`}

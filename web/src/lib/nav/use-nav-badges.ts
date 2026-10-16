@@ -32,6 +32,14 @@ export function useNavBadges(): NavBadgeMap {
         pinnedContactsCount: pinnedContacts.length,
         scheduleConfirmCount: scheduleAlerts.length,
       }),
-    [cards, notices, todos, events, transportBookings, pinnedContacts.length, scheduleAlerts.length],
+    [
+      cards,
+      notices,
+      todos,
+      events,
+      transportBookings,
+      pinnedContacts.length,
+      scheduleAlerts.length,
+    ],
   );
 }

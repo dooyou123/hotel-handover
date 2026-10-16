@@ -4884,6 +4884,18 @@ textarea {
   font-weight: 700;
 }
 
+.nav-btn__new {
+  flex-shrink: 0;
+  padding: 0.12rem 0.38rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, #0f766e 14%, var(--surface));
+  color: #0f766e;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+
 .drawer-panel__title {
   margin: 0;
   font-size: 1.2rem;
@@ -25637,5 +25649,1102 @@ html[data-ui='project'] .todos-personal__memo .aside-memo__textarea {
     grid-auto-flow: column;
     grid-auto-columns: minmax(10rem, 14rem);
     overflow-x: auto;
+  }
+}
+
+/* ── 물품 발주 장부 ── */
+.procurement-page .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.procurement-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.procurement-page__header {
+  align-items: flex-start;
+  margin-bottom: 0;
+}
+
+.procurement-page .page-shell__desc {
+  margin-top: 0.2rem;
+  font-size: 0.88rem;
+}
+
+.procurement-composer {
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  display: grid;
+  gap: 0.4rem;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--border) 55%, transparent);
+}
+
+.procurement-composer__row {
+  display: grid;
+  grid-template-columns:
+    8.75rem
+    6.25rem
+    6.5rem
+    minmax(6.5rem, 1fr)
+    3.25rem
+    3.1rem
+    auto;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.procurement-composer__field {
+  display: block;
+  margin: 0;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.procurement-composer__field input,
+.procurement-composer__field select {
+  box-sizing: border-box;
+  width: 100%;
+  height: 2rem;
+  min-height: 2rem;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg, var(--surface-2));
+  color: var(--text);
+  font: inherit;
+  font-size: 0.84rem;
+  line-height: 1.2;
+}
+
+.procurement-composer__field input:focus,
+.procurement-composer__field select:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 14%, transparent);
+}
+
+.procurement-composer__field--name input {
+  font-weight: 650;
+  background: var(--surface);
+}
+
+.procurement-composer__field--qty input {
+  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+  text-align: center;
+  -moz-appearance: textfield;
+  appearance: textfield;
+  padding-inline: 0.2rem;
+}
+
+.procurement-composer__field--qty input::-webkit-outer-spin-button,
+.procurement-composer__field--qty input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.procurement-composer__field--unit input {
+  padding-inline: 0.3rem;
+}
+
+.procurement-composer__actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.procurement-composer__actions .btn {
+  box-sizing: border-box;
+  height: 2rem;
+  min-height: 2rem;
+  padding: 0 0.55rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.procurement-composer__actions .btn--outline {
+  min-width: 2rem;
+  padding-inline: 0.45rem;
+}
+
+.procurement-composer__draft {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.procurement-composer__draft li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.45rem 0.3rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 0.84rem;
+}
+
+.procurement-composer__draft-cat {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.procurement-composer__draft-qty {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.procurement-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, 18.5rem);
+  gap: 0.85rem;
+  align-items: start;
+}
+
+.procurement-layout__main {
+  min-width: 0;
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+}
+
+.procurement-board {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+  min-height: 14rem;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--border) 55%, transparent);
+}
+
+.procurement-layout__aside {
+  position: sticky;
+  top: 0.75rem;
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--border) 55%, transparent);
+}
+
+.procurement-layout__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-2) 55%, var(--surface));
+}
+
+.procurement-page__search {
+  min-width: 9rem;
+  flex: 0 1 12rem;
+  max-width: 14rem;
+  min-height: 2.15rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.procurement-page__search:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 14%, transparent);
+}
+
+.procurement-page__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0.15rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-2) 80%, var(--border));
+}
+
+.procurement-page__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2rem;
+  padding: 0.25rem 0.75rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.procurement-page__tab.is-active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 2px color-mix(in srgb, #000 8%, transparent);
+}
+
+.procurement-page__tab-count {
+  min-width: 1.2rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.procurement-page__tab.is-active .procurement-page__tab-count {
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface-2));
+}
+
+.procurement-page__status {
+  margin: 1rem 0;
+  padding: 0 0.85rem;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.procurement-page__status--error {
+  color: #b91c1c;
+}
+
+.procurement-date-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin: 0.65rem 0.85rem 0;
+  padding: 0.45rem 0.65rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, #2563eb 8%, var(--surface));
+  color: #1d4ed8;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.procurement-empty {
+  flex: 1;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.3rem;
+  min-height: 10rem;
+  padding: 1.5rem 1.25rem;
+  text-align: center;
+}
+
+.procurement-empty strong {
+  font-size: 1rem;
+  font-weight: 750;
+  color: var(--text-secondary);
+}
+
+.procurement-empty p {
+  margin: 0;
+  max-width: 22rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.procurement-alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+  margin: 0.55rem 0.75rem 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid color-mix(in srgb, #d97706 35%, var(--border));
+  border-radius: var(--radius-sm);
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 0.84rem;
+}
+
+.procurement-alert strong {
+  font-weight: 800;
+}
+
+.procurement-card-groups {
+  display: grid;
+  gap: 1rem;
+  padding: 0.75rem 0.85rem 1rem;
+}
+
+.procurement-card-group {
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.procurement-card-group__title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0 0.15rem;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text-secondary);
+}
+
+.procurement-card-group__count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.procurement-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+  gap: 0.75rem;
+}
+
+.procurement-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: #fff;
+  min-height: 15.5rem;
+}
+
+.procurement-card__banner {
+  position: relative;
+  padding: 0.75rem 1rem 0.8rem;
+  color: var(--text);
+  background: #fff;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+}
+
+.procurement-card__banner-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.4rem;
+}
+
+.procurement-card__cat {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  background: #292524;
+  color: #fafaf9;
+}
+
+.procurement-card__age-pill,
+.procurement-card__delay-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  padding: 0.16rem 0.5rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.procurement-card__age-pill.is-warn,
+.procurement-card__delay-pill {
+  background: #fffbeb;
+  color: #92400e;
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.procurement-card__banner-title {
+  margin: 0;
+  font-size: 1.22rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  word-break: keep-all;
+  color: var(--text);
+}
+
+.procurement-card__banner-date {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.3rem 0 0;
+  font-size: 0.92rem;
+  font-weight: 650;
+  color: var(--text-secondary);
+}
+
+.procurement-card__banner-date.is-today {
+  font-weight: 750;
+  color: var(--text);
+}
+
+.procurement-card__banner-qty {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.procurement-card__today-tag {
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 0.12rem 0.4rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.procurement-card__status-pill {
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.16rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+
+.procurement-card__status-pill--ordered {
+  background: #fffbeb;
+  color: #92400e;
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.procurement-card__status-pill--partial {
+  background: #fff7ed;
+  color: #9a3412;
+  border-color: rgba(234, 88, 12, 0.35);
+}
+
+.procurement-card__status-pill--received {
+  background: #f0fdf4;
+  color: #166534;
+  border-color: rgba(22, 163, 74, 0.35);
+}
+
+.procurement-card__status-pill--cancelled {
+  background: #fafafa;
+  color: #78716c;
+  border-color: var(--border);
+}
+
+.procurement-card__body {
+  padding: 0.85rem 1rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  flex: 1;
+  background: #fff;
+}
+
+.procurement-card--today {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, #a8a29e);
+}
+
+.procurement-card--partial {
+  border-color: color-mix(in srgb, #c2410c 22%, var(--border));
+}
+
+.procurement-card--received {
+  background: #fafafa;
+}
+
+.procurement-card--received .procurement-card__banner,
+.procurement-card--received .procurement-card__body {
+  background: #fafafa;
+}
+
+.procurement-card--cancelled {
+  opacity: 0.86;
+  background: #fafafa;
+}
+
+.procurement-card--cancelled .procurement-card__banner,
+.procurement-card--cancelled .procurement-card__body {
+  background: #fafafa;
+}
+
+.procurement-card--overdue {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.1);
+}
+
+.procurement-card__warning {
+  margin: 0;
+  font-size: 0.76rem;
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.procurement-card__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.procurement-card__chip {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.procurement-card__chip--muted {
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border-style: dashed;
+}
+
+.procurement-card__lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.procurement-card__line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.45rem 0.65rem;
+  align-items: center;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--surface-2) 70%, var(--surface));
+}
+
+.procurement-card__line.is-received {
+  background: color-mix(in srgb, #0f766e 5%, var(--surface));
+  border-color: color-mix(in srgb, #0f766e 18%, var(--border));
+}
+
+.procurement-card__line.is-partial {
+  background: color-mix(in srgb, #b45309 5%, var(--surface));
+  border-color: color-mix(in srgb, #b45309 20%, var(--border));
+}
+
+.procurement-card__line-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.4rem;
+  min-width: 0;
+}
+
+.procurement-card__line-cat {
+  order: -1;
+  flex: 1 0 100%;
+  font-size: 0.68rem;
+  font-weight: 750;
+  color: var(--text-muted);
+}
+
+.procurement-card__line-main strong {
+  font-size: 0.9rem;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.procurement-card__line-qty-label {
+  font-size: 0.78rem !important;
+  font-weight: 700 !important;
+  color: var(--text-muted);
+}
+
+.procurement-card__line-qty {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.22rem;
+  min-width: 4.2rem;
+  justify-content: flex-end;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.procurement-card__line-qty b {
+  font-size: 0.98rem;
+  font-weight: 800;
+}
+
+.procurement-card__line-qty span {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  font-weight: 650;
+}
+
+.procurement-card__line-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+
+.procurement-card__line-done {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #0f766e;
+  white-space: nowrap;
+}
+
+.procurement-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: auto;
+  padding-top: 0.25rem;
+}
+
+.procurement-card__action {
+  padding: 0.32rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: inherit;
+}
+
+.procurement-card__action--primary {
+  background: color-mix(in srgb, #0f766e 12%, var(--surface));
+  border-color: color-mix(in srgb, #0f766e 35%, var(--border));
+  color: #0f766e;
+  font-weight: 700;
+}
+
+.procurement-card__action--danger {
+  color: #b91c1c;
+}
+
+.procurement-receive-modal {
+  width: min(22rem, calc(100vw - 1.65rem));
+}
+
+.procurement-receive-modal__form {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1.1rem 1.2rem 1.2rem;
+}
+
+.procurement-receive-modal__form .modal__header {
+  margin: 0;
+}
+
+.procurement-receive-modal__summary {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.procurement-receive-modal__summary strong {
+  font-size: 1rem;
+  font-weight: 750;
+}
+
+.procurement-receive-modal__summary p {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--text-muted);
+}
+
+.procurement-receive-modal__qty-field {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--text-secondary);
+}
+
+.procurement-receive-modal__stepper {
+  display: grid;
+  grid-template-columns: 2.35rem minmax(0, 1fr) 2.35rem auto;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.procurement-receive-modal__stepper input {
+  min-height: 2.45rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 1.1rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.procurement-receive-modal__stepper input::-webkit-outer-spin-button,
+.procurement-receive-modal__stepper input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.procurement-receive-modal__stepper .btn {
+  min-width: 2.35rem;
+  min-height: 2.35rem;
+  padding: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.procurement-receive-modal__quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.procurement-receive-modal__error {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #b91c1c;
+}
+
+.procurement-cal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  margin-bottom: 0.45rem;
+}
+
+.procurement-cal__head strong {
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.procurement-cal__nav {
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.procurement-cal__nav:hover {
+  background: var(--surface-2);
+}
+
+.procurement-cal__weekdays,
+.procurement-cal__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.15rem;
+}
+
+.procurement-cal__weekdays {
+  margin-bottom: 0.2rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.procurement-cal__day {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  padding: 0.1rem;
+  border: 1px solid transparent;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.procurement-cal__day.is-empty {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.procurement-cal__day.is-today {
+  background: var(--surface-2);
+}
+
+.procurement-cal__day.is-selected {
+  border-color: color-mix(in srgb, #2563eb 40%, var(--border));
+  background: color-mix(in srgb, #2563eb 9%, var(--surface));
+}
+
+.procurement-cal__day.has-mark:not(.is-selected):hover {
+  background: var(--surface-2);
+}
+
+.procurement-cal__day-num {
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.procurement-cal__dots {
+  display: flex;
+  gap: 0.12rem;
+  min-height: 0.3rem;
+}
+
+.procurement-cal__legend {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.procurement-cal__legend .dot,
+.procurement-cal__dots .dot {
+  display: inline-block;
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 999px;
+}
+
+.dot--ordered {
+  background: #2563eb;
+}
+
+.dot--received {
+  background: #0f766e;
+}
+
+.procurement-month-stats {
+  display: grid;
+  gap: 0.5rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--border);
+}
+
+.procurement-month-stats h2 {
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.procurement-month-stats dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem;
+  margin: 0;
+}
+
+.procurement-month-stats dl div {
+  padding: 0.4rem 0.4rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  text-align: center;
+}
+
+.procurement-month-stats dt {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.procurement-month-stats dd {
+  margin: 0.1rem 0 0;
+  font-size: 0.98rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.procurement-month-stats__link {
+  justify-self: stretch;
+  width: 100%;
+}
+
+.procurement-cat-modal {
+  width: min(28rem, calc(100vw - 1.65rem));
+}
+
+.procurement-cat-modal__body {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1.15rem 1.25rem 1.25rem;
+}
+
+.procurement-cat-modal__hint {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--text-muted);
+}
+
+.procurement-catalog__fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: flex-end;
+}
+
+.procurement-catalog__fields label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--text-muted);
+}
+
+.procurement-catalog__fields input {
+  min-height: 2.1rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font: inherit;
+  color: var(--text);
+}
+
+.procurement-catalog__note {
+  flex: 1 1 10rem;
+}
+
+.procurement-catalog__cat-admin {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.procurement-catalog__cat-admin li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.procurement-catalog__cat-admin li strong {
+  flex: 1 1 auto;
+  min-width: 4rem;
+}
+
+.procurement-catalog__cat-admin li input {
+  flex: 1 1 10rem;
+  min-height: 2rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+}
+
+@media (max-width: 960px) {
+  .procurement-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .procurement-layout__aside {
+    position: static;
+  }
+
+  .procurement-composer__row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .procurement-composer__field--name {
+    grid-column: 1 / -1;
+  }
+
+  .procurement-composer__actions {
+    grid-column: 1 / -1;
+  }
+
+  .procurement-composer__actions .btn {
+    flex: 1 1 auto;
+  }
+
+  .procurement-card-groups {
+    padding: 0.65rem 0.7rem 0.85rem;
+  }
+
+  .procurement-cards {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+  }
+
+  .procurement-card {
+    min-height: 0;
+  }
+
+  .procurement-card__banner-title {
+    font-size: 1.15rem;
+  }
+
+  .procurement-card__line {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .procurement-card__line-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 640px) {
+  .procurement-composer__field--vendor {
+    grid-column: 1 / -1;
   }
 }
